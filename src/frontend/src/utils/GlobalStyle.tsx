@@ -170,11 +170,15 @@ const GlobalStyle = createGlobalStyle`
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 90;
+    transition: opacity var(--transition-base);
+    opacity: 0;
+    backdrop-filter: blur(2px);
   }
   
   @media (max-width: 768px) {
     .sidebar-overlay.active {
       display: block;
+      opacity: 1;
     }
   }
 `;

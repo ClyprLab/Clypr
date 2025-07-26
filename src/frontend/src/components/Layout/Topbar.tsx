@@ -37,9 +37,14 @@ const MenuButton = styled.button`
   justify-content: center;
   border-radius: var(--radius-sm);
   margin-right: var(--space-4);
+  transition: all var(--transition-fast);
   
   &:hover {
     background-color: var(--color-hover);
+  }
+  
+  &:active {
+    transform: scale(0.95);
   }
 `;
 

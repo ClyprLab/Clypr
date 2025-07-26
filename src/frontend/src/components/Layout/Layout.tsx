@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import Sidebar from './Sidebar';
@@ -39,7 +39,7 @@ const Layout = () => {
   const location = useLocation();
   const isMobile = window.innerWidth <= 768;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
     }
