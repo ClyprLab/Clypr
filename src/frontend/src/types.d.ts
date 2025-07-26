@@ -54,13 +54,25 @@ declare module 'styled-components' {
   export default styled;
 }
 
-// Fix React.FC
+// Fix React types
 declare namespace React {
   interface FunctionComponent<P = {}> {
     (props: P & { children?: React.ReactNode }, context?: any): React.ReactElement<any, any> | null;
   }
 
   type FC<P = {}> = FunctionComponent<P>;
+  
+  class Component<P = {}, S = {}> {
+    constructor(props: P);
+    props: Readonly<P>;
+    state: Readonly<S>;
+    setState<K extends keyof S>(
+      state: ((prevState: Readonly<S>, props: Readonly<P>) => (Pick<S, K> | S | null)) | (Pick<S, K> | S | null),
+      callback?: () => void
+    ): void;
+    forceUpdate(callback?: () => void): void;
+    render(): React.ReactNode;
+  }
   
   // Add missing hooks
   function useState<T>(initialValue: T | (() => T)): [T, (value: T | ((prevState: T) => T)) => void];
