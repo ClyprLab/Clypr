@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
@@ -59,11 +59,11 @@ const FooterText = styled.p`
   color: var(--color-text-secondary);
 `;
 
-const Login: React.FC = () => {
+const Login = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       navigate('/app');
     }
@@ -83,7 +83,7 @@ const Login: React.FC = () => {
         <Tagline>Privacy-first communication relay on the Internet Computer</Tagline>
         
         <Button fullWidth onClick={handleLogin}>
-          Login with Internet Identity
+          Login with Local Internet Identity
         </Button>
         
         <FooterText>

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { AuthClient } from '@dfinity/auth-client';
 import { Principal } from '@dfinity/principal';
+import { getInternetIdentityUrl } from '../utils/canisterUtils';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -24,7 +25,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);
@@ -55,9 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     await new Promise<void>((resolve) => {
       authClient.login({
-        identityProvider: process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:4943?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai' 
-          : 'https://identity.ic0.app',
+        identityProvider: getInternetIdentityUrl(),
         onSuccess: () => {
           const identity = authClient.getIdentity();
           setPrincipal(identity.getPrincipal());

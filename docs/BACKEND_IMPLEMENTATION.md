@@ -1,294 +1,197 @@
-# Backend Implementation Proposal
-
-**Status:** Planning Phase
+# Backend Implementation
 
 ## Overview
 
-This document outlines the technical implementation plan for the Clypr backend services, focusing on the core canister infrastructure, rule engine, AI spam detection system, and webhook bridge service.
+The Clypr backend has been implemented on the Internet Computer Protocol (ICP) using Motoko. The backend consists of several modules:
 
-## 1. User Privacy Canister
+1. **Main Canister** (`main.mo`): The entry point that handles all API requests.
+2. **Types** (`Types.mo`): Defines the data structures used throughout the application.
+3. **Rule Engine** (`RuleEngine.mo`): Handles the evaluation of messages against rules.
+4. **Message Processor** (`MessageProcessor.mo`): Processes incoming messages and routes them according to rules.
 
-### Technology Stack
-- **Primary Language:** Motoko
-- **Alternative Option:** Rust for performance-critical components
-- **Storage:** Orthogonal persistence
-- **Authentication:** Internet Identity integration
+## Core Features
 
-### Implementation Strategy
+### Authentication and Access Control
 
-#### 1.1 Core Canister Structure
-```motoko
-actor UserPrivacyCanister {
-  // User profile and preferences
-  private var owner : Principal;
-  private var preferences : UserPreferences;
-  
-  // Message storage
-  private stable var messages : [Message];
-  private var messageIndex : HashMap<MessageId, Message>;
-  
-  // Rule storage
-  private stable var rules : [Rule];
-  private var activeRules : HashMap<RuleId, Rule>;
-  
-  // Channel configuration
-  private stable var channels : [Channel];
-  
-  // Message processing
-  public shared(msg) func receiveMessage(message : NewMessage) : async MessageReceipt {
-    // Validate sender
-    // Store message
-    // Apply rules
-    // Trigger delivery if applicable
-    // Return receipt
-  };
-  
-  // Rule management
-  public shared(msg) func addRule(rule : NewRule) : async RuleId {
-    // Validate caller is owner
-    // Validate rule structure
-    // Add to rules collection
+The backend uses Internet Identity for authentication and implements a simple ownership model where:
+
+- Each canister has a designated owner
+- Only the owner can configure rules, channels, and access message history
+- Anyone can send messages to the canister, but they are processed according to the rules
+
+### Rules Management
+
+Rules are the heart of Clypr's privacy functionality:
+
+- Each rule consists of conditions and actions
+- Conditions define when a rule should be triggered (e.g., sender matches, content contains specific text)
+- Actions specify what to do when conditions match (allow, block, route to specific channels)
+- Rules are evaluated in priority order (lower number = higher priority)
+
+### Channel Management
+
+Channels represent destinations for messages:
+
+- Each channel has a type (email, SMS, webhook, push)
+- Channel configuration includes endpoint information and credentials
+- Channels can be enabled/disabled independently
+
+### Message Processing
+
+The message flow is as follows:
+
+1. A sender calls the `sendMessage` endpoint with message content
+2. The message is stored and assigned a unique ID
+3. Rules are evaluated against the message
+4. Actions from matching rules determine the message's fate
+5. The message status is updated (delivered, blocked, etc.)
+6. A receipt is returned to the sender
     // Return rule ID
   };
-  
-  // Additional methods for rule/message/channel management
-  // ...
+## Data Model
+
+### Rule Structure
+
+```
+Rule {
+  id: Nat
+  name: Text
+  description: ?Text
+  conditions: [Condition]
+  actions: [Action]
+  priority: Nat8
+  isActive: Bool
+  createdAt: Int
+  updatedAt: Int
 }
 ```
 
-#### 1.2 Data Models
+### Condition Structure
 
-**Message Model:**
-```motoko
-type Message = {
-  id : MessageId;
-  sender : Principal;
-  timestamp : Time.Time;
-  subject : Text;
-  content : Text;
-  metadata : Metadata;
-  status : MessageStatus;
-  classification : ?Classification;
-};
+```
+Condition {
+  field: Text (e.g., "sender", "content.body")
+  operator: ConditionOperator (equals, contains, etc.)
+  value: Text
+}
 ```
 
-**Rule Model:**
-```motoko
-type Rule = {
-  id : RuleId;
-  name : Text;
-  description : ?Text;
-  conditions : [Condition];
-  actions : [Action];
-  isActive : Bool;
-  createdAt : Time.Time;
-  updatedAt : ?Time.Time;
-};
+### Action Structure
+
+```
+Action {
+  actionType: ActionType (allow, block, route, transform)
+  channelId: ?ChannelId
+  parameters: [(Text, Text)]
+}
 ```
 
-#### 1.3 Development Phases
+### Channel Structure
 
-1. **Basic Infrastructure (Weeks 1-2)**
-   - Canister initialization and user identity binding
-   - Basic message storage and retrieval
-   - Simple rule structure implementation
+```
+Channel {
+  id: ChannelId
+  name: Text
+  description: ?Text
+  channelType: ChannelType (email, sms, webhook, push)
+  config: [(Text, Text)]
+  isActive: Bool
+  createdAt: Int
+  updatedAt: Int
+}
+```
 
-2. **Core Functionality (Weeks 3-4)**
-   - Rule evaluation engine
-   - Message processing pipeline
-   - Simple webhook integration
+### Message Structure
 
-3. **Enhanced Features (Weeks 5-6)**
-   - Advanced rule conditions
-   - Multiple channel support
-   - Message history and querying
+```
+Message {
+  messageId: Text
+  senderId: Principal
+  recipientId: Principal
+  messageType: Text
+  content: MessageContent {
+    title: Text
+    body: Text
+    priority: Nat8
+    metadata: [(Text, Text)]
+  }
+  timestamp: Int
+  isProcessed: Bool
+  status: MessageStatus
+}
+```
 
-## 2. Rule Engine
+## API Endpoints
 
-### Technology Stack
-- **Implementation:** Native Motoko/Rust within user canister
-- **Optimization:** Strategic pattern matching for efficient rule evaluation
+The backend exposes the following API endpoints:
 
-### Implementation Strategy
+### System
 
-#### 2.1 Rule Evaluation Flow
-1. Message received by canister
-2. Extract message attributes for evaluation
-3. Fetch applicable rules (active only)
-4. Evaluate each rule's conditions against message
-5. For matching rules, collect required actions
-6. De-duplicate and prioritize actions
-7. Execute actions in priority order
+- `ping()`: Health check endpoint
+- `setOwner(principal)`: Set the owner of the canister
+- `getOwner()`: Get the current owner
 
-#### 2.2 Condition Types
-- Sender-based conditions
-- Content pattern matching
-- Temporal conditions
-- Metadata conditions
-- AI classification-based conditions
+### Rules
 
-#### 2.3 Action Types
-- Deliver to channel(s)
-- Archive message
-- Discard message
-- Transform message
-- Set message priority
+- `createRule(...)`: Create a new rule
+- `getRule(id)`: Get a specific rule
+- `getAllRules()`: Get all rules
+- `updateRule(id, rule)`: Update a rule
+- `deleteRule(id)`: Delete a rule
 
-#### 2.4 Optimization Strategy
-- Index rules by common condition types
-- Short-circuit evaluation for quick filtering
-- Batch similar condition evaluations
-- Cache frequently used pattern matches
+### Channels
 
-## 3. AI Spam Detection System
+- `createChannel(...)`: Create a new channel
+- `getChannel(id)`: Get a specific channel
+- `getAllChannels()`: Get all channels
+- `updateChannel(id, channel)`: Update a channel
+- `deleteChannel(id)`: Delete a channel
 
-### Technology Stack
-- **On-Chain Components:** TensorFlow Lite models
-- **External Services:** Optional integration with specialized AI services
-- **Model Training:** Offline training pipeline with deployment system
+### Messages
 
-### Implementation Strategy
+- `sendMessage(messageType, content)`: Send a new message
+- `getMessage(id)`: Get a specific message
+- `getAllMessages()`: Get all messages
 
-#### 3.1 On-Chain Components
-- Feature extraction from message metadata
-- Lightweight model for basic classification
-- Sender reputation tracking
-- Integration with rule engine
+### Stats
 
-#### 3.2 Optional External AI Service
-- RESTful API for enhanced classification
-- Secure, anonymized message processing
-- Model versioning and updates
-- Performance metrics and monitoring
+- `getStats()`: Get statistics about the canister
 
-#### 3.3 Classification Pipeline
-1. Extract features from incoming message
-2. Perform lightweight classification on-chain
-3. If confidence is low and user has opted in:
-   a. Send anonymized features to external service
-   b. Receive enhanced classification
-4. Store classification with message
-5. Make classification available to rule engine
+## Integration with Frontend
 
-#### 3.4 Implementation Phases
-1. **Basic Implementation (Weeks 1-2)**
-   - Feature extraction framework
-   - Simple rule-based classifiers
-   - Classification storage
+The frontend connects to the backend through:
 
-2. **Enhanced Models (Weeks 3-4)**
-   - Deploy optimized TensorFlow Lite models
-   - Implement sender reputation system
-   - Add user feedback collection
+1. **ClyprService.ts**: A TypeScript service that handles all API calls
+2. **useClypr.tsx**: A React hook that provides a convenient interface for components
+3. **clypr.did.js**: The Candid interface definition for the backend
 
-3. **Advanced Features (Weeks 5-6)**
-   - External AI service integration
-   - Model update mechanism
-   - Performance monitoring
+## Implementation Details
 
-## 4. Webhook Bridge Service
+### Rule Engine
 
-### Technology Stack
-- **Implementation:** Node.js/TypeScript
-- **Security:** HTTPS with client certificates
-- **Scalability:** Kubernetes deployment
-- **Monitoring:** Prometheus/Grafana
+The Rule Engine is responsible for evaluating messages against rules:
 
-### Implementation Strategy
+1. When a message is received, it's passed to the Rule Engine
+2. The engine extracts relevant fields from the message (sender, content, etc.)
+3. It evaluates each rule's conditions against the message
+4. Rules are processed in priority order (lower number = higher priority)
+5. The first matching rule's actions are applied to the message
 
-#### 4.1 Architecture
-- Separate service from ICP canisters
-- Secure API for canister communication
-- Rate limiting and abuse protection
-- Channel provider integrations
+### Message Processing
 
-#### 4.2 Channel Support
-1. **Email (SendGrid)**
-   - Template-based formatting
-   - Delivery tracking
-   - Bounce handling
+The Message Processor handles the lifecycle of messages:
 
-2. **SMS (Twilio)**
-   - Message formatting
-   - Delivery confirmation
-   - Two-way communication support
+1. Creates new messages with unique IDs
+2. Stores messages in the canister's state
+3. Uses the Rule Engine to evaluate messages against rules
+4. Updates message status based on rule evaluation
+5. Creates receipts for message senders
 
-3. **Additional Channels**
-   - Push notifications
-   - Messaging platforms (Telegram, Discord)
-   - Custom webhook endpoints
+## Future Enhancements
 
-#### 4.3 Security Considerations
-- Mutual TLS authentication
-- Rate limiting per user canister
-- Input validation and sanitization
-- Sensitive data handling (no storage)
-- Regular security audits
-
-## Integration Points
-
-### Frontend Integration
-- Motoko/Rust canister interfaces exposed via Candid
-- JavaScript agent for frontend communication
-- WebSocket-like updates for real-time notifications
-
-### dApp Integration
-- Standard message format
-- SDK for popular development frameworks
-- Authentication and access control
-
-### External Service Integration
-- Secure webhook bridge communication
-- Provider-specific API integrations
-- Fallback mechanisms
-
-## Testing Strategy
-
-### Unit Testing
-- Test coverage for critical components
-- Mocking external dependencies
-- Property-based testing for rule engine
-
-### Integration Testing
-- End-to-end message flow testing
-- Performance testing under load
-- Security penetration testing
-
-### Canister Testing
-- Replica-based testing
-- Cycle consumption optimization
-- Upgrade testing
-
-## Deployment Strategy
-
-### Development Environment
-- Local replica for development
-- CI/CD pipeline for automated testing
-- Staging environment on testnet
-
-### Production Deployment
-- Phased rollout to mainnet
-- Monitoring and alerting setup
-- Backup and recovery procedures
-
-## Open Challenges & Considerations
-
-1. **Cycle Optimization**
-   - Efficient storage usage
-   - Compute-intensive operations (especially for AI)
-   - Batch processing strategies
-
-2. **Scaling Strategy**
-   - Per-user canister instance management
-   - Shared vs. dedicated components
-   - Growth planning
-
-3. **Update Mechanisms**
-   - Canister upgrade strategy
-   - Data migration procedures
-   - Backward compatibility
-
-4. **AI Model Management**
-   - Model versioning
-   - Update distribution
-   - Performance monitoring
+- **Advanced Rule Engine**: Support for more complex condition operators and action types
+- **AI Spam Detection**: Integration with AI services for intelligent message filtering
+- **Webhook Bridge**: Implementation of secure external message delivery
+- **Message Transformations**: Support for modifying messages before delivery
+- **Multi-user Support**: Allow multiple users to access the same canister
+- **Message Encryption**: End-to-end encryption for sensitive message content
