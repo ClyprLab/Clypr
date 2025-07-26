@@ -6,7 +6,7 @@ import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
 import RuleForm from '../components/Rules/RuleForm';
 import { useClypr } from '../hooks/useClypr';
-import { Rule } from '../services/ClyprService';
+import { Rule, createOperatorVariant } from '../services/ClyprService';
 
 const RulesContainer = styled.div`
   display: flex;
@@ -67,8 +67,8 @@ const StatusBadge = styled.span<{ active?: boolean }>`
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
-  background-color: ${(props: { active?: boolean }) => props.active ? '#E8F5E9' : '#FFEBEE'};
-  color: ${(props: { active?: boolean }) => props.active ? '#388E3C' : '#D32F2F'};
+  background-color: ${props => props.active ? '#E8F5E9' : '#FFEBEE'};
+  color: ${props => props.active ? '#388E3C' : '#D32F2F'};
 `;
 
 const ActionButton = styled.button`
@@ -123,7 +123,6 @@ const RuleTable: React.FC<RuleTableProps> = ({ rules, onEdit, onDelete, onToggle
           <th>Priority</th>
           <th>Status</th>
           <th>Created</th>
-          <th>Actions</th>
         </tr>
       </RulesTableHeader>
       <RulesTableBody>
@@ -175,11 +174,33 @@ const Rules: React.FC = () => {
 
   const handleCreateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      const motokoConditions = ruleData.conditions.map(cond => ({
+        ...cond,
+        operator: createOperatorVariant(
+          ((cond.operator as any)?.contains
+            ? 'contains'
+            : (typeof cond.operator === 'string'
+                ? cond.operator
+                : Object.keys(cond.operator)[0])) as
+            | 'equals'
+            | 'notEquals'
+            | 'contains'
+            | 'notContains'
+            | 'greaterThan'
+            | 'lessThan'
+            | 'exists'
+            | 'notExists'
+        )
+      }));
+      const motokoActions = ruleData.actions.map(action => ({
+        ...action,
+        channelId: typeof action.channelId === 'number' ? action.channelId : null
+      }));
       const success = await createRule(
         ruleData.name,
         ruleData.description,
-        ruleData.conditions,
-        ruleData.actions,
+        motokoConditions,
+        motokoActions,
         ruleData.priority
       );
       

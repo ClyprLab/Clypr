@@ -1,5 +1,21 @@
 import React from 'react';
+import FlowchartImg from '../assets/Clypr Web3 Privacy Flowchart.png';
 import styled from 'styled-components';
+
+// Styled image with hover shadow, border radius, and transition
+const StyledFlowchartImg = styled.img`
+  max-width: 100%;
+  height: auto;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: box-shadow 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1);
+
+  &:hover {
+    box-shadow: 0 8px 48px rgba(0,0,0,0.38);
+    transform: scale(1.03);
+    cursor: pointer;
+  }
+`;
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Text from '../components/UI/Text';
@@ -599,7 +615,7 @@ const Landing = () => {
         </HeroContent>
         <HeroImageContainer>
           <HeroImage>
-            [Clypr Architecture Visualization]
+            <StyledFlowchartImg src={FlowchartImg} alt="Clypr Web3 Privacy Flow Chart" />
           </HeroImage>
         </HeroImageContainer>
       </Hero>
