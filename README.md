@@ -22,18 +22,20 @@ dApp → User's Privacy Canister → Privacy Rules Evaluation → Webhook Bridge
 - **Personal Privacy Agent**: Each user gets a dedicated canister that acts as their privacy gateway
 - **Programmable Rules**: Define granular conditions for which messages get forwarded
 - **Channel Management**: Control which messages go to which communication channels
+- **AI-Powered Spam Detection**: Intelligent filtering using machine learning
 - **dApp Integration**: Standard messaging protocol for Web3 applications
 - **Privacy Preservation**: dApps never see users' actual contact information
 - **Message Transformations**: Modify messages before delivery based on custom rules
 
 ## 🛠 Architecture
 
-Clypr consists of three main components:
+Clypr consists of four main components:
 
 1. **dApp Message Interface**: Standardized protocol for sending messages to user canisters
 2. **User Privacy Canister**: Personal agent that evaluates messages against rules
-3. **Webhook Bridge Service**: Secure relay that delivers approved messages to external channels
-4. **Admin Frontend**: User interface for managing privacy rules and preferences
+3. **AI Spam Detection System**: Machine learning-based filtering for unwanted communications
+4. **Webhook Bridge Service**: Secure relay that delivers approved messages to external channels
+5. **Admin Frontend**: User interface for managing privacy rules and preferences
 
 ## 🚀 Getting Started
 
@@ -84,6 +86,8 @@ npm start
 
 - [Product Requirements Document](docs/PRD.md)
 - [Technical Architecture](docs/ARCHITECTURE.md)
+- [Backend Architecture](docs/BACKEND_ARCHITECTURE.md)
+- [AI Spam Detection System](docs/AI_SPAM_DETECTION.md)
 - [API Reference](docs/API.md)
 - [User Guide](docs/USER_GUIDE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
@@ -93,9 +97,10 @@ npm start
 
 - **Selective Notifications**: Only receive messages from trusted sources or high-priority alerts
 - **Communication Consolidation**: Manage all Web3 communications in one place
-- **Spam Protection**: Filter out unwanted messages before they reach your inbox
+- **Intelligent Spam Protection**: AI-powered filtering for sophisticated unwanted communications
 - **Channel-Specific Routing**: Send urgent messages to SMS, regular updates to email
 - **Privacy Protection**: Interact with dApps without exposing personal contact details
+- **Adaptive Learning**: System improves filtering based on your preferences over time
 
 ## 🤝 Contributing
 
