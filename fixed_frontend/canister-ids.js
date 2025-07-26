@@ -1,4 +1,4 @@
 window.canisterIds = {
-  backend: "uxrrr-q7777-77774-qaaaq-cai",
+  backend: "ulvla-h7777-77774-qaacq-cai",
   frontend: "u6s2n-gx777-77774-qaaba-cai"
 };

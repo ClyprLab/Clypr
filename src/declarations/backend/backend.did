@@ -1,0 +1,203 @@
+type RuleId = nat;
+type Rule = 
+ record {
+   actions: vec Action;
+   conditions: vec Condition;
+   createdAt: int;
+   description: opt text;
+   id: RuleId;
+   isActive: bool;
+   name: text;
+   priority: nat8;
+   updatedAt: int;
+ };
+type Result_9 = 
+ variant {
+   err: Error;
+   ok: RuleId;
+ };
+type Result_8 = 
+ variant {
+   err: Error;
+   ok: vec Channel;
+ };
+type Result_7 = 
+ variant {
+   err: Error;
+   ok: vec Message;
+ };
+type Result_6 = 
+ variant {
+   err: Error;
+   ok: vec Rule;
+ };
+type Result_5 = 
+ variant {
+   err: Error;
+   ok: Channel;
+ };
+type Result_4 = 
+ variant {
+   err: Error;
+   ok: Message;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: Rule;
+ };
+type Result_2 = 
+ variant {
+   err: Error;
+   ok:
+    record {
+      blockedCount: nat;
+      channelsCount: nat;
+      deliveredCount: nat;
+      messagesCount: nat;
+      rulesCount: nat;
+    };
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: ChannelId;
+ };
+type Result_1 = 
+ variant {
+   err: Error;
+   ok: MessageReceipt;
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok;
+ };
+type MessageStatus = 
+ variant {
+   blocked;
+   delivered;
+   failed;
+   processing;
+   received;
+ };
+type MessageReceipt = 
+ record {
+   messageId: MessageId;
+   received: bool;
+   timestamp: int;
+ };
+type MessageId = text;
+type MessageContent = 
+ record {
+   body: text;
+   metadata: vec record {
+                   text;
+                   text;
+                 };
+   priority: nat8;
+   title: text;
+ };
+type Message = 
+ record {
+   content: MessageContent;
+   isProcessed: bool;
+   messageId: MessageId;
+   messageType: text;
+   recipientId: principal;
+   senderId: principal;
+   status: MessageStatus;
+   timestamp: int;
+ };
+type Error = 
+ variant {
+   AlreadyExists;
+   InternalError;
+   InvalidInput;
+   NotAuthorized;
+   NotFound;
+   Other: text;
+   RateLimitExceeded;
+ };
+type ConditionOperator = 
+ variant {
+   contains;
+   equals;
+   exists;
+   greaterThan;
+   lessThan;
+   notContains;
+   notEquals;
+   notExists;
+ };
+type Condition = 
+ record {
+   field: text;
+   operator: ConditionOperator;
+   value: text;
+ };
+type ChannelType = 
+ variant {
+   custom: text;
+   email;
+   push;
+   sms;
+   webhook;
+ };
+type ChannelId = nat;
+type Channel = 
+ record {
+   channelType: ChannelType;
+   config: vec record {
+                 text;
+                 text;
+               };
+   createdAt: int;
+   description: opt text;
+   id: ChannelId;
+   isActive: bool;
+   name: text;
+   updatedAt: int;
+ };
+type ActionType = 
+ variant {
+   allow;
+   block;
+   prioritize;
+   route;
+   transform;
+ };
+type Action = 
+ record {
+   actionType: ActionType;
+   channelId: opt ChannelId;
+   parameters: vec record {
+                     text;
+                     text;
+                   };
+ };
+service : {
+  createChannel: (name: text, description: opt text, channelType:
+   ChannelType, config: vec record {
+                              text;
+                              text;
+                            }) -> (Result_10);
+  createRule: (name: text, description: opt text, conditions: vec Condition,
+   actions: vec Action, priority: nat8) -> (Result_9);
+  deleteChannel: (channelId: ChannelId) -> (Result);
+  deleteRule: (ruleId: RuleId) -> (Result);
+  getAllChannels: () -> (Result_8) query;
+  getAllMessages: () -> (Result_7) query;
+  getAllRules: () -> (Result_6) query;
+  getChannel: (channelId: ChannelId) -> (Result_5) query;
+  getMessage: (messageId: MessageId) -> (Result_4) query;
+  getOwner: () -> (principal) query;
+  getRule: (ruleId: RuleId) -> (Result_3) query;
+  getStats: () -> (Result_2) query;
+  init: () -> ();
+  ping: () -> (text) query;
+  sendMessage: (messageType: text, content: MessageContent) -> (Result_1);
+  setOwner: (newOwner: principal) -> (Result);
+  updateChannel: (channelId: ChannelId, updatedChannel: Channel) -> (Result);
+  updateRule: (ruleId: RuleId, updatedRule: Rule) -> (Result);
+}

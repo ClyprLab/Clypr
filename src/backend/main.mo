@@ -40,77 +40,141 @@ persistent actor ClyprCanister {
   type Error = Types.Error;
   type Result<T, E> = Types.Result<T, E>;
   
-  // State storage
-  private stable var rulesEntries : [(RuleId, Rule)] = [];
-  private stable var channelsEntries : [(ChannelId, Channel)] = [];
-  private stable var messagesEntries : [(MessageId, Message)] = [];
+  // State storage - User-isolated data
+  private stable var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
+  private stable var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
+  private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
   private stable var nextRuleId : Nat = 0;
   private stable var nextChannelId : Nat = 0;
   private stable var owner : Principal = Principal.fromText("2vxsx-fae"); // Default to anonymous principal
   
-  // Runtime state
-  private transient var rules = HashMap.HashMap<RuleId, Rule>(10, Nat.equal, func (x) { Nat32.fromNat(x) });
-  private transient var channels = HashMap.HashMap<ChannelId, Channel>(10, Nat.equal, func (x) { Nat32.fromNat(x) });
-  private transient var messages = HashMap.HashMap<MessageId, Message>(100, Text.equal, Text.hash);
+  // Runtime state - User-isolated data
+  private transient var userRules = HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
+  private transient var userChannels = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
+  private transient var userMessages = HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+  
+  // Helper functions for user-specific data access
+  private func getUserRules(userId : UserId) : HashMap.HashMap<RuleId, Rule> {
+    switch (userRules.get(userId)) {
+      case null {
+        let newRulesMap = HashMap.HashMap<RuleId, Rule>(10, Nat.equal, func (x) { Nat32.fromNat(x) });
+        userRules.put(userId, newRulesMap);
+        return newRulesMap;
+      };
+      case (?rulesMap) { return rulesMap; };
+    };
+  };
+  
+  private func getUserChannels(userId : UserId) : HashMap.HashMap<ChannelId, Channel> {
+    switch (userChannels.get(userId)) {
+      case null {
+        let newChannelsMap = HashMap.HashMap<ChannelId, Channel>(10, Nat.equal, func (x) { Nat32.fromNat(x) });
+        userChannels.put(userId, newChannelsMap);
+        return newChannelsMap;
+      };
+      case (?channelsMap) { return channelsMap; };
+    };
+  };
+  
+  private func getUserMessages(userId : UserId) : HashMap.HashMap<MessageId, Message> {
+    switch (userMessages.get(userId)) {
+      case null {
+        let newMessagesMap = HashMap.HashMap<MessageId, Message>(100, Text.equal, Text.hash);
+        userMessages.put(userId, newMessagesMap);
+        return newMessagesMap;
+      };
+      case (?messagesMap) { return messagesMap; };
+    };
+  };
   
   // System Initialization
   public func init() : async () {
     // Initialize runtime state from stable variables
-    rules := HashMap.fromIter<RuleId, Rule>(Iter.fromArray(rulesEntries), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-    channels := HashMap.fromIter<ChannelId, Channel>(Iter.fromArray(channelsEntries), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-    messages := HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesEntries), 100, Text.equal, Text.hash);
+    userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
+    userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
+    userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
     
-    // Set up default rules if none exist
-    if (Iter.size(rules.entries()) == 0) {
-      // Create a default "allow all" rule
-      let defaultRule : Rule = {
-        id = 0;
-        name = "Default Allow Rule";
-        description = ?"Allow all messages by default";
-        conditions = [];  // No conditions means it matches everything
-        actions = [{
-          actionType = #allow;
-          channelId = null;
-          parameters = [];
-        }];
-        priority = 100;  // Low priority (higher number = lower priority)
-        isActive = true;
-        createdAt = Time.now();
-        updatedAt = Time.now();
-      };
-      
-      rules.put(0, defaultRule);
-      nextRuleId := 1;
+    // Restore user data from stable storage
+    for ((userId, rulesArray) in userRulesEntries.vals()) {
+      let rulesMap = HashMap.fromIter<RuleId, Rule>(Iter.fromArray(rulesArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userRules.put(userId, rulesMap);
+    };
+    
+    for ((userId, channelsArray) in userChannelsEntries.vals()) {
+      let channelsMap = HashMap.fromIter<ChannelId, Channel>(Iter.fromArray(channelsArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userChannels.put(userId, channelsMap);
+    };
+    
+    for ((userId, messagesArray) in userMessagesEntries.vals()) {
+      let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
+      userMessages.put(userId, messagesMap);
     };
   };
   
   // Store stable variables before upgrades
   system func preupgrade() {
-    rulesEntries := Iter.toArray(rules.entries());
-    channelsEntries := Iter.toArray(channels.entries());
-    messagesEntries := Iter.toArray(messages.entries());
+    let userRulesBuffer = Buffer.Buffer<(UserId, [(RuleId, Rule)])>(userRules.size());
+    for ((userId, rulesMap) in userRules.entries()) {
+      userRulesBuffer.add((userId, Iter.toArray(rulesMap.entries())));
+    };
+    userRulesEntries := Buffer.toArray(userRulesBuffer);
+    
+    let userChannelsBuffer = Buffer.Buffer<(UserId, [(ChannelId, Channel)])>(userChannels.size());
+    for ((userId, channelsMap) in userChannels.entries()) {
+      userChannelsBuffer.add((userId, Iter.toArray(channelsMap.entries())));
+    };
+    userChannelsEntries := Buffer.toArray(userChannelsBuffer);
+    
+    let userMessagesBuffer = Buffer.Buffer<(UserId, [(MessageId, Message)])>(userMessages.size());
+    for ((userId, messagesMap) in userMessages.entries()) {
+      userMessagesBuffer.add((userId, Iter.toArray(messagesMap.entries())));
+    };
+    userMessagesEntries := Buffer.toArray(userMessagesBuffer);
   };
   
   system func postupgrade() {
-    // Can't call async functions directly in postupgrade
-    // Initialize directly
-    rules := HashMap.fromIter<RuleId, Rule>(Iter.fromArray(rulesEntries), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-    channels := HashMap.fromIter<ChannelId, Channel>(Iter.fromArray(channelsEntries), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-    messages := HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesEntries), 100, Text.equal, Text.hash);
+    // Initialize empty hashmaps
+    userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
+    userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
+    userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+    
+    // Restore user data
+    for ((userId, rulesArray) in userRulesEntries.vals()) {
+      let rulesMap = HashMap.fromIter<RuleId, Rule>(Iter.fromArray(rulesArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userRules.put(userId, rulesMap);
+    };
+    
+    for ((userId, channelsArray) in userChannelsEntries.vals()) {
+      let channelsMap = HashMap.fromIter<ChannelId, Channel>(Iter.fromArray(channelsArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userChannels.put(userId, channelsMap);
+    };
+    
+    for ((userId, messagesArray) in userMessagesEntries.vals()) {
+      let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
+      userMessages.put(userId, messagesMap);
+    };
   };
   
-  // Access Control
+  // Access Control - Proper user isolation
+  func isAuthorized(caller : Principal) : Bool {
+    // Each authenticated user can only access their own data
+    // Anonymous principals are not allowed for data operations
+    return not Principal.isAnonymous(caller);
+  };
+
   func isOwner(caller : Principal) : Bool {
-    Principal.equal(caller, owner);
+    // Check if caller is the canister owner (for admin operations)
+    return Principal.equal(caller, owner);
   };
   
   public shared(msg) func setOwner(newOwner : Principal) : async Result<(), Error> {
-    if (isOwner(msg.caller) or Principal.equal(owner, Principal.fromText("2vxsx-fae"))) {
+    // Allow setting owner if no owner is set (anonymous) or caller is current owner
+    if (Principal.isAnonymous(owner) or Principal.equal(msg.caller, owner)) {
       owner := newOwner;
       return #ok();
+    } else {
+      return #err(#NotAuthorized);
     };
-    
-    return #err(#NotAuthorized);
   };
   
   // User Profile Management
@@ -118,7 +182,7 @@ persistent actor ClyprCanister {
     return owner;
   };
   
-  // Rule Management
+  // Rule Management - User-specific data
   public shared(msg) func createRule(
     name : Text, 
     description : ?Text,
@@ -126,10 +190,11 @@ persistent actor ClyprCanister {
     actions : [Action],
     priority : Nat8
   ) : async Result<RuleId, Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
+    let userRulesMap = getUserRules(msg.caller);
     let ruleId = nextRuleId;
     nextRuleId += 1;
     
@@ -146,36 +211,39 @@ persistent actor ClyprCanister {
       updatedAt = now;
     };
     
-    rules.put(ruleId, newRule);
+    userRulesMap.put(ruleId, newRule);
     return #ok(ruleId);
   };
   
   public shared query(msg) func getRule(ruleId : RuleId) : async Result<Rule, Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (rules.get(ruleId)) {
+    let userRulesMap = getUserRules(msg.caller);
+    switch (userRulesMap.get(ruleId)) {
       case null { #err(#NotFound) };
       case (?rule) { #ok(rule) };
     };
   };
   
   public shared query(msg) func getAllRules() : async Result<[Rule], Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    let rulesArray = Iter.toArray(Iter.map(rules.vals(), func (r : Rule) : Rule { r }));
+    let userRulesMap = getUserRules(msg.caller);
+    let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
     return #ok(rulesArray);
   };
   
   public shared(msg) func updateRule(ruleId : RuleId, updatedRule : Rule) : async Result<(), Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (rules.get(ruleId)) {
+    let userRulesMap = getUserRules(msg.caller);
+    switch (userRulesMap.get(ruleId)) {
       case null { return #err(#NotFound); };
       case (?existingRule) {
         let finalRule : Rule = {
@@ -190,37 +258,39 @@ persistent actor ClyprCanister {
           updatedAt = Time.now();
         };
         
-        rules.put(ruleId, finalRule);
+        userRulesMap.put(ruleId, finalRule);
         return #ok();
       };
     };
   };
   
   public shared(msg) func deleteRule(ruleId : RuleId) : async Result<(), Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (rules.get(ruleId)) {
+    let userRulesMap = getUserRules(msg.caller);
+    switch (userRulesMap.get(ruleId)) {
       case null { return #err(#NotFound); };
       case (_) {
-        ignore rules.remove(ruleId);
+        ignore userRulesMap.remove(ruleId);
         return #ok();
       };
     };
   };
   
-  // Channel Management
+  // Channel Management - User-specific data
   public shared(msg) func createChannel(
     name : Text,
     description : ?Text,
     channelType : ChannelType,
     config : [(Text, Text)]
   ) : async Result<ChannelId, Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
+    let userChannelsMap = getUserChannels(msg.caller);
     let channelId = nextChannelId;
     nextChannelId += 1;
     
@@ -236,36 +306,39 @@ persistent actor ClyprCanister {
       updatedAt = now;
     };
     
-    channels.put(channelId, newChannel);
+    userChannelsMap.put(channelId, newChannel);
     return #ok(channelId);
   };
   
   public shared query(msg) func getChannel(channelId : ChannelId) : async Result<Channel, Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (channels.get(channelId)) {
+    let userChannelsMap = getUserChannels(msg.caller);
+    switch (userChannelsMap.get(channelId)) {
       case null { #err(#NotFound) };
       case (?channel) { #ok(channel) };
     };
   };
   
   public shared query(msg) func getAllChannels() : async Result<[Channel], Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    let channelsArray = Iter.toArray(Iter.map(channels.vals(), func (c : Channel) : Channel { c }));
+    let userChannelsMap = getUserChannels(msg.caller);
+    let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
     return #ok(channelsArray);
   };
   
   public shared(msg) func updateChannel(channelId : ChannelId, updatedChannel : Channel) : async Result<(), Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (channels.get(channelId)) {
+    let userChannelsMap = getUserChannels(msg.caller);
+    switch (userChannelsMap.get(channelId)) {
       case null { return #err(#NotFound); };
       case (?existingChannel) {
         let finalChannel : Channel = {
@@ -279,27 +352,28 @@ persistent actor ClyprCanister {
           updatedAt = Time.now();
         };
         
-        channels.put(channelId, finalChannel);
+        userChannelsMap.put(channelId, finalChannel);
         return #ok();
       };
     };
   };
   
   public shared(msg) func deleteChannel(channelId : ChannelId) : async Result<(), Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (channels.get(channelId)) {
+    let userChannelsMap = getUserChannels(msg.caller);
+    switch (userChannelsMap.get(channelId)) {
       case null { return #err(#NotFound); };
       case (_) {
-        ignore channels.remove(channelId);
+        ignore userChannelsMap.remove(channelId);
         return #ok();
       };
     };
   };
   
-  // Message Processing
+  // Message Processing - User-specific processing
   public shared(msg) func sendMessage(
     messageType : Text,
     content : MessageContent
@@ -307,19 +381,22 @@ persistent actor ClyprCanister {
     // Create the message
     let newMessage = MessageProcessor.createMessage(
       msg.caller,
-      owner,
+      msg.caller, // In user-isolated mode, recipient is the same as sender
       messageType,
       content
     );
     
+    // Get user's data
+    let userMessagesMap = getUserMessages(msg.caller);
+    let userRulesMap = getUserRules(msg.caller);
+    let userChannelsMap = getUserChannels(msg.caller);
+    
     // Store the message
-    messages.put(newMessage.messageId, newMessage);
+    userMessagesMap.put(newMessage.messageId, newMessage);
     
-    // Get all rules as an array
-    let rulesArray = Iter.toArray(Iter.map(rules.vals(), func (r : Rule) : Rule { r }));
-    
-    // Get all channels as an array
-    let channelsArray = Iter.toArray(Iter.map(channels.vals(), func (c : Channel) : Channel { c }));
+    // Get all rules and channels as arrays
+    let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
+    let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
     
     // Process message against rules
     switch (MessageProcessor.processMessage(newMessage, rulesArray, channelsArray)) {
@@ -328,7 +405,7 @@ persistent actor ClyprCanister {
       };
       case (#ok(processedMessage)) {
         // Update the message with processed state
-        messages.put(processedMessage.messageId, processedMessage);
+        userMessagesMap.put(processedMessage.messageId, processedMessage);
         
         // Create and return receipt
         let receipt = MessageProcessor.createReceipt(processedMessage);
@@ -338,27 +415,24 @@ persistent actor ClyprCanister {
   };
   
   public shared query(msg) func getMessage(messageId : MessageId) : async Result<Message, Error> {
-    let sender = switch (messages.get(messageId)) {
-      case (null) { Principal.fromText("2vxsx-fae") };
-      case (?message) { message.senderId };
-    };
-    
-    if (not isOwner(msg.caller) and not Principal.equal(msg.caller, sender)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    switch (messages.get(messageId)) {
+    let userMessagesMap = getUserMessages(msg.caller);
+    switch (userMessagesMap.get(messageId)) {
       case null { #err(#NotFound) };
       case (?message) { #ok(message) };
     };
   };
   
   public shared query(msg) func getAllMessages() : async Result<[Message], Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
-    let messagesArray = Iter.toArray(Iter.map(messages.vals(), func (m : Message) : Message { m }));
+    let userMessagesMap = getUserMessages(msg.caller);
+    let messagesArray = Iter.toArray(Iter.map(userMessagesMap.vals(), func (m : Message) : Message { m }));
     return #ok(messagesArray);
   };
   
@@ -367,7 +441,7 @@ persistent actor ClyprCanister {
     return "Clypr Privacy Gateway - Running";
   };
   
-  // Stats and Analytics
+  // Stats and Analytics - User-specific data
   public shared query(msg) func getStats() : async Result<{
     rulesCount : Nat;
     channelsCount : Nat;
@@ -375,14 +449,18 @@ persistent actor ClyprCanister {
     blockedCount : Nat;
     deliveredCount : Nat;
   }, Error> {
-    if (not isOwner(msg.caller)) {
+    if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
     };
+    
+    let userRulesMap = getUserRules(msg.caller);
+    let userChannelsMap = getUserChannels(msg.caller);
+    let userMessagesMap = getUserMessages(msg.caller);
     
     var blockedCount = 0;
     var deliveredCount = 0;
     
-    for (message in messages.vals()) {
+    for (message in userMessagesMap.vals()) {
       switch (message.status) {
         case (#blocked) { blockedCount += 1; };
         case (#delivered) { deliveredCount += 1; };
@@ -391,9 +469,9 @@ persistent actor ClyprCanister {
     };
     
     return #ok({
-      rulesCount = rules.size();
-      channelsCount = channels.size();
-      messagesCount = messages.size();
+      rulesCount = userRulesMap.size();
+      channelsCount = userChannelsMap.size();
+      messagesCount = userMessagesMap.size();
       blockedCount = blockedCount;
       deliveredCount = deliveredCount;
     });

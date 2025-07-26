@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
+import ChannelForm from '../components/Channels/ChannelForm';
+import { useClypr } from '../hooks/useClypr';
+import { Channel } from '../services/ClyprService';
 
 const ChannelsContainer = styled.div`
   display: flex;
@@ -74,12 +77,12 @@ const PropertyValue = styled.div`
   word-break: break-all;
 `;
 
-const ChannelStatus = styled.span<{ active?: boolean }>`
+const ChannelStatus = styled.span<{ $active?: boolean }>`
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: ${(props: { active?: boolean }) => props.active ? '#4CAF50' : '#F44336'};
+  background-color: ${(props) => props.$active ? '#4CAF50' : '#F44336'};
   margin-right: var(--space-2);
 `;
 
@@ -107,136 +110,303 @@ const ButtonContainer = styled.div`
   margin-top: var(--space-4);
 `;
 
-interface Channel {
-  id: string;
-  name: string;
-  type: string;
-  icon: string;
-  active: boolean;
-  endpoint: string;
-  lastSync: string;
-  messageCount: number;
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-8);
+`;
+
+const ErrorContainer = styled.div`
+  padding: var(--space-3);
+  background-color: #ffebee;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+`;
+
+const getChannelIcon = (channelType: Channel['channelType']): string => {
+  if (typeof channelType === 'string') {
+    switch (channelType) {
+      case 'email': return '✉';
+      case 'sms': return '✆';
+      case 'webhook': return '🔗';
+      case 'push': return '📱';
+      default: return '📡';
+    }
+  } else {
+    return '⚙'; // Custom channel
+  }
+};
+
+const getChannelTypeName = (channelType: Channel['channelType']): string => {
+  if (typeof channelType === 'string') {
+    switch (channelType) {
+      case 'email': return 'Email (SMTP)';
+      case 'sms': return 'SMS Gateway';
+      case 'webhook': return 'Webhook';
+      case 'push': return 'Push Notifications';
+      default: return channelType;
+    }
+  } else {
+    return channelType.custom;
+  }
+};
+
+interface ChannelGridProps {
+  channels: Channel[];
+  onEdit: (channel: Channel) => void;
+  onDelete: (channelId: number) => void;
+  onToggle: (channelId: number, isActive: boolean) => void;
+  onAddNew: () => void;
 }
 
-const Channels: React.FC = () => {
-  const mockChannels: Channel[] = [
-    {
-      id: '1',
-      name: 'Email Relay',
-      type: 'SMTP',
-      icon: '✉',
-      active: true,
-      endpoint: 'smtp://mail.clypr.ic.app',
-      lastSync: '2025-07-25 14:32',
-      messageCount: 243
-    },
-    {
-      id: '2',
-      name: 'SMS Gateway',
-      type: 'Twilio API',
-      icon: '✆',
-      active: true,
-      endpoint: 'api.twilio.com/v1/messages',
-      lastSync: '2025-07-25 09:15',
-      messageCount: 56
-    },
-    {
-      id: '3',
-      name: 'Twitter Integration',
-      type: 'OAuth2',
-      icon: '⟿',
-      active: false,
-      endpoint: 'api.twitter.com/v2/direct_messages',
-      lastSync: '2025-07-23 16:45',
-      messageCount: 128
-    },
-    {
-      id: '4',
-      name: 'Signal Relay',
-      type: 'Signal Protocol',
-      icon: '⟡',
-      active: true,
-      endpoint: 'signal.clypr.ic.app',
-      lastSync: '2025-07-25 11:20',
-      messageCount: 95
-    },
-    {
-      id: '5',
-      name: 'Add New Channel',
-      type: '',
-      icon: '+',
-      active: false,
-      endpoint: '',
-      lastSync: '',
-      messageCount: 0
+const ChannelGrid: React.FC<ChannelGridProps> = ({ 
+  channels, 
+  onEdit, 
+  onDelete, 
+  onToggle, 
+  onAddNew 
+}) => {
+  return (
+    <CardsGrid>
+      {/* Add New Channel Card */}
+      <Card>
+        <EmptyState>
+          <EmptyStateIcon>+</EmptyStateIcon>
+          <Text>Connect a new communication channel</Text>
+          <ButtonContainer>
+            <Button onClick={onAddNew}>Add Channel</Button>
+          </ButtonContainer>
+        </EmptyState>
+      </Card>
+
+      {/* Existing Channels */}
+      {channels.map(channel => (
+        <ChannelCard key={channel.id}>
+          <ChannelHeader>
+            <ChannelTitle>
+              <ChannelIcon>{getChannelIcon(channel.channelType)}</ChannelIcon>
+              <ChannelStatus $active={channel.isActive} />
+              {channel.name}
+            </ChannelTitle>
+            <ChannelType>{getChannelTypeName(channel.channelType)}</ChannelType>
+          </ChannelHeader>
+          
+          <ChannelContent>
+            {channel.description && (
+              <ChannelProperty>
+                <PropertyLabel>Description</PropertyLabel>
+                <PropertyValue>{channel.description}</PropertyValue>
+              </ChannelProperty>
+            )}
+            
+            <ChannelProperty>
+              <PropertyLabel>Configuration</PropertyLabel>
+              <PropertyValue>
+                {channel.config.length} parameters configured
+              </PropertyValue>
+            </ChannelProperty>
+            
+            <ChannelProperty>
+              <PropertyLabel>Created</PropertyLabel>
+              <PropertyValue>
+                {new Date(Number(channel.createdAt) / 1000000).toLocaleDateString()}
+              </PropertyValue>
+            </ChannelProperty>
+          </ChannelContent>
+          
+          <ChannelFooter>
+            {channel.isActive ? (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => onEdit(channel)}>
+                  Edit
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onToggle(channel.id, false)}
+                >
+                  Disable
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => onEdit(channel)}>
+                  Edit
+                </Button>
+                <Button size="sm" onClick={() => onToggle(channel.id, true)}>
+                  Enable
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this channel?')) {
+                  onDelete(channel.id);
+                }
+              }}
+              style={{ color: '#f44336' }}
+            >
+              Delete
+            </Button>
+          </ChannelFooter>
+        </ChannelCard>
+      ))}
+    </CardsGrid>
+  );
+};
+
+const Channels = () => {
+  const { 
+    channels, 
+    channelsLoading,
+    loadChannels,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+    isAuthenticated,
+    error
+  } = useClypr();
+  
+  const [showForm, setShowForm] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+
+  const handleCreateChannel = async (channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const success = await createChannel(
+        channelData.name,
+        channelData.description,
+        channelData.channelType,
+        channelData.config
+      );
+      
+      if (success) {
+        setShowForm(false);
+        setEditingChannel(null);
+      }
+    } catch (err) {
+      console.error('Error creating channel:', err);
     }
-  ];
+  };
+
+  const handleEditChannel = (channel: Channel) => {
+    setEditingChannel(channel);
+    setShowForm(true);
+  };
+
+  const handleUpdateChannel = async (channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingChannel) return;
+    
+    try {
+      const updatedChannel: Channel = {
+        ...editingChannel,
+        ...channelData,
+        updatedAt: BigInt(Date.now() * 1000000) // Convert to nanoseconds
+      };
+      
+      const success = await updateChannel(editingChannel.id, updatedChannel);
+      
+      if (success) {
+        setShowForm(false);
+        setEditingChannel(null);
+      }
+    } catch (err) {
+      console.error('Error updating channel:', err);
+    }
+  };
+
+  const handleDeleteChannel = async (channelId: number) => {
+    try {
+      await deleteChannel(channelId);
+    } catch (err) {
+      console.error('Error deleting channel:', err);
+    }
+  };
+
+  const handleToggleChannel = async (channelId: number, isActive: boolean) => {
+    const channel = channels.find(c => c.id === channelId);
+    if (!channel) return;
+    
+    try {
+      const updatedChannel: Channel = {
+        ...channel,
+        isActive,
+        updatedAt: BigInt(Date.now() * 1000000)
+      };
+      
+      await updateChannel(channelId, updatedChannel);
+    } catch (err) {
+      console.error('Error updating channel:', err);
+    }
+  };
+
+  if (showForm) {
+    return (
+      <ChannelsContainer>
+        <Header>
+          <Text as="h1">{editingChannel ? 'Edit Channel' : 'Create New Channel'}</Text>
+          <Button variant="secondary" onClick={() => {
+            setShowForm(false);
+            setEditingChannel(null);
+          }}>
+            ← Back to Channels
+          </Button>
+        </Header>
+        
+        {error && (
+          <ErrorContainer>
+            <Text color="error">{error}</Text>
+          </ErrorContainer>
+        )}
+        
+        <ChannelForm
+          initialChannel={editingChannel || undefined}
+          onSubmit={editingChannel ? handleUpdateChannel : handleCreateChannel}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingChannel(null);
+          }}
+        />
+      </ChannelsContainer>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ChannelsContainer>
+        <Text>Please authenticate to manage communication channels.</Text>
+      </ChannelsContainer>
+    );
+  }
   
   return (
     <ChannelsContainer>
       <Header>
         <Text as="h1">Communication Channels</Text>
-        <Button>Add New Channel</Button>
+        <Button onClick={() => setShowForm(true)}>Add New Channel</Button>
       </Header>
       
-      <CardsGrid>
-        {mockChannels.map(channel => (
-          channel.id === '5' ? (
-            // Empty card for adding new channel
-            <Card key={channel.id}>
-              <EmptyState>
-                <EmptyStateIcon>+</EmptyStateIcon>
-                <Text>Connect a new communication channel</Text>
-                <ButtonContainer>
-                  <Button>Add Channel</Button>
-                </ButtonContainer>
-              </EmptyState>
-            </Card>
-          ) : (
-            <ChannelCard key={channel.id}>
-              <ChannelHeader>
-                <ChannelTitle>
-                  <ChannelIcon>{channel.icon}</ChannelIcon>
-                  <ChannelStatus active={channel.active} />
-                  {channel.name}
-                </ChannelTitle>
-                <ChannelType>{channel.type}</ChannelType>
-              </ChannelHeader>
-              
-              <ChannelContent>
-                <ChannelProperty>
-                  <PropertyLabel>Endpoint</PropertyLabel>
-                  <PropertyValue>{channel.endpoint}</PropertyValue>
-                </ChannelProperty>
-                
-                <ChannelProperty>
-                  <PropertyLabel>Last Sync</PropertyLabel>
-                  <PropertyValue>{channel.lastSync}</PropertyValue>
-                </ChannelProperty>
-                
-                <ChannelProperty>
-                  <PropertyLabel>Messages</PropertyLabel>
-                  <PropertyValue>{channel.messageCount}</PropertyValue>
-                </ChannelProperty>
-              </ChannelContent>
-              
-              <ChannelFooter>
-                {channel.active ? (
-                  <>
-                    <Button variant="secondary" size="sm">Edit</Button>
-                    <Button variant="ghost" size="sm">Disable</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="secondary" size="sm">Edit</Button>
-                    <Button size="sm">Enable</Button>
-                  </>
-                )}
-              </ChannelFooter>
-            </ChannelCard>
-          )
-        ))}
-      </CardsGrid>
+      {error && (
+        <ErrorContainer>
+          <Text color="error">{error}</Text>
+        </ErrorContainer>
+      )}
+
+      {channelsLoading ? (
+        <LoadingContainer>
+          <Text>Loading channels...</Text>
+        </LoadingContainer>
+      ) : (
+        <ChannelGrid
+          channels={channels}
+          onEdit={handleEditChannel}
+          onDelete={handleDeleteChannel}
+          onToggle={handleToggleChannel}
+          onAddNew={() => setShowForm(true)}
+        />
+      )}
     </ChannelsContainer>
   );
 };

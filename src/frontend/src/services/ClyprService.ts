@@ -1,6 +1,6 @@
 import { Actor, HttpAgent, Identity } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
-import { idlFactory } from './clypr.did';
+import { idlFactory } from '../../../declarations/backend/backend.did.js';
 
 // Types that match the Motoko backend
 export interface Rule {
@@ -17,8 +17,13 @@ export interface Rule {
 
 export interface Condition {
   field: string;
-  operator: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan' | 'exists' | 'notExists';
+  operator: { [key: string]: null };  // Variant type for Candid
   value: string;
+}
+
+// Helper function to create condition operator variant
+export function createOperatorVariant(op: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan' | 'exists' | 'notExists'): { [key: string]: null } {
+  return { [op]: null };
 }
 
 export interface Action {
@@ -74,28 +79,96 @@ export class ClyprService {
   private actor: any;
   
   constructor(identity?: Identity, host?: string) {
-    this.agent = new HttpAgent({
-      identity,
-      host: host || 'http://localhost:4943',
-    });
-    
-    // Only need to do this in development
-    if (host?.includes('localhost')) {
-      this.agent.fetchRootKey();
+    // Determine the correct host based on environment
+    let agentHost = host;
+    if (!agentHost) {
+      // Check if we're running in a canister subdomain
+      if (window.location.hostname.includes('.localhost')) {
+        // Use the replica host directly
+        agentHost = 'http://localhost:4943';
+      } else if (window.location.hostname === 'localhost' && window.location.port === '4943') {
+        // Legacy localhost format
+        agentHost = 'http://localhost:4943';
+      } else {
+        // Production or other environment
+        agentHost = window.location.origin;
+      }
     }
     
-    // Get canister ID from window.canisterIds
-    const canisterId = window.canisterIds?.backend || 'uxrrr-q7777-77774-qaaaq-cai';
+    console.log('ClyprService Configuration:', {
+      currentUrl: window.location.href,
+      hostname: window.location.hostname,
+      port: window.location.port,
+      agentHost,
+      identity: identity ? 'provided' : 'none'
+    });
+    
+    this.agent = new HttpAgent({
+      identity: identity,
+      host: agentHost,
+    });
+
+    // Disable signature verification for local development
+    if (agentHost?.includes('localhost') || agentHost?.includes('127.0.0.1')) {
+      this.agent.fetchRootKey().catch(err => {
+        console.warn("Unable to fetch root key. Check to ensure that your local replica is running");
+        console.error(err);
+      });
+    }
+    
+    // Only need to do this in development
+    if (agentHost?.includes('localhost') || agentHost?.includes('127.0.0.1')) {
+      // Retry fetchRootKey with error handling
+      this.initRootKey();
+    }
+    
+    // Get canister ID from environment variables
+    const canisterId = process.env.CLYPR_CANISTER_ID || window.canisterIds?.backend;
+    
+    console.log('Using canister ID:', canisterId);
     
     this.actor = Actor.createActor(idlFactory, {
       agent: this.agent,
       canisterId,
     });
   }
+
+  private async initRootKey() {
+    try {
+      console.log('Attempting to fetch root key...');
+      await this.agent.fetchRootKey();
+      console.log('Root key fetched successfully');
+    } catch (error) {
+      console.warn('Failed to fetch root key, retrying...', error);
+      // Check if this is a network blocking issue
+      if (error.message?.includes('Failed to fetch')) {
+        console.error('Network request blocked - likely due to ad blocker or browser security settings');
+        console.error('Try disabling ad blockers or accessing via incognito mode');
+      }
+      // Retry once after a short delay
+      setTimeout(async () => {
+        try {
+          console.log('Retrying root key fetch...');
+          await this.agent.fetchRootKey();
+          console.log('Root key fetched successfully on retry');
+        } catch (retryError) {
+          console.error('Failed to fetch root key after retry:', retryError);
+        }
+      }, 1000);
+    }
+  }
   
   // System
   async ping(): Promise<string> {
-    return this.actor.ping();
+    try {
+      console.log('Calling ping method...');
+      const result = await this.actor.ping();
+      console.log('Ping result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error calling ping:', error);
+      throw error;
+    }
   }
   
   async setOwner(principal: Principal): Promise<boolean> {
@@ -104,7 +177,15 @@ export class ClyprService {
   }
   
   async getOwner(): Promise<Principal> {
-    return this.actor.getOwner();
+    try {
+      console.log('Calling getOwner method...');
+      const result = await this.actor.getOwner();
+      console.log('getOwner result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error calling getOwner:', error);
+      throw error;
+    }
   }
   
   // Rules
@@ -131,8 +212,15 @@ export class ClyprService {
   }
   
   async getAllRules(): Promise<Rule[] | undefined> {
-    const result = await this.actor.getAllRules();
-    return this.handleResult(result);
+    try {
+      console.log('Calling getAllRules method...');
+      const result = await this.actor.getAllRules();
+      console.log('getAllRules result:', result);
+      return this.handleResult(result);
+    } catch (error) {
+      console.error('Error calling getAllRules:', error);
+      throw error;
+    }
   }
   
   async updateRule(ruleId: number, rule: Rule): Promise<boolean> {
@@ -207,8 +295,15 @@ export class ClyprService {
   
   // Stats
   async getStats(): Promise<Stats | undefined> {
-    const result = await this.actor.getStats();
-    return this.handleResult(result);
+    try {
+      console.log('Calling getStats method...');
+      const result = await this.actor.getStats();
+      console.log('getStats result:', result);
+      return this.handleResult(result);
+    } catch (error) {
+      console.error('Error calling getStats:', error);
+      throw error;
+    }
   }
   
   // Helper to handle the Result type from Motoko
@@ -218,6 +313,18 @@ export class ClyprService {
     }
     if ('err' in result) {
       console.error('Error from canister:', result.err);
+      console.error('Full error details:', JSON.stringify(result.err, null, 2));
+      
+      // Handle specific error types
+      if (result.err && typeof result.err === 'object') {
+        if ('NotAuthorized' in result.err) {
+          console.error('AUTHORIZATION ERROR: User not authorized for this operation. Make sure you are logged in and set as the canister owner.');
+        } else if ('NotFound' in result.err) {
+          console.error('NOT FOUND ERROR: The requested resource was not found.');
+        } else if ('ValidationError' in result.err) {
+          console.error('VALIDATION ERROR:', result.err.ValidationError);
+        }
+      }
     }
     return undefined;
   }
