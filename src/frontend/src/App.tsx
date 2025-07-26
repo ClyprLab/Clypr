@@ -8,6 +8,7 @@ import Messages from './pages/Messages';
 import Channels from './pages/Channels';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import Landing from './pages/Landing';
 import NotFound from './pages/NotFound';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -22,9 +23,10 @@ const App: React.FC = () => {
     <AuthProvider>
       <AppContainer>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           
-          <Route path="/" element={<Layout />}>
+          <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="rules" element={<Rules />} />
             <Route path="messages" element={<Messages />} />

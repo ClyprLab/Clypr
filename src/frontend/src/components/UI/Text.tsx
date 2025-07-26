@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ElementType } from 'react';
 import styled from 'styled-components';
 
 type TextVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body' | 'body-sm' | 'caption' | 'mono' | 'mono-sm';
@@ -12,6 +12,7 @@ interface TextProps {
   color?: string;
   children: React.ReactNode;
   className?: string;
+  as?: ElementType;
 }
 
 const getFontFamily = (variant: TextVariant) => {

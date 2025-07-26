@@ -37,7 +37,7 @@ const LogoText = styled.h1<SidebarProps>`
   transition: font-size var(--transition-base);
 `;
 
-const LogoIcon = styled.div`
+const LogoIcon = styled.div<SidebarProps>`
   width: 32px;
   height: 32px;
   background-color: var(--color-text);
@@ -87,7 +87,7 @@ const StyledNavLink = styled(NavLink)<SidebarProps>`
   }
 `;
 
-const NavIcon = styled.div`
+const NavIcon = styled.div<SidebarProps>`
   width: 20px;
   height: 20px;
   margin-right: ${props => props.collapsed ? '0' : 'var(--space-3)'};
