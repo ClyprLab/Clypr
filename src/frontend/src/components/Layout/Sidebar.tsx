@@ -28,6 +28,8 @@ const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
     width: 240px;
     transform: translateX(${props => props.$collapsed ? '-100%' : '0'});
     box-shadow: ${props => props.$collapsed ? 'none' : 'var(--shadow-lg)'};
+    will-change: transform; /* Optimizes animation performance */
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 `;
 

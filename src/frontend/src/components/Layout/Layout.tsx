@@ -63,12 +63,20 @@ const Layout = () => {
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
+    
+    // On mobile, when opening the sidebar, lock the body scroll
+    if (sidebarCollapsed && window.innerWidth <= 768) {
+      document.body.style.overflow = 'hidden';
+    } else if (!sidebarCollapsed) {
+      document.body.style.overflow = '';
+    }
   };
   
   // Close sidebar when clicking overlay (mobile only)
   const handleOverlayClick = () => {
     if (!sidebarCollapsed) {
       setSidebarCollapsed(true);
+      document.body.style.overflow = '';
     }
   };
 
@@ -79,9 +87,10 @@ const Layout = () => {
       <div 
         className={`sidebar-overlay ${!sidebarCollapsed ? 'active' : ''}`} 
         onClick={handleOverlayClick}
+        aria-hidden="true"
       />
       <MainContent>
-        <Topbar toggleSidebar={toggleSidebar} />
+        <Topbar toggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
         <ContentWrapper>
           <Outlet />
         </ContentWrapper>

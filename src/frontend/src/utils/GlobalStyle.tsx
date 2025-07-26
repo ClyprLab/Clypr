@@ -173,13 +173,62 @@ const GlobalStyle = createGlobalStyle`
     transition: opacity var(--transition-base);
     opacity: 0;
     backdrop-filter: blur(2px);
+    touch-action: none; /* Prevents scrolling on touch devices when overlay is active */
+    -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
   }
   
   @media (max-width: 768px) {
-    .sidebar-overlay.active {
+    .sidebar-overlay {
       display: block;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+      animation: fadeIn 0.3s ease forwards;
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
       opacity: 1;
     }
+  }
+  
+  /* Hamburger icon styles */
+  .hamburger-icon {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 20px;
+    height: 16px;
+  }
+  
+  .hamburger-line {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-text);
+    border-radius: 2px;
+    transition: transform 0.3s, opacity 0.3s;
+  }
+  
+  .sidebar-open .hamburger-line:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  
+  .sidebar-open .hamburger-line:nth-child(2) {
+    opacity: 0;
+  }
+  
+  .sidebar-open .hamburger-line:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
   }
 `;
 
