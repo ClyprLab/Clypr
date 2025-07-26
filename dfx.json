@@ -1,0 +1,22 @@
+{
+  "canisters": {
+    "frontend": {
+      "frontend": {
+        "entrypoint": "src/frontend/index.html"
+      },
+      "source": ["src/frontend/dist"],
+      "type": "assets"
+    },
+    "backend": {
+      "main": "src/backend/main.mo",
+      "type": "motoko"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "version": 1
+}
