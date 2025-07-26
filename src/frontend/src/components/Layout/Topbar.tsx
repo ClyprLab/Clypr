@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface TopbarProps {
   toggleSidebar: () => void;
+  sidebarCollapsed?: boolean;
 }
 
 const TopbarContainer = styled.header`
@@ -38,6 +39,10 @@ const MenuButton = styled.button`
   border-radius: var(--radius-sm);
   margin-right: var(--space-4);
   transition: all var(--transition-fast);
+  position: relative;
+  padding: 10px;
+  margin-left: -10px;
+  -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
   
   &:hover {
     background-color: var(--color-hover);
@@ -45,6 +50,50 @@ const MenuButton = styled.button`
   
   &:active {
     transform: scale(0.95);
+  }
+  
+  /* Make the touch target larger on mobile without affecting layout */
+  @media (max-width: 768px) {
+    &::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+    }
+  }
+  
+  .hamburger-icon {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .hamburger-line {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-text);
+    border-radius: 1px;
+    transition: transform 0.3s ease, opacity 0.2s ease;
+  }
+  
+  &.active {
+    .hamburger-line:nth-child(1) {
+      transform: translateY(7px) rotate(45deg);
+    }
+    
+    .hamburger-line:nth-child(2) {
+      opacity: 0;
+    }
+    
+    .hamburger-line:nth-child(3) {
+      transform: translateY(-7px) rotate(-45deg);
+    }
   }
 `;
 
@@ -111,7 +160,7 @@ const CanisterIdDisplay = styled.div`
   margin-right: var(--space-3);
 `;
 
-const Topbar: React.FC<TopbarProps> = ({ toggleSidebar }) => {
+const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
   const { logout, principal } = useAuth();
   
   // Get page title based on current route
@@ -130,8 +179,16 @@ const Topbar: React.FC<TopbarProps> = ({ toggleSidebar }) => {
   return (
     <TopbarContainer>
       <LeftSection>
-        <MenuButton onClick={toggleSidebar} aria-label="Toggle sidebar">
-          ≡
+        <MenuButton 
+          onClick={toggleSidebar} 
+          aria-label="Toggle sidebar"
+          className={!sidebarCollapsed ? 'active' : ''}
+        >
+          <span className="hamburger-icon">
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+          </span>
         </MenuButton>
         <PageTitle>{getPageTitle()}</PageTitle>
       </LeftSection>
