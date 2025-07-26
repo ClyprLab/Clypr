@@ -9,17 +9,18 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@dfinity/agent": "^0.15.6",
-    "@dfinity/auth-client": "^0.15.6",
-    "@dfinity/candid": "^0.15.6",
-    "@dfinity/identity": "^0.15.6",
-    "@dfinity/principal": "^0.15.6",
+    "@dfinity/agent": "^3.1.0",
+    "@dfinity/auth-client": "^3.1.0",
+    "@dfinity/candid": "^3.1.0",
+    "@dfinity/identity": "^3.1.0",
+    "@dfinity/principal": "^3.1.0",
+    "@noble/curves": "^1.9.4",
+    "@noble/hashes": "^1.5.0",
     "buffer": "^6.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.16.0",
     "react-syntax-highlighter": "^15.5.0",
-    "simple-cbor": "^0.4.1",
     "styled-components": "^6.1.19"
   },
   "devDependencies": {
