@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
@@ -8,6 +8,25 @@ const LandingContainer = styled.div`
   min-height: 100vh;
   background-color: var(--color-background);
   color: var(--color-text);
+  position: relative;
+`;
+
+const MobileMenuOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+  opacity: ${props => (props as any).$isOpen ? 1 : 0};
+  visibility: ${props => (props as any).$isOpen ? 'visible' : 'hidden'};
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  backdrop-filter: blur(2px);
+  
+  @media (min-width: 768px) {
+    display: none;
+  }
 `;
 
 const NavBar = styled.nav`
@@ -69,6 +88,118 @@ const NavLink = styled.a`
   &:hover {
     text-decoration: underline;
   }
+`;
+
+const MobileMenuButton = styled.button`
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  margin: -10px;
+  z-index: 110;
+  position: relative;
+  
+  &:focus {
+    outline: none;
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (min-width: 768px) {
+    display: none;
+  }
+`;
+
+const MenuLine = styled.span`
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-text);
+  transition: all 0.3s ease;
+  transform-origin: center;
+  
+  &:first-child {
+    transform: ${props => (props as any).$isOpen ? 'rotate(45deg) translate(6px, 6px)' : 'rotate(0)'};
+  }
+  
+  &:nth-child(2) {
+    opacity: ${props => (props as any).$isOpen ? 0 : 1};
+  }
+  
+  &:last-child {
+    transform: ${props => (props as any).$isOpen ? 'rotate(-45deg) translate(6px, -6px)' : 'rotate(0)'};
+  }
+`;
+
+const MobileMenu = styled.div`
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100vh;
+  background-color: var(--color-background);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 80px 24px 40px;
+  transform: ${props => (props as any).$isOpen ? 'translateX(0)' : 'translateX(100%)'};
+  transition: transform 0.3s ease-in-out;
+  box-shadow: ${props => (props as any).$isOpen ? '-5px 0 15px rgba(0, 0, 0, 0.1)' : 'none'};
+  
+  & > * {
+    opacity: ${props => (props as any).$isOpen ? 1 : 0};
+    transform: ${props => (props as any).$isOpen ? 'translateY(0)' : 'translateY(20px)'};
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transition-delay: ${props => (props as any).$isOpen ? '0.2s' : '0s'};
+  }
+  
+  @media (min-width: 768px) {
+    display: none;
+  }
+`;
+
+const MobileNavLinks = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  align-items: center;
+  margin-top: var(--space-8);
+`;
+
+const MobileNavLink = styled(NavLink)`
+  font-size: var(--font-size-lg);
+  padding: var(--space-3);
+  position: relative;
+  
+  &:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background-color: var(--color-text);
+    transition: width 0.3s ease, left 0.3s ease;
+  }
+  
+  &:hover:after {
+    width: 100%;
+    left: 0;
+  }
+`;
+
+const MobileLogo = styled.div`
+  position: absolute;
+  top: var(--space-6);
+  left: var(--space-6);
+  display: flex;
+  align-items: center;
 `;
 
 const Hero = styled.section`
@@ -380,9 +511,39 @@ const Copyright = styled.div`
   margin: var(--space-6) auto 0;
 `;
 
-const Landing: React.FC = () => {
+const Landing = () => {
+  // Use type assertion to workaround TypeScript errors
+  const [mobileMenuOpen, setMobileMenuOpen] = (React as any).useState(false);
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  // Close mobile menu when clicking a link
+  const handleMobileNavLinkClick = () => {
+    setMobileMenuOpen(false);
+  };
+  
+  // Prevent body scroll when mobile menu is open
+  (React as any).useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   return (
     <LandingContainer>
+      <MobileMenuOverlay 
+        $isOpen={mobileMenuOpen} 
+        onClick={() => setMobileMenuOpen(false)} 
+      />
+      
       <NavBar>
         <Logo>
           <LogoIcon>C</LogoIcon>
@@ -396,6 +557,27 @@ const Landing: React.FC = () => {
             <Button variant="primary">Sign In</Button>
           </Link>
         </NavLinks>
+        
+        <MobileMenuButton onClick={toggleMobileMenu} aria-label="Toggle mobile menu">
+          <MenuLine $isOpen={mobileMenuOpen} />
+          <MenuLine $isOpen={mobileMenuOpen} />
+          <MenuLine $isOpen={mobileMenuOpen} />
+        </MobileMenuButton>
+        
+        <MobileMenu $isOpen={mobileMenuOpen}>
+          <MobileLogo>
+            <LogoIcon>C</LogoIcon>
+            <LogoText>clypr</LogoText>
+          </MobileLogo>
+          <MobileNavLinks>
+            <MobileNavLink href="#features" onClick={handleMobileNavLinkClick}>Features</MobileNavLink>
+            <MobileNavLink href="#how-it-works" onClick={handleMobileNavLinkClick}>How It Works</MobileNavLink>
+            <MobileNavLink href="#developers" onClick={handleMobileNavLinkClick}>Developers</MobileNavLink>
+            <Link to="/login" style={{ textDecoration: 'none' }} onClick={handleMobileNavLinkClick}>
+              <Button variant="primary" size="lg">Sign In</Button>
+            </Link>
+          </MobileNavLinks>
+        </MobileMenu>
       </NavBar>
       
       <Hero>
