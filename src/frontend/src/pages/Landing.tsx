@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
@@ -14,9 +14,13 @@ const NavBar = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-6) var(--space-10);
+  padding: var(--space-4) var(--space-4);
   max-width: 1200px;
   margin: 0 auto;
+  
+  @media (min-width: 768px) {
+    padding: var(--space-6) var(--space-10);
+  }
 `;
 
 const Logo = styled.div`
@@ -47,9 +51,13 @@ const LogoText = styled.h1`
 `;
 
 const NavLinks = styled.div`
-  display: flex;
+  display: none;
   gap: var(--space-6);
   align-items: center;
+  
+  @media (min-width: 768px) {
+    display: flex;
+  }
 `;
 
 const NavLink = styled.a`
