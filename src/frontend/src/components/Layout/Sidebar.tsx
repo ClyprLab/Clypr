@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -158,49 +158,78 @@ const ProfileRole = styled.div`
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const { principal } = useAuth();
-  
+  const location = useLocation();
+  const path = location.pathname;
+
+  // Custom active logic for each nav item
+  const isDashboard = path.startsWith('/app/dashboard');
+  const isRules = path.startsWith('/app/rules');
+  const isMessages = path.startsWith('/app/messages');
+  const isChannels = path.startsWith('/app/channels');
+  const isSettings = path.startsWith('/app/settings');
+
   return (
     <SidebarContainer $collapsed={collapsed}>
       <Logo $collapsed={collapsed}>
         <LogoIcon $collapsed={collapsed}>C</LogoIcon>
         <LogoText $collapsed={collapsed}>clypr</LogoText>
       </Logo>
-      
+
       <Nav>
         <NavList>
           <NavItem>
-            <StyledNavLink to="/" $collapsed={collapsed}>
+            <StyledNavLink
+              to="/app/dashboard"
+              $collapsed={collapsed}
+              className={isDashboard ? 'active' : ''}
+            >
               <NavIcon $collapsed={collapsed}>□</NavIcon>
               <NavText $collapsed={collapsed}>Dashboard</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/rules" $collapsed={collapsed}>
+            <StyledNavLink
+              to="/app/rules"
+              $collapsed={collapsed}
+              className={isRules ? 'active' : ''}
+            >
               <NavIcon $collapsed={collapsed}>⚙</NavIcon>
               <NavText $collapsed={collapsed}>Rules</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/messages" $collapsed={collapsed}>
+            <StyledNavLink
+              to="/app/messages"
+              $collapsed={collapsed}
+              className={isMessages ? 'active' : ''}
+            >
               <NavIcon $collapsed={collapsed}>✉</NavIcon>
               <NavText $collapsed={collapsed}>Messages</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/channels" $collapsed={collapsed}>
+            <StyledNavLink
+              to="/app/channels"
+              $collapsed={collapsed}
+              className={isChannels ? 'active' : ''}
+            >
               <NavIcon $collapsed={collapsed}>⟿</NavIcon>
               <NavText $collapsed={collapsed}>Channels</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/settings" $collapsed={collapsed}>
+            <StyledNavLink
+              to="/app/settings"
+              $collapsed={collapsed}
+              className={isSettings ? 'active' : ''}
+            >
               <NavIcon $collapsed={collapsed}>⚙</NavIcon>
               <NavText $collapsed={collapsed}>Settings</NavText>
             </StyledNavLink>
           </NavItem>
         </NavList>
       </Nav>
-      
+
       <ProfileSection $collapsed={collapsed}>
         <Avatar $collapsed={collapsed}>
           {principal ? principal.toString().substring(0, 1).toUpperCase() : 'G'}

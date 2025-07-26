@@ -167,11 +167,11 @@ const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
   const getPageTitle = () => {
     const path = window.location.pathname;
     
-    if (path === '/') return 'Dashboard';
-    if (path === '/rules') return 'Privacy Rules';
-    if (path === '/messages') return 'Message History';
-    if (path === '/channels') return 'Communication Channels';
-    if (path === '/settings') return 'Settings';
+    if (path === '/app/dashboard') return 'Dashboard';
+    if (path === '/app/rules') return 'Privacy Rules';
+    if (path === '/app/messages') return 'Message History';
+    if (path === '/app/channels') return 'Communication Channels';
+    if (path === '/app/settings') return 'Settings';
     
     return 'Clypr';
   };
