@@ -1,6 +1,6 @@
 # Clypr - Decentralized Communication Privacy Relay
 
-![Clypr Logo](assets/clypr-logo.png)
+<!-- ![Clypr Logo](assets/clypr-logo.png) -->
 
 ## The Privacy Layer for Web3 Communications
 
@@ -8,6 +8,7 @@ Clypr is a programmable privacy gateway for Web3 messaging built on the Internet
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![ICP: Compatible](https://img.shields.io/badge/ICP-Compatible-orange.svg)](https://internetcomputer.org/)
+[![Deployment Status](https://img.shields.io/badge/Deployment-IC%20Ready-green.svg)](https://internetcomputer.org/)
 
 ## 🔐 Overview
 
@@ -41,46 +42,64 @@ Clypr consists of four main components:
 
 ### Prerequisites
 
-- [DFINITY Canister SDK](https://sdk.dfinity.org) (version 0.11.0+)
+- [DFINITY Canister SDK (dfx)](https://internetcomputer.org/docs/current/developer-docs/setup/install/) (latest version)
 - Node.js 16+
-- npm or yarn
+- Yarn or npm
+- ICP tokens and cycles (for mainnet deployment only)
 
-### Installation
+### Local Development & Testing
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/clypr.git
+git clone https://github.com/abdushakurob/clypr.git
 cd clypr
 ```
 
-2. Install dependencies
-```bash
-npm install
-```
-
-3. Start the local Internet Computer replica
-```bash
-dfx start --background
-```
-
-4. Deploy the canisters locally
-```bash
-dfx deploy
-```
-
-5. Start the webhook bridge service
-```bash
-cd webhook
-npm install
-npm start
-```
-
-6. Start the frontend
+2. Install frontend dependencies
 ```bash
 cd src/frontend
-npm install
-npm start
+yarn install
 ```
+
+3. Run the frontend in development mode
+```bash
+yarn dev
+```
+
+### Deploying to Internet Computer
+
+#### Local Deployment
+
+For testing on a local IC replica:
+
+```bash
+./deploy-ic.sh
+```
+
+This script will:
+- Build the frontend with IC-specific configuration
+- Start a local IC replica
+- Create necessary canisters
+- Deploy the frontend canister
+- Display the local URL to access your app
+
+#### Production Deployment (IC Mainnet)
+
+To deploy to the Internet Computer mainnet:
+
+1. Set up your identity and cycle wallet:
+```bash
+dfx identity new production
+dfx identity use production
+dfx wallet --network ic balance  # Check your cycle balance
+```
+
+2. Deploy to mainnet (requires cycles):
+```bash
+./deploy-ic-mainnet.sh
+```
+
+After deployment, your app will be accessible at `https://<canister-id>.icp0.io/`
 
 ## 📚 Documentation
 
@@ -92,6 +111,7 @@ npm start
 - [User Guide](docs/USER_GUIDE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Contributing Guide](docs/CONTRIBUTING.md)
+- [Internet Computer Deployment Guide](docs/IC_DEPLOYMENT.md)
 
 ## 💡 Use Cases
 
@@ -112,7 +132,31 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- [Website](https://clypr.io)
-- [Documentation](https://docs.clypr.io)
-- [GitHub](https://github.com/yourusername/clypr)
-- [Discord](https://discord.gg/clypr)
+- [GitHub](https://github.com/abdushakurob/clypr)
+- [Internet Computer](https://internetcomputer.org/)
+
+## 🧩 Project Structure
+
+```
+clypr/
+├── dfx.json              # Internet Computer canister configuration
+├── deploy-ic.sh          # Local IC deployment script
+├── deploy-ic-mainnet.sh  # Mainnet IC deployment script
+├── src/
+│   ├── frontend/         # React/TypeScript frontend application
+│   │   ├── src/          # Application source code
+│   │   ├── public/       # Static assets
+│   │   └── vite.config.* # Vite configuration files
+│   └── backend/          # Motoko backend canister
+├── docs/                 # Project documentation
+└── README.md             # This file
+```
+
+## ⚙️ Technical Details
+
+- **Frontend**: React 18+, TypeScript, Vite
+- **Backend**: Motoko canisters on Internet Computer
+- **Deployment**: Internet Computer Protocol (local and mainnet)
+- **Build System**: Vite with custom IC configuration
+- **Authentication**: Internet Identity (planned)
+
