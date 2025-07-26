@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
+import RuleForm from '../components/Rules/RuleForm';
+import { useClypr } from '../hooks/useClypr';
+import { Rule } from '../services/ClyprService';
 
 const RulesContainer = styled.div`
   display: flex;
@@ -80,132 +83,245 @@ const ActionButton = styled.button`
   }
 `;
 
-interface Rule {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  active: boolean;
-  createdAt: string;
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-8);
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-secondary);
+`;
+
+interface RuleTableProps {
+  rules: Rule[];
+  onEdit: (rule: Rule) => void;
+  onDelete: (ruleId: number) => void;
+  onToggle: (ruleId: number, isActive: boolean) => void;
 }
 
+const RuleTable: React.FC<RuleTableProps> = ({ rules, onEdit, onDelete, onToggle }) => {
+  if (rules.length === 0) {
+    return (
+      <EmptyState>
+        <Text>No rules created yet. Create your first privacy rule to get started.</Text>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <RulesTable>
+      <RulesTableHeader>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Conditions</th>
+          <th>Actions</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </RulesTableHeader>
+      <RulesTableBody>
+        {rules.map(rule => (
+          <tr key={rule.id}>
+            <td>{rule.name}</td>
+            <td>{rule.description || '-'}</td>
+            <td>{rule.conditions.length}</td>
+            <td>{rule.actions.length}</td>
+            <td>{rule.priority}</td>
+            <td>
+              <StatusBadge active={rule.isActive}>
+                {rule.isActive ? 'Active' : 'Inactive'}
+              </StatusBadge>
+            </td>
+            <td>{new Date(Number(rule.createdAt) / 1000000).toLocaleDateString()}</td>
+            <td>
+              <ActionButton title="Edit" onClick={() => onEdit(rule)}>✎</ActionButton>
+              <ActionButton title="Delete" onClick={() => onDelete(rule.id)}>⨯</ActionButton>
+              <ActionButton 
+                title={rule.isActive ? 'Disable' : 'Enable'}
+                onClick={() => onToggle(rule.id, !rule.isActive)}
+              >
+                {rule.isActive ? '⏻' : '⏼'}
+              </ActionButton>
+            </td>
+          </tr>
+        ))}
+      </RulesTableBody>
+    </RulesTable>
+  );
+};
+
 const Rules: React.FC = () => {
-  const mockRules: Rule[] = [
-    { 
-      id: '1', 
-      name: 'Email Privacy Filter', 
-      description: 'Obscures email addresses in outgoing messages', 
-      type: 'Transform',
-      active: true,
-      createdAt: '2025-06-12'
-    },
-    { 
-      id: '2', 
-      name: 'Social Media Anonymizer', 
-      description: 'Removes personally identifiable information from social posts', 
-      type: 'Transform',
-      active: true,
-      createdAt: '2025-06-14'
-    },
-    { 
-      id: '3', 
-      name: 'Location Data Blocker', 
-      description: 'Prevents location data from being shared', 
-      type: 'Block',
-      active: true,
-      createdAt: '2025-06-18'
-    },
-    { 
-      id: '4', 
-      name: 'Browser Fingerprint Masker', 
-      description: 'Alters browser fingerprint data in requests', 
-      type: 'Transform',
-      active: false,
-      createdAt: '2025-06-20'
-    },
-    { 
-      id: '5', 
-      name: 'Cookie Consent Manager', 
-      description: 'Automatically manages cookie consent preferences', 
-      type: 'Block',
-      active: true,
-      createdAt: '2025-06-22'
-    },
-    { 
-      id: '6', 
-      name: 'Ad Tracker Blocker', 
-      description: 'Blocks known ad trackers', 
-      type: 'Block',
-      active: true,
-      createdAt: '2025-07-01'
-    },
-    { 
-      id: '7', 
-      name: 'Data Minimizer', 
-      description: 'Minimizes personal data shared in forms', 
-      type: 'Transform',
-      active: false,
-      createdAt: '2025-07-05'
+  const { 
+    rules, 
+    rulesLoading,
+    loadRules,
+    createRule,
+    updateRule,
+    deleteRule,
+    isAuthenticated,
+    error
+  } = useClypr();
+  
+  const [showForm, setShowForm] = useState(false);
+  const [editingRule, setEditingRule] = useState<Rule | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleCreateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const success = await createRule(
+        ruleData.name,
+        ruleData.description,
+        ruleData.conditions,
+        ruleData.actions,
+        ruleData.priority
+      );
+      
+      if (success) {
+        setShowForm(false);
+        setEditingRule(null);
+      }
+    } catch (err) {
+      console.error('Error creating rule:', err);
     }
-  ];
+  };
+
+  const handleEditRule = (rule: Rule) => {
+    setEditingRule(rule);
+    setShowForm(true);
+  };
+
+  const handleUpdateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingRule) return;
+    
+    try {
+      const updatedRule: Rule = {
+        ...editingRule,
+        ...ruleData,
+        updatedAt: BigInt(Date.now() * 1000000) // Convert to nanoseconds
+      };
+      
+      const success = await updateRule(editingRule.id, updatedRule);
+      
+      if (success) {
+        setShowForm(false);
+        setEditingRule(null);
+      }
+    } catch (err) {
+      console.error('Error updating rule:', err);
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: number) => {
+    if (!window.confirm('Are you sure you want to delete this rule?')) return;
+    
+    try {
+      await deleteRule(ruleId);
+    } catch (err) {
+      console.error('Error deleting rule:', err);
+    }
+  };
+
+  const handleToggleRule = async (ruleId: number, isActive: boolean) => {
+    const rule = rules.find(r => r.id === ruleId);
+    if (!rule) return;
+    
+    try {
+      const updatedRule: Rule = {
+        ...rule,
+        isActive,
+        updatedAt: BigInt(Date.now() * 1000000)
+      };
+      
+      await updateRule(ruleId, updatedRule);
+    } catch (err) {
+      console.error('Error updating rule:', err);
+    }
+  };
+
+  const filteredRules = rules.filter(rule =>
+    rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (rule.description && rule.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  if (showForm) {
+    return (
+      <RulesContainer>
+        <Header>
+          <Text as="h1">{editingRule ? 'Edit Rule' : 'Create New Rule'}</Text>
+          <Button variant="secondary" onClick={() => {
+            setShowForm(false);
+            setEditingRule(null);
+          }}>
+            ← Back to Rules
+          </Button>
+        </Header>
+        
+        {error && (
+          <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
+            <Text color="error">{error}</Text>
+          </Card>
+        )}
+        
+        <RuleForm
+          initialRule={editingRule || undefined}
+          onSubmit={editingRule ? handleUpdateRule : handleCreateRule}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingRule(null);
+          }}
+        />
+      </RulesContainer>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <RulesContainer>
+        <Text>Please authenticate to manage privacy rules.</Text>
+      </RulesContainer>
+    );
+  }
   
   return (
     <RulesContainer>
       <Header>
         <Text as="h1">Privacy Rules</Text>
         <SearchContainer>
-          <Input placeholder="Search rules..." />
-          <Button>Search</Button>
+          <Input 
+            placeholder="Search rules..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button onClick={() => setShowForm(true)}>Create New Rule</Button>
         </SearchContainer>
       </Header>
       
-const CardHeader = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-4);
-`;
-
-// Rest of the code...
+      {error && (
+        <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
+          <Text color="error">{error}</Text>
+        </Card>
+      )}
 
       <Card>
-        <CardHeader>
-          <Button>Create New Rule</Button>
-        </CardHeader>
-        
-        <RulesTable>
-          <RulesTableHeader>
-            <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </RulesTableHeader>
-          <RulesTableBody>
-            {mockRules.map(rule => (
-              <tr key={rule.id}>
-                <td>{rule.name}</td>
-                <td>{rule.description}</td>
-                <td>{rule.type}</td>
-                <td>
-                  <StatusBadge active={rule.active}>
-                    {rule.active ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                </td>
-                <td>{rule.createdAt}</td>
-                <td>
-                  <ActionButton title="Edit">✎</ActionButton>
-                  <ActionButton title="Delete">⨯</ActionButton>
-                  <ActionButton title={rule.active ? 'Disable' : 'Enable'}>
-                    {rule.active ? '⏻' : '⏼'}
-                  </ActionButton>
-                </td>
-              </tr>
-            ))}
-          </RulesTableBody>
-        </RulesTable>
+        {rulesLoading ? (
+          <LoadingContainer>
+            <Text>Loading rules...</Text>
+          </LoadingContainer>
+        ) : (
+          <RuleTable
+            rules={filteredRules}
+            onEdit={handleEditRule}
+            onDelete={handleDeleteRule}
+            onToggle={handleToggleRule}
+          />
+        )}
       </Card>
     </RulesContainer>
   );

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
+import { useClypr } from '../hooks/useClypr';
+import { Message as ClyprMessage } from '../services/ClyprService';
 
 const MessagesContainer = styled.div`
   display: flex;
@@ -32,6 +34,20 @@ const FilterContainer = styled.div`
 const FilterGroup = styled.div`
   display: flex;
   gap: var(--space-2);
+`;
+
+const Select = styled.select`
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
 `;
 
 const MessageList = styled.div`
@@ -90,135 +106,192 @@ const Tag = styled.span`
   background-color: var(--color-hover);
 `;
 
+const StatusBadge = styled.span<{ $processed?: boolean }>`
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  background-color: ${(props) => props.$processed ? '#E8F5E9' : '#FFF3E0'};
+  color: ${(props) => props.$processed ? '#388E3C' : '#F57C00'};
+`;
+
 const MessageActions = styled.div`
   display: flex;
   gap: var(--space-2);
 `;
 
-const Pagination = styled.div`
+const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
-  margin-top: var(--space-6);
-  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-8);
 `;
 
-interface Message {
-  id: string;
-  title: string;
-  content: string;
-  timestamp: string;
-  channel: string;
-  processed: boolean;
-  tags: string[];
+const EmptyState = styled.div`
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-secondary);
+`;
+
+const getProcessedTags = (message: ClyprMessage): string[] => {
+  const tags = [];
+  tags.push(message.messageType || 'Unknown');
+  if (message.isProcessed) tags.push('Processed');
+  
+  // Add tags from metadata
+  message.content.metadata.forEach(([key, value]) => {
+    if (key === 'tags') {
+      tags.push(...value.split(','));
+    }
+  });
+  
+  return tags;
+};
+
+interface MessageListProps {
+  messages: ClyprMessage[];
+  searchTerm: string;
+  statusFilter: string;
 }
 
-const Messages: React.FC = () => {
-  const mockMessages: Message[] = [
-    {
-      id: '1',
-      title: 'Email Message: Job Application',
-      content: 'Your job application has been received and is being reviewed by our team...',
-      timestamp: '2025-07-25 14:32',
-      channel: 'Email',
-      processed: true,
-      tags: ['Job', 'Email', 'Processed']
-    },
-    {
-      id: '2',
-      title: 'SMS Alert: Login Attempt',
-      content: 'There was a login attempt to your account from a new device. If this was not you...',
-      timestamp: '2025-07-24 09:15',
-      channel: 'SMS',
-      processed: true,
-      tags: ['Security', 'Alert', 'SMS']
-    },
-    {
-      id: '3',
-      title: 'Twitter DM: Conference Invitation',
-      content: 'We would like to invite you as a speaker to our upcoming tech conference...',
-      timestamp: '2025-07-23 16:45',
-      channel: 'Twitter',
-      processed: false,
-      tags: ['Social', 'Invitation']
-    },
-    {
-      id: '4',
-      title: 'Signal Message: Project Update',
-      content: 'The latest project updates include the following changes and additions...',
-      timestamp: '2025-07-22 11:20',
-      channel: 'Signal',
-      processed: true,
-      tags: ['Project', 'Signal']
-    }
-  ];
+const MessageListComponent = ({ messages, searchTerm, statusFilter }: MessageListProps) => {
+  const filteredMessages = messages.filter(message => {
+    const matchesSearch = !searchTerm || 
+      message.content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      message.content.body.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'processed' && message.isProcessed) ||
+      (statusFilter === 'unprocessed' && !message.isProcessed) ||
+      (statusFilter === message.status);
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  if (filteredMessages.length === 0) {
+    return (
+      <EmptyState>
+        <Text>No messages found matching your criteria.</Text>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <MessageList>
+      {filteredMessages.map(message => (
+        <MessageCard key={message.messageId}>
+          <MessageHeader>
+            <MessageInfo>
+              <MessageTitle>{message.content.title}</MessageTitle>
+              <MessageTimestamp>
+                {new Date(Number(message.timestamp) / 1000000).toLocaleString()}
+              </MessageTimestamp>
+            </MessageInfo>
+            <StatusBadge $processed={message.isProcessed}>
+              {message.status}
+            </StatusBadge>
+          </MessageHeader>
+          
+          <MessageContent>
+            {message.content.body}
+          </MessageContent>
+          
+          <MessageMeta>
+            <MessageTags>
+              {getProcessedTags(message).map((tag, index) => (
+                <Tag key={index}>{tag}</Tag>
+              ))}
+            </MessageTags>
+            
+            <MessageActions>
+              <Button variant="secondary" size="sm">View Details</Button>
+              {!message.isProcessed && (
+                <Button size="sm">Process</Button>
+              )}
+            </MessageActions>
+          </MessageMeta>
+        </MessageCard>
+      ))}
+    </MessageList>
+  );
+};
+
+const Messages = () => {
+  const { 
+    messages, 
+    messagesLoading,
+    loadMessages,
+    isAuthenticated,
+    error
+  } = useClypr();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  if (!isAuthenticated) {
+    return (
+      <MessagesContainer>
+        <Text>Please authenticate to view messages.</Text>
+      </MessagesContainer>
+    );
+  }
   
   return (
     <MessagesContainer>
       <Header>
-        <Text as="h1">Message History</Text>
+        <Text as="h1">Messages & Logs</Text>
         <SearchContainer>
-          <Input placeholder="Search messages..." />
-          <Button>Search</Button>
+          <Input 
+            placeholder="Search messages..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button onClick={() => loadMessages()}>Refresh</Button>
         </SearchContainer>
       </Header>
       
       <FilterContainer>
         <FilterGroup>
-          <Button variant="secondary" size="sm">All</Button>
-          <Button variant="ghost" size="sm">Processed</Button>
-          <Button variant="ghost" size="sm">Pending</Button>
-          <Button variant="ghost" size="sm">Filtered</Button>
+          <Select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            title="Filter messages by status"
+          >
+            <option value="all">All Messages</option>
+            <option value="processed">Processed</option>
+            <option value="unprocessed">Unprocessed</option>
+            <option value="received">Received</option>
+            <option value="processing">Processing</option>
+            <option value="delivered">Delivered</option>
+            <option value="blocked">Blocked</option>
+            <option value="failed">Failed</option>
+          </Select>
         </FilterGroup>
         
-        <FilterGroup>
-          <Button variant="ghost" size="sm">Sort: Newest</Button>
-        </FilterGroup>
+        <Text size="sm" color="secondary">
+          {messages.length} total messages
+        </Text>
       </FilterContainer>
       
-      <MessageList>
-        {mockMessages.map(message => (
-          <MessageCard key={message.id}>
-            <MessageHeader>
-              <MessageInfo>
-                <MessageTitle>{message.title}</MessageTitle>
-                <MessageTimestamp>
-                  {message.timestamp} • {message.channel}
-                </MessageTimestamp>
-              </MessageInfo>
-              <div>
-                {message.processed ? (
-                  <Tag style={{ backgroundColor: '#E8F5E9', color: '#388E3C' }}>Processed</Tag>
-                ) : (
-                  <Tag style={{ backgroundColor: '#FFF8E1', color: '#FFA000' }}>Pending</Tag>
-                )}
-              </div>
-            </MessageHeader>
-            
-            <MessageContent>{message.content}</MessageContent>
-            
-            <MessageMeta>
-              <MessageTags>
-                {message.tags.map((tag, index) => (
-                  <Tag key={index}>{tag}</Tag>
-                ))}
-              </MessageTags>
-              
-              <MessageActions>
-                <Button variant="ghost" size="sm">Details</Button>
-                <Button variant="ghost" size="sm">Archive</Button>
-              </MessageActions>
-            </MessageMeta>
-          </MessageCard>
-        ))}
-      </MessageList>
-      
-      <Pagination>
-        <Button variant="ghost" size="sm">Previous</Button>
-        <Button variant="secondary" size="sm">1</Button>
-        <Button variant="ghost" size="sm">2</Button>
-        <Button variant="ghost" size="sm">3</Button>
-        <Button variant="ghost" size="sm">Next</Button>
-      </Pagination>
+      {error && (
+        <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
+          <Text color="error">{error}</Text>
+        </Card>
+      )}
+
+      <Card>
+        {messagesLoading ? (
+          <LoadingContainer>
+            <Text>Loading messages...</Text>
+          </LoadingContainer>
+        ) : (
+          <MessageListComponent 
+            messages={messages}
+            searchTerm={searchTerm}
+            statusFilter={statusFilter}
+          />
+        )}
+      </Card>
     </MessagesContainer>
   );
 };

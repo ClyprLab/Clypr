@@ -1,13 +1,13 @@
-{
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Start Frontend Dev Server",
-			"type": "shell",
-			"command": "cd /home/aob/Desktop/projects/clypr/src/frontend && npm run dev",
-			"group": "none",
-			"problemMatcher": [],
-			"isBackground": true
-		}
-	]
-}
+// {
+// 	"version": "2.0.0",
+// 	"tasks": [
+// 		{
+// 			"label": "Start Frontend Dev Server",
+// 			"type": "shell",
+// 			"command": "cd /home/aob/Desktop/projects/clypr && ./deploy-ic.sh",
+// 			"group": "none",
+// 			"problemMatcher": [],
+// 			"isBackground": true
+// 		}
+// 	]
+// }

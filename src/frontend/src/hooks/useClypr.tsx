@@ -35,7 +35,19 @@ export function useClypr() {
           // Check if user is the canister owner
           try {
             const owner = await clyprService.getOwner();
-            setIsOwner(userPrincipal.toText() === owner.toText());
+            const isCurrentOwner = userPrincipal.toText() === owner.toText();
+            
+            // If there's no owner set (anonymous) or user is already owner
+            if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
+              // Set current user as owner
+              if (!isCurrentOwner) {
+                console.log('Setting user as canister owner...');
+                await clyprService.setOwner(userPrincipal);
+              }
+              setIsOwner(true);
+            } else {
+              setIsOwner(isCurrentOwner);
+            }
           } catch (err) {
             console.error("Failed to check owner status", err);
           }
@@ -79,7 +91,19 @@ export function useClypr() {
             // Check if user is the canister owner
             try {
               const owner = await clyprService.getOwner();
-              setIsOwner(userPrincipal.toText() === owner.toText());
+              const isCurrentOwner = userPrincipal.toText() === owner.toText();
+              
+              // If there's no owner set (anonymous) or user is already owner
+              if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
+                // Set current user as owner
+                if (!isCurrentOwner) {
+                  console.log('Setting user as canister owner...');
+                  await clyprService.setOwner(userPrincipal);
+                }
+                setIsOwner(true);
+              } else {
+                setIsOwner(isCurrentOwner);
+              }
             } catch (err) {
               console.error("Failed to check owner status", err);
             }
