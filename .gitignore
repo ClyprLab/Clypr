@@ -1,0 +1,99 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+coverage
+/coverage
+*.lcov
+
+# production
+build
+dist
+dist-ssr
+*.local
+
+# Deployment artifacts
+.dfx
+.vessel
+canister_ids.json
+
+# cache
+.npm
+.eslintcache
+.cache
+.parcel-cache
+.rts2_cache_cjs
+.rts2_cache_es
+.rts2_cache_umd
+.next/cache
+
+# local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-workspace
+.history
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# temp files
+*.swp
+*.swo
+.temp
+.tmp
+
+# vercel
+.vercel
+.turbo
+
+# misc
+*.pem
+.DS_Store
+.env.development
+.env.test
+.env.production
+.netlify
+
+# debug
+npm-debug.log*
+debug.log
+
+# Keep credentials secure
+credentials.json
+**/secrets/*
+**/credentials/*
+
+# User-specific content
+.user
+user.config.json

@@ -1,13 +1,15 @@
 import React, { ButtonHTMLAttributes } from 'react';
 import styled, { css } from 'styled-components';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'light' | string;
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'large' | string;
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
+  as?: React.ElementType;
+  to?: string;
 }
 
 const getVariantStyles = (variant: ButtonVariant) => {
@@ -98,7 +100,11 @@ const getSizeStyles = (size: ButtonSize) => {
   }
 };
 
-const ButtonContainer = styled.button<ButtonProps>`
+const ButtonContainer = styled.button<{
+  $variant?: ButtonVariant;
+  $size?: ButtonSize;
+  $fullWidth?: boolean;
+}>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -109,10 +115,10 @@ const ButtonContainer = styled.button<ButtonProps>`
   font-family: var(--font-mono);
   line-height: 1;
   white-space: nowrap;
-  width: ${props => props.fullWidth ? '100%' : 'auto'};
+  width: ${(props) => props.$fullWidth ? '100%' : 'auto'};
   
-  ${props => getVariantStyles(props.variant || 'primary')}
-  ${props => getSizeStyles(props.size || 'md')}
+  ${(props) => getVariantStyles(props.$variant || 'primary')}
+  ${(props) => getSizeStyles(props.$size || 'md')}
   
   &:disabled {
     opacity: 0.5;
@@ -129,9 +135,9 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   return (
     <ButtonContainer
-      variant={variant}
-      size={size}
-      fullWidth={fullWidth}
+      $variant={variant}
+      $size={size}
+      $fullWidth={fullWidth}
       {...props}
     >
       {children}
