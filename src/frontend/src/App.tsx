@@ -16,7 +16,7 @@ const AppContainer = styled.div`
   height: 100%;
 `;
 
-const App: React.FC = () => {
+const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   return (
@@ -42,3 +42,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

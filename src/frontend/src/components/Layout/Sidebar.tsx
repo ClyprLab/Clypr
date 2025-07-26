@@ -16,8 +16,19 @@ const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
   padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  transition: width var(--transition-base);
+  transition: width var(--transition-base), transform var(--transition-base);
   overflow: hidden;
+  z-index: 100;
+  
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    transform: translateX(${props => props.$collapsed ? '-100%' : '0'});
+    box-shadow: ${props => props.$collapsed ? 'none' : 'var(--shadow-lg)'};
+  }
 `;
 
 const Logo = styled.div<{ $collapsed: boolean }>`
