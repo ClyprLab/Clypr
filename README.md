@@ -128,7 +128,7 @@ dfx wallet --network ic balance  # Check your cycle balance
 
 After deployment, your app will be accessible at `https://<canister-id>.icp0.io/`
 
-## 📚 Documentation
+<!-- ## 📚 Documentation
 
 - [Product Requirements Document](docs/PRD.md)
 - [Technical Architecture](docs/ARCHITECTURE.md)
@@ -138,7 +138,7 @@ After deployment, your app will be accessible at `https://<canister-id>.icp0.io/
 - [User Guide](docs/USER_GUIDE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Contributing Guide](docs/CONTRIBUTING.md)
-- [Internet Computer Deployment Guide](docs/IC_DEPLOYMENT.md)
+- [Internet Computer Deployment Guide](docs/IC_DEPLOYMENT.md) -->
 
 ## 💡 Use Cases
 
