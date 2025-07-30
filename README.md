@@ -10,6 +10,11 @@ Clypr is a programmable privacy gateway for Web3 messaging built on the Internet
 [![ICP: Compatible](https://img.shields.io/badge/ICP-Compatible-orange.svg)](https://internetcomputer.org/)
 [![Deployment Status](https://img.shields.io/badge/Deployment-IC%20Ready-green.svg)](https://internetcomputer.org/)
 
+
+## 🔍 What is Clypr?
+
+Clypr is a programmable privacy gateway for Web3 messaging, built on the Internet Computer Protocol (ICP). It empowers users to control how decentralized applications (dApps) communicate with them, using customizable privacy rules and channel management. Clypr acts as a privacy layer between dApps and your real-world communication channels (email, SMS, etc.), ensuring your contact details remain private and only approved messages reach you.
+
 ## 🔐 Overview
 
 In the Web3 ecosystem, users need greater control over how applications communicate with them. Clypr creates a privacy layer between decentralized applications and users' real-world communication channels. Instead of dApps sending messages directly to a user's email or phone, they send messages to the user's personal canister (privacy agent), which evaluates the messages against user-defined rules before forwarding approved messages via secure webhooks to the user's preferred channels.
@@ -17,6 +22,28 @@ In the Web3 ecosystem, users need greater control over how applications communic
 ```
 dApp → User's Privacy Canister → Privacy Rules Evaluation → Webhook Bridge → Email/SMS delivery
 ```
+![Clypr Web3 Privacy Flowchart](src/frontend/src/assets/Clypr%20Web3%20Privacy%20Flowchart.png)
+
+## 🖼 Screenshots
+
+### Dashboard
+![Dashboard](src/frontend/src/assets/dashboard.png)
+
+### Rules Page
+![Rules Page](src/frontend/src/assets/Clypr%20Rules%20Page.png)
+
+### Create Rule Page
+![Create Rule Page](src/frontend/src/assets/Clypr%20Create%20Rules%20Page.png)
+![Create Rule Page 2](src/frontend/src/assets/Clypr%20Create%20Rules%20Page%202.png)
+
+### Messages Page
+![Messages Page](src/frontend/src/assets/Clypr%20Messages%20page.png)
+
+### Channels Page
+![Channels Page](src/frontend/src/assets/Clypr%20Channels%20Page.png)
+
+### Settings Page
+![Settings Page](src/frontend/src/assets/Clypr%20Settings%20page.png)
 
 ## ✨ Key Features
 
