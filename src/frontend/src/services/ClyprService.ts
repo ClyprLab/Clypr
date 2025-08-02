@@ -225,7 +225,8 @@ export class ClyprService {
     }
     
     // Determine the host URL based on the current environment
-    const defaultHost = 'http://localhost:4943';
+    const isIcpDomain = window.location.hostname.endsWith('.icp0.io');
+    const defaultHost = isIcpDomain ? 'https://icp0.io' : 'http://localhost:4943';
     const currentHost = window.location.hostname;
     const currentPort = window.location.port;
     
@@ -237,9 +238,9 @@ export class ClyprService {
       hostUrl = identityOrHostUrl;
     } else if (identityOrHostUrl) {
       identity = identityOrHostUrl;
-      hostUrl = currentPort === '4943' ? `http://${currentHost}:${currentPort}` : defaultHost;
+      hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
     } else {
-      hostUrl = currentPort === '4943' ? `http://${currentHost}:${currentPort}` : defaultHost;
+      hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
     }
     
     this.agentHost = hostUrl;
@@ -257,19 +258,21 @@ export class ClyprService {
       verifySignatures: !isLocalDev
     });
 
-    // Configure agent options for local development
+    // Configure agent options
     const agentOptions: HttpAgentOptions = {
       host: hostUrl,
       identity: identity,
-      verifyQuerySignatures: false, // Disable signature verification for local development
+      verifyQuerySignatures: !isLocalDev, // Only disable signature verification for local development
       fetch: window.fetch.bind(window)
     };
     
     // Create agent
     this.agent = new HttpAgent(agentOptions);
 
-    // Get canister IDs from environment or use the local development IDs
-    const backendCanisterId = process.env.NEXT_PUBLIC_BACKEND_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
+    // Get canister IDs from environment, canister-ids.js, or use the local development IDs
+    const backendCanisterId = process.env.NEXT_PUBLIC_BACKEND_CANISTER_ID || 
+      (typeof window !== 'undefined' && window.canisterIds?.backend) || 
+      '5elod-ciaaa-aaaag-aufgq-cai';
     this.canisterId = backendCanisterId;
     console.log('Using backend canister ID:', backendCanisterId);
 
