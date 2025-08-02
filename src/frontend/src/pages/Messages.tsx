@@ -160,10 +160,14 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: MessageLis
       message.content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       message.content.body.toLowerCase().includes(searchTerm.toLowerCase());
     
+    const messageStatus = typeof message.status === 'object' 
+      ? Object.keys(message.status)[0] 
+      : message.status || 'unknown';
+    
     const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'processed' && message.isProcessed) ||
       (statusFilter === 'unprocessed' && !message.isProcessed) ||
-      (statusFilter === message.status);
+      (statusFilter === messageStatus);
     
     return matchesSearch && matchesStatus;
   });
@@ -188,7 +192,9 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: MessageLis
               </MessageTimestamp>
             </MessageInfo>
             <StatusBadge $processed={message.isProcessed}>
-              {message.status}
+              {typeof message.status === 'object' 
+                ? Object.keys(message.status)[0] 
+                : message.status || 'Unknown'}
             </StatusBadge>
           </MessageHeader>
           

@@ -10,10 +10,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import NotFound from './pages/NotFound';
-import TestIntegration from './pages/TestIntegration';
-import Debug from './pages/Debug';
-import SimpleTest from './pages/SimpleTest';
-import ServiceTest from './pages/ServiceTest';
+import Test from './pages/Test';
 import { AuthProvider } from './hooks/useAuth';
 
 const AppContainer = styled.div`
@@ -38,10 +35,7 @@ const App = () => {
             <Route path="settings" element={<Settings />} />
           </Route>
           
-          <Route path="/test" element={<TestIntegration />} />
-          <Route path="/debug" element={<Debug />} />
-          <Route path="/simple-test" element={<SimpleTest />} />
-          <Route path="/service-test" element={<ServiceTest />} />
+          <Route path="/test" element={<Test />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

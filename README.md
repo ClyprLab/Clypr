@@ -55,15 +55,11 @@ yarn install
 
 3. **Start local development**
 ```bash
-   # Terminal 1: Start the frontend
-yarn dev
-   
    # Terminal 2: Deploy to local IC replica
 ./deploy-ic.sh
 ```
 
 4. **Access the application**
-   - Frontend: http://localhost:5173
    - Local IC: http://localhost:4943
 
 ### Production Deployment
