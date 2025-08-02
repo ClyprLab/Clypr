@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![ICP: Compatible](https://img.shields.io/badge/ICP-Compatible-orange.svg)](https://internetcomputer.org/)
-[![Deployment Status](https://img.shields.io/badge/Deployment-IC%20Ready-green.svg)](https://internetcomputer.org/)
+[![Development Status](https://img.shields.io/badge/Status-In%20Development-yellow.svg)](docs/PROGRESS_REPORT.md)
 [![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
 [![Yarn](https://img.shields.io/badge/Yarn-1.22+-blue.svg)](https://yarnpkg.com/)
 
