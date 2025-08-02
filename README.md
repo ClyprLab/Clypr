@@ -38,7 +38,7 @@ dApp → User's Privacy Canister → Privacy Rules Evaluation → Webhook Bridge
 The Clypr application is fully deployed on the Internet Computer. You can access it directly at:
 
 ```
-https://u6s2n-gx777-77774-qaaba-cai.icp0.io/
+https://5nif7-uaaaa-aaaag-aufha-cai.icp0.io/
 ```
 
 No installation needed! Just visit the URL and start using Clypr.
