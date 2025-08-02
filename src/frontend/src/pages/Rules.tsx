@@ -6,7 +6,7 @@ import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
 import RuleForm from '../components/Rules/RuleForm';
 import { useClypr } from '../hooks/useClypr';
-import { Rule, createOperatorVariant } from '../services/ClyprService';
+import { Rule } from '../services/ClyprService';
 
 const RulesContainer = styled.div`
   display: flex;
@@ -32,12 +32,12 @@ const CardHeader = styled.div`
   margin-bottom: var(--space-4);
 `;
 
-const RulesTable = styled.table`
+const RulesTable = styled('table')`
   width: 100%;
   border-collapse: collapse;
 `;
 
-const RulesTableHeader = styled.thead`
+const RulesTableHeader = styled('thead')`
   background-color: var(--color-hover);
   
   th {
@@ -48,7 +48,7 @@ const RulesTableHeader = styled.thead`
   }
 `;
 
-const RulesTableBody = styled.tbody`
+const RulesTableBody = styled('tbody')`
   tr {
     border-bottom: 1px solid var(--color-border);
     
@@ -62,7 +62,11 @@ const RulesTableBody = styled.tbody`
   }
 `;
 
-const StatusBadge = styled.span<{ active?: boolean }>`
+interface StatusBadgeProps {
+  active?: boolean;
+}
+
+const StatusBadge = styled('span')<StatusBadgeProps>`
   display: inline-block;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
@@ -103,7 +107,7 @@ interface RuleTableProps {
   onToggle: (ruleId: number, isActive: boolean) => void;
 }
 
-const RuleTable: React.FC<RuleTableProps> = ({ rules, onEdit, onDelete, onToggle }) => {
+const RuleTable = ({ rules, onEdit, onDelete, onToggle }: RuleTableProps) => {
   if (rules.length === 0) {
     return (
       <EmptyState>
@@ -156,7 +160,8 @@ const RuleTable: React.FC<RuleTableProps> = ({ rules, onEdit, onDelete, onToggle
   );
 };
 
-const Rules: React.FC = () => {
+const Rules = () => {
+  // Get Clypr service hooks
   const { 
     rules, 
     rulesLoading,
@@ -168,48 +173,46 @@ const Rules: React.FC = () => {
     error
   } = useClypr();
   
+  // Component state
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Load rules on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated && !rulesLoading && rules.length === 0) {
+      loadRules();
+    }
+  }, [isAuthenticated]);
+
   const handleCreateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const motokoConditions = ruleData.conditions.map(cond => ({
-        ...cond,
-        operator: createOperatorVariant(
-          ((cond.operator as any)?.contains
-            ? 'contains'
-            : (typeof cond.operator === 'string'
-                ? cond.operator
-                : Object.keys(cond.operator)[0])) as
-            | 'equals'
-            | 'notEquals'
-            | 'contains'
-            | 'notContains'
-            | 'greaterThan'
-            | 'lessThan'
-            | 'exists'
-            | 'notExists'
-        )
-      }));
-      const motokoActions = ruleData.actions.map(action => ({
-        ...action,
-        channelId: typeof action.channelId === 'number' ? action.channelId : null
-      }));
-      const success = await createRule(
+      // Validate channel IDs for route actions
+      const hasInvalidChannelId = ruleData.actions.some(
+        action => action.actionType === 'route' && !action.channelId
+      );
+      
+      if (hasInvalidChannelId) {
+        throw new Error('Channel ID is required for route actions');
+      }
+
+      const ruleId = await createRule(
         ruleData.name,
         ruleData.description,
-        motokoConditions,
-        motokoActions,
+        ruleData.conditions,
+        ruleData.actions,
         ruleData.priority
       );
       
-      if (success) {
+      if (ruleId !== undefined) {
         setShowForm(false);
         setEditingRule(null);
+        // Refresh rules list
+        await loadRules();
       }
     } catch (err) {
       console.error('Error creating rule:', err);
+      // You could add a toast notification here
     }
   };
 
@@ -222,9 +225,23 @@ const Rules: React.FC = () => {
     if (!editingRule) return;
     
     try {
+      // Validate channel IDs for route actions
+      const hasInvalidChannelId = ruleData.actions.some(
+        action => action.actionType === 'route' && !action.channelId
+      );
+      
+      if (hasInvalidChannelId) {
+        throw new Error('Channel ID is required for route actions');
+      }
+
       const updatedRule: Rule = {
         ...editingRule,
-        ...ruleData,
+        name: ruleData.name,
+        description: ruleData.description,
+        conditions: ruleData.conditions,
+        actions: ruleData.actions,
+        priority: ruleData.priority,
+        isActive: ruleData.isActive,
         updatedAt: BigInt(Date.now() * 1000000) // Convert to nanoseconds
       };
       
@@ -233,9 +250,12 @@ const Rules: React.FC = () => {
       if (success) {
         setShowForm(false);
         setEditingRule(null);
+        // Refresh rules list
+        await loadRules();
       }
     } catch (err) {
       console.error('Error updating rule:', err);
+      // You could add a toast notification here
     }
   };
 
@@ -243,9 +263,15 @@ const Rules: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this rule?')) return;
     
     try {
-      await deleteRule(ruleId);
+      const success = await deleteRule(ruleId);
+      
+      if (success) {
+        // Refresh rules list
+        await loadRules();
+      }
     } catch (err) {
       console.error('Error deleting rule:', err);
+      // You could add a toast notification here
     }
   };
 
@@ -260,9 +286,15 @@ const Rules: React.FC = () => {
         updatedAt: BigInt(Date.now() * 1000000)
       };
       
-      await updateRule(ruleId, updatedRule);
+      const success = await updateRule(ruleId, updatedRule);
+      
+      if (success) {
+        // Refresh rules list
+        await loadRules();
+      }
     } catch (err) {
       console.error('Error updating rule:', err);
+      // You could add a toast notification here
     }
   };
 

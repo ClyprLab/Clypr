@@ -1,157 +1,198 @@
 # Clypr - Decentralized Communication Privacy Relay
 
-<!-- ![Clypr Logo](assets/clypr-logo.png) -->
-
-## The Privacy Layer for Web3 Communications
-
-Clypr is a programmable privacy gateway for Web3 messaging built on the Internet Computer Protocol (ICP). It enables users to control how dApps communicate with them through customizable privacy rules.
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![ICP: Compatible](https://img.shields.io/badge/ICP-Compatible-orange.svg)](https://internetcomputer.org/)
 [![Deployment Status](https://img.shields.io/badge/Deployment-IC%20Ready-green.svg)](https://internetcomputer.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
+[![Yarn](https://img.shields.io/badge/Yarn-1.22+-blue.svg)](https://yarnpkg.com/)
 
+## 🎯 Project Overview
 
-## 🔍 What is Clypr?
+**Clypr** is a revolutionary programmable privacy gateway for Web3 messaging, built on the Internet Computer Protocol (ICP). It empowers users to take complete control over how decentralized applications (dApps) communicate with them through customizable privacy rules and intelligent filtering.
 
-Clypr is a programmable privacy gateway for Web3 messaging, built on the Internet Computer Protocol (ICP). It empowers users to control how decentralized applications (dApps) communicate with them, using customizable privacy rules and channel management. Clypr acts as a privacy layer between dApps and your real-world communication channels (email, SMS, etc.), ensuring your contact details remain private and only approved messages reach you.
+### 🌟 The Problem We Solve
 
-## 🔐 Overview
+In the current Web3 ecosystem, users lack control over their communication privacy. dApps often require direct access to personal contact information (email, phone), leading to:
+- **Privacy violations** - Personal data exposed to multiple dApps
+- **Spam overload** - Unwanted messages from various sources
+- **No filtering control** - Users can't customize what messages they receive
+- **Fragmented communication** - Messages scattered across different platforms
 
-In the Web3 ecosystem, users need greater control over how applications communicate with them. Clypr creates a privacy layer between decentralized applications and users' real-world communication channels. Instead of dApps sending messages directly to a user's email or phone, they send messages to the user's personal canister (privacy agent), which evaluates the messages against user-defined rules before forwarding approved messages via secure webhooks to the user's preferred channels.
+### 💡 Our Solution
+
+Clypr creates a **personal privacy agent** for each user - a dedicated canister that acts as an intelligent gateway between dApps and real-world communication channels. Instead of dApps sending messages directly to users, they send messages to the user's privacy canister, which:
+
+1. **Evaluates** messages against user-defined privacy rules
+2. **Filters** unwanted content using AI-powered spam detection
+3. **Routes** approved messages to preferred channels (email, SMS, webhooks)
+4. **Preserves** user privacy by never exposing real contact information
 
 ```
 dApp → User's Privacy Canister → Privacy Rules Evaluation → Webhook Bridge → Email/SMS delivery
 ```
-![Clypr Web3 Privacy Flowchart](src/frontend/src/assets/Clypr%20Web3%20Privacy%20Flowchart.png)
 
-## 🖼 Screenshots
-
-### Dashboard
-![Dashboard](src/frontend/src/assets/dashboard.png)
-
-### Rules Page
-![Rules Page](src/frontend/src/assets/Clypr%20Rules%20Page.png)
-
-### Create Rule Page
-![Create Rule Page](src/frontend/src/assets/Clypr%20Create%20Rules%20Page.png)
-![Create Rule Page 2](src/frontend/src/assets/Clypr%20Create%20Rules%20Page%202.png)
-
-### Messages Page
-![Messages Page](src/frontend/src/assets/Clypr%20Messages%20page.png)
-
-### Channels Page
-![Channels Page](src/frontend/src/assets/Clypr%20Channels%20Page.png)
-
-### Settings Page
-![Settings Page](src/frontend/src/assets/Clypr%20Settings%20page.png)
-
-## ✨ Key Features
-
-- **Personal Privacy Agent**: Each user gets a dedicated canister that acts as their privacy gateway
-- **Programmable Rules**: Define granular conditions for which messages get forwarded
-- **Channel Management**: Control which messages go to which communication channels
-- **AI-Powered Spam Detection**: Intelligent filtering using machine learning
-- **dApp Integration**: Standard messaging protocol for Web3 applications
-- **Privacy Preservation**: dApps never see users' actual contact information
-- **Message Transformations**: Modify messages before delivery based on custom rules
-
-## 🛠 Architecture
-
-Clypr consists of four main components:
-
-1. **dApp Message Interface**: Standardized protocol for sending messages to user canisters
-2. **User Privacy Canister**: Personal agent that evaluates messages against rules
-3. **AI Spam Detection System**: Machine learning-based filtering for unwanted communications
-4. **Webhook Bridge Service**: Secure relay that delivers approved messages to external channels
-5. **Admin Frontend**: User interface for managing privacy rules and preferences
-
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- [DFINITY Canister SDK (dfx)](https://internetcomputer.org/docs/current/developer-docs/setup/install/) (latest version)
-- Node.js 16+
-- Yarn or npm
-- ICP tokens and cycles (for mainnet deployment only)
+- **Node.js** 16+ ([Download](https://nodejs.org/))
+- **Yarn** 1.22+ ([Install](https://classic.yarnpkg.com/en/docs/install/))
+- **DFINITY Canister SDK (dfx)** ([Install](https://internetcomputer.org/docs/current/developer-docs/setup/install/))
 
-### Local Development & Testing
+### Installation & Local Development
 
-1. Clone the repository
+1. **Clone the repository**
 ```bash
 git clone https://github.com/abdushakurob/clypr.git
 cd clypr
 ```
 
-2. Install frontend dependencies
+2. **Install dependencies**
 ```bash
 cd src/frontend
 yarn install
 ```
 
-3. Run the frontend in development mode
+3. **Start local development**
 ```bash
+   # Terminal 1: Start the frontend
 yarn dev
-```
-
-### Deploying to Internet Computer
-
-#### Local Deployment
-
-For testing on a local IC replica:
-
-```bash
+   
+   # Terminal 2: Deploy to local IC replica
 ./deploy-ic.sh
 ```
 
-This script will:
-- Build the frontend with IC-specific configuration
-- Start a local IC replica
-- Create necessary canisters
-- Deploy the frontend canister
-- Display the local URL to access your app
+4. **Access the application**
+   - Frontend: http://localhost:5173
+   - Local IC: http://localhost:4943
 
-#### Production Deployment (IC Mainnet)
+### Production Deployment
 
-To deploy to the Internet Computer mainnet:
+Deploy to Internet Computer mainnet:
 
-1. Set up your identity and cycle wallet:
 ```bash
+# Set up production identity
 dfx identity new production
 dfx identity use production
-dfx wallet --network ic balance  # Check your cycle balance
-```
+dfx wallet --network ic balance
 
-2. Deploy to mainnet (requires cycles):
-```bash
+# Deploy to mainnet
 ./deploy-ic-mainnet.sh
 ```
 
-After deployment, your app will be accessible at `https://<canister-id>.icp0.io/`
+Your app will be accessible at: `https://<canister-id>.icp0.io/`
 
-<!-- ## 📚 Documentation
+## ✨ Key Features
+
+### 🔐 **Personal Privacy Agent**
+- Each user gets a dedicated canister as their privacy gateway
+- Complete isolation of user data with privacy-by-design architecture
+- No shared state between users
+
+### ⚙️ **Programmable Rules Engine**
+- Create custom filtering rules with multiple conditions
+- Support for sender verification, content analysis, and priority levels
+- Real-time rule evaluation and message processing
+
+### 📱 **Multi-Channel Management**
+- Configure multiple communication channels (email, SMS, webhooks)
+- Channel-specific routing based on message priority and type
+- Secure webhook integration for external services
+
+### 🤖 **AI-Powered Spam Detection**
+- Machine learning-based content classification
+- Adaptive filtering that learns from user preferences
+- Sophisticated spam pattern recognition
+
+### 🛡️ **Privacy Preservation**
+- dApps never see users' actual contact information
+- End-to-end encrypted message processing
+- Zero-knowledge proof of message delivery
+
+## 🏗️ Architecture
+
+### Core Components
+
+1. **Frontend Application** (React + TypeScript)
+   - Modern, responsive UI with mobile-first design
+   - Real-time dashboard with message analytics
+   - Intuitive rule and channel management interface
+
+2. **Backend Canisters** (Motoko)
+   - User privacy agent with isolated data storage
+   - Rule engine for message evaluation
+   - Message processor with webhook integration
+
+3. **Webhook Bridge Service**
+   - Secure relay for external channel delivery
+   - Rate limiting and error handling
+   - Multi-channel support (email, SMS, custom webhooks)
+
+4. **AI Spam Detection System**
+   - Content classification and filtering
+   - Adaptive learning from user feedback
+   - Real-time threat detection
+
+## 📊 Screenshots
+
+### Dashboard
+![Dashboard](src/frontend/src/assets/dashboard.png)
+
+### Rules Management
+![Rules Page](src/frontend/src/assets/Clypr%20Rules%20Page.png)
+
+### Channel Configuration
+![Channels Page](src/frontend/src/assets/Clypr%20Channels%20Page.png)
+
+### Message History
+![Messages Page](src/frontend/src/assets/Clypr%20Messages%20page.png)
+
+## 🎯 Use Cases
+
+### For Individual Users
+- **Selective Notifications**: Only receive messages from trusted sources
+- **Communication Consolidation**: Manage all Web3 communications in one place
+- **Intelligent Spam Protection**: AI-powered filtering for unwanted messages
+- **Channel-Specific Routing**: Send urgent messages to SMS, regular updates to email
+
+### For dApp Developers
+- **Privacy-First Integration**: Build user-friendly apps without privacy concerns
+- **Standardized Messaging**: Use consistent API for all user communications
+- **Reduced Infrastructure**: No need to manage email/SMS delivery systems
+- **Enhanced User Experience**: Better engagement through filtered, relevant messages
+
+### For Enterprises
+- **Compliance**: Meet privacy regulations with built-in data protection
+- **Scalability**: Handle millions of users with decentralized architecture
+- **Cost Efficiency**: Reduce infrastructure costs with shared privacy layer
+- **Security**: Enterprise-grade security with blockchain-level immutability
+
+## 🛠️ Technical Stack
+
+- **Frontend**: React 18, TypeScript, Vite, Styled Components
+- **Backend**: Motoko canisters on Internet Computer Protocol
+- **Authentication**: Internet Identity integration
+- **Deployment**: DFX with local and mainnet support
+- **Build System**: Vite with custom IC configuration
+- **Package Manager**: Yarn
+
+## 📚 Documentation
 
 - [Product Requirements Document](docs/PRD.md)
 - [Technical Architecture](docs/ARCHITECTURE.md)
-- [Backend Architecture](docs/BACKEND_ARCHITECTURE.md)
-- [AI Spam Detection System](docs/AI_SPAM_DETECTION.md)
 - [API Reference](docs/API.md)
 - [User Guide](docs/USER_GUIDE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Contributing Guide](docs/CONTRIBUTING.md)
-- [Internet Computer Deployment Guide](docs/IC_DEPLOYMENT.md) -->
-
-## 💡 Use Cases
-
-- **Selective Notifications**: Only receive messages from trusted sources or high-priority alerts
-- **Communication Consolidation**: Manage all Web3 communications in one place
-- **Intelligent Spam Protection**: AI-powered filtering for sophisticated unwanted communications
-- **Channel-Specific Routing**: Send urgent messages to SMS, regular updates to email
-- **Privacy Protection**: Interact with dApps without exposing personal contact details
-- **Adaptive Learning**: System improves filtering based on your preferences over time
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. See our [Contributing Guide](docs/CONTRIBUTING.md) for more details.
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details on:
+
+- Code of Conduct
+- Development Setup
+- Pull Request Process
+- Issue Reporting
 
 ## 📄 License
 
@@ -159,31 +200,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- [GitHub](https://github.com/abdushakurob/clypr)
+- [GitHub Repository](https://github.com/abdushakurob/clypr)
 - [Internet Computer](https://internetcomputer.org/)
+- [DFINITY Foundation](https://dfinity.org/)
 
-## 🧩 Project Structure
+## 🙏 Acknowledgments
 
-```
-clypr/
-├── dfx.json              # Internet Computer canister configuration
-├── deploy-ic.sh          # Local IC deployment script
-├── deploy-ic-mainnet.sh  # Mainnet IC deployment script
-├── src/
-│   ├── frontend/         # React/TypeScript frontend application
-│   │   ├── src/          # Application source code
-│   │   ├── public/       # Static assets
-│   │   └── vite.config.* # Vite configuration files
-│   └── backend/          # Motoko backend canister
-├── docs/                 # Project documentation
-└── README.md             # This file
-```
+- Built on the Internet Computer Protocol
+- Powered by DFINITY's Motoko language
+- Inspired by the need for privacy in Web3 communications
 
-## ⚙️ Technical Details
+---
 
-- **Frontend**: React 18+, TypeScript, Vite
-- **Backend**: Motoko canisters on Internet Computer
-- **Deployment**: Internet Computer Protocol (local and mainnet)
-- **Build System**: Vite with custom IC configuration
-- **Authentication**: Internet Identity (planned)
+**Clypr** - Empowering Web3 users with programmable privacy control.
 
