@@ -97,6 +97,3 @@ credentials.json
 # User-specific content
 .user
 user.config.json
-
-.github/
-.vscode/
