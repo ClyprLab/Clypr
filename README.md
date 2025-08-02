@@ -33,13 +33,28 @@ dApp → User's Privacy Canister → Privacy Rules Evaluation → Webhook Bridge
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Production Application
 
-- **Node.js** 16+ ([Download](https://nodejs.org/))
-- **Yarn** 1.22+ ([Install](https://classic.yarnpkg.com/en/docs/install/))
-- **DFINITY Canister SDK (dfx)** ([Install](https://internetcomputer.org/docs/current/developer-docs/setup/install/))
+The Clypr application is fully deployed on the Internet Computer. You can access it directly at:
 
-### Installation & Local Development
+```
+https://u6s2n-gx777-77774-qaaba-cai.icp0.io/
+```
+
+No installation needed! Just visit the URL and start using Clypr.
+
+### For Developers
+
+If you want to contribute or run the application locally, follow these steps:
+
+#### Prerequisites
+
+- **DFINITY Canister SDK (dfx)** - [Quick Install](https://internetcomputer.org/docs/current/developer-docs/setup/install/):
+  ```bash
+  sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+  ```
+
+#### Local Development Setup
 
 1. **Clone the repository**
 ```bash
@@ -47,36 +62,36 @@ git clone https://github.com/abdushakurob/clypr.git
 cd clypr
 ```
 
-2. **Install dependencies**
+2. **Start the local Internet Computer replica**
 ```bash
-cd src/frontend
-yarn install
+dfx start --background
 ```
 
-3. **Start local development**
+3. **Deploy the application locally**
 ```bash
-   # Terminal 2: Deploy to local IC replica
 ./deploy-ic.sh
 ```
 
 4. **Access the application**
-   - Local IC: http://localhost:4943
+- Local deployment will be available at: `http://localhost:4943`
+- Your canister ID will be shown in the terminal after deployment
 
-### Production Deployment
+### Deployment Process
 
-Deploy to Internet Computer mainnet:
-
+#### Local Testing
+After making changes, test them locally:
 ```bash
-# Set up production identity
-dfx identity new production
-dfx identity use production
-dfx wallet --network ic balance
+./deploy-ic.sh
+```
 
-# Deploy to mainnet
+#### Production Deployment
+Deployment to Internet Computer mainnet requires proper credentials:
+```bash
+# Deploy to mainnet (requires deployment credentials)
 ./deploy-ic-mainnet.sh
 ```
 
-Your app will be accessible at: `https://<canister-id>.icp0.io/`
+Note: Production deployment is handled by project maintainers. Contributors should focus on local development and testing.
 
 ## ✨ Key Features
 
