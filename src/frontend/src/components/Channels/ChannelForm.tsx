@@ -162,7 +162,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
     
     const finalChannelType = channelType === 'custom' 
       ? { custom: customType }
-      : channelType as 'email' | 'sms' | 'webhook' | 'push';
+      : { [channelType]: null } as { email: null } | { sms: null } | { webhook: null } | { push: null };
     
     onSubmit({
       name,

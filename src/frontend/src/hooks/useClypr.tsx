@@ -1,48 +1,40 @@
 import { useEffect, useState } from 'react';
-import { AuthClient } from '@dfinity/auth-client';
 import { Principal } from '@dfinity/principal';
 import ClyprService, { Rule, Channel, Message, Stats } from '../services/ClyprService';
+import { useAuth } from './useAuth';
 
 // Default canister ID - should be configured from environment
 const CANISTER_ID = process.env.CLYPR_CANISTER_ID || 'your-canister-id-here';
 
 export function useClypr() {
+  const { isAuthenticated, principal, authClient } = useAuth();
   const [service, setService] = useState<ClyprService | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [principal, setPrincipal] = useState<Principal | null>(null);
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize the service
+  // Initialize the service when authentication state changes
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true);
-        const authClient = await AuthClient.create();
-        const isLoggedIn = await authClient.isAuthenticated();
         
-        if (isLoggedIn) {
+        if (isAuthenticated && authClient) {
           const identity = authClient.getIdentity();
-          const userPrincipal = identity.getPrincipal();
-          
-          setPrincipal(userPrincipal);
-          setIsAuthenticated(true);
-          
-          const clyprService = new ClyprService(identity);
+          const clyprService = await ClyprService.create(identity);
           setService(clyprService);
           
           // Check if user is the canister owner
           try {
             const owner = await clyprService.getOwner();
-            const isCurrentOwner = userPrincipal.toText() === owner.toText();
+            const isCurrentOwner = principal?.toText() === owner.toText();
             
             // If there's no owner set (anonymous) or user is already owner
             if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
               // Set current user as owner
-              if (!isCurrentOwner) {
+              if (!isCurrentOwner && principal) {
                 console.log('Setting user as canister owner...');
-                await clyprService.setOwner(userPrincipal);
+                await clyprService.setOwner(principal);
               }
               setIsOwner(true);
             } else {
@@ -53,7 +45,7 @@ export function useClypr() {
           }
         } else {
           // Initialize with anonymous client
-          const clyprService = new ClyprService();
+          const clyprService = await ClyprService.create();
           setService(clyprService);
         }
         
@@ -66,37 +58,33 @@ export function useClypr() {
     };
     
     init();
-  }, []);
+  }, [isAuthenticated, authClient, principal]);
   
-  // Authentication functions
+  // Authentication state is handled by useAuth hook
   const login = async (): Promise<boolean> => {
+    if (!authClient) return false;
+
     try {
-      const authClient = await AuthClient.create();
-      
-      return new Promise<boolean>((resolve) => {
+      await new Promise<void>((resolve) => {
         authClient.login({
           identityProvider: process.env.DFX_NETWORK === 'ic' 
             ? 'https://identity.ic0.app' 
             : `http://uzt4z-lp777-77774-qaabq-cai.localhost:4943`,
           onSuccess: async () => {
             const identity = authClient.getIdentity();
-            const userPrincipal = identity.getPrincipal();
             
-            setPrincipal(userPrincipal);
-            setIsAuthenticated(true);
-            
-            const clyprService = new ClyprService(identity);
+            const clyprService = await ClyprService.create(identity);
             setService(clyprService);
             
             // Check if user is the canister owner
             try {
               const owner = await clyprService.getOwner();
-              const isCurrentOwner = userPrincipal.toText() === owner.toText();
+              const isCurrentOwner = principal?.toText() === owner.toText();
               
               // If there's no owner set (anonymous) or user is already owner
               if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
                 // Set current user as owner
-                if (!isCurrentOwner) {
+                if (!isCurrentOwner && principal) {
                   console.log('Setting user as canister owner...');
                   await clyprService.setOwner(userPrincipal);
                 }
@@ -165,9 +153,13 @@ export function useClypr() {
     actions: any[],
     priority: number
   ): Promise<number | undefined> => {
-    if (!service || !isAuthenticated) return undefined;
+    if (!service || !isAuthenticated) {
+      console.error("Cannot create rule: service or authentication missing", { service: !!service, isAuthenticated });
+      return undefined;
+    }
     
     try {
+      console.log("Creating rule with data:", { name, description, conditions, actions, priority });
       const ruleId = await service.createRule(
         name, 
         description, 
@@ -175,6 +167,8 @@ export function useClypr() {
         actions, 
         priority
       );
+      
+      console.log("Rule created with ID:", ruleId);
       
       if (ruleId !== undefined) {
         await loadRules(); // Refresh rules
@@ -383,6 +377,23 @@ export function useClypr() {
     }
   }, [isAuthenticated, isOwner, service]);
   
+  // Add ping method for testing
+  const ping = async (): Promise<string> => {
+    if (!service) {
+      console.error("Service not initialized for ping");
+      throw new Error("Service not initialized");
+    }
+    console.log("Attempting to ping backend...");
+    try {
+      const result = await service.ping();
+      console.log("Ping successful:", result);
+      return result;
+    } catch (error) {
+      console.error("Ping failed:", error);
+      throw error;
+    }
+  };
+
   return {
     // Auth
     isAuthenticated,
@@ -390,6 +401,8 @@ export function useClypr() {
     isOwner,
     login,
     logout,
+    ping,
+    service,
     
     // Rules
     rules,

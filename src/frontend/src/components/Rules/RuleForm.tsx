@@ -137,7 +137,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
     initialRule?.conditions || [{ field: 'content.title', operator: 'contains', value: '' }]
   );
   const [actions, setActions] = useState<Action[]>(
-    initialRule?.actions || [{ actionType: 'allow', parameters: [] }]
+    initialRule?.actions || [{ actionType: 'allow', channelId: undefined, parameters: [] }]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -168,7 +168,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
   };
 
   const addAction = () => {
-    setActions([...actions, { actionType: 'allow', parameters: [] }]);
+    setActions([...actions, { actionType: 'allow', channelId: undefined, parameters: [] }]);
   };
 
   const removeAction = (index: number) => {
@@ -177,7 +177,20 @@ const RuleForm: React.FC<RuleFormProps> = ({
 
   const updateAction = (index: number, field: keyof Action, value: any) => {
     const updated = [...actions];
-    updated[index] = { ...updated[index], [field]: value };
+    
+    // Special handling for actionType to ensure it's valid
+    if (field === 'actionType' && typeof value === 'string') {
+      const actionType = value as Action['actionType'];
+      updated[index] = { 
+        ...updated[index], 
+        actionType,
+        // Reset channelId when switching away from 'route' action
+        channelId: actionType === 'route' ? updated[index].channelId : undefined
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    
     setActions(updated);
   };
 
@@ -301,7 +314,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
                   <FormGroup>
                     <Select
                       value={action.actionType}
-                      onChange={(e) => updateAction(index, 'actionType', e.target.value)}
+                      onChange={(e) => updateAction(index, 'actionType', e.target.value as Action['actionType'])}
                     >
                       <option value="allow">Allow</option>
                       <option value="block">Block</option>
@@ -316,8 +329,12 @@ const RuleForm: React.FC<RuleFormProps> = ({
                       <Input
                         type="number"
                         value={action.channelId || ''}
-                        onChange={(e) => updateAction(index, 'channelId', Number(e.target.value))}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          updateAction(index, 'channelId', value);
+                        }}
                         placeholder="Channel ID"
+                        required
                       />
                     </FormGroup>
                   )}
