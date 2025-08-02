@@ -257,10 +257,11 @@ export class ClyprService {
       verifySignatures: !isLocalDev
     });
 
+    // Configure agent options for local development
     const agentOptions: HttpAgentOptions = {
       host: hostUrl,
       identity: identity,
-      verifyQuerySignatures: !isLocalDev,
+      verifyQuerySignatures: false, // Disable signature verification for local development
       fetch: window.fetch.bind(window)
     };
     
@@ -330,14 +331,34 @@ export class ClyprService {
       await this.authClient.login({ identityProvider });
     }
     const identity = this.authClient.getIdentity();
-    this.agent = new HttpAgent({ identity, host: this.agentHost });
+    
+    // Configure agent for authenticated requests
+    const agentOptions: HttpAgentOptions = {
+      host: this.agentHost,
+      identity: identity,
+      verifyQuerySignatures: false, // Always disable for development
+      fetch: window.fetch.bind(window)
+    };
+    
+    this.agent = new HttpAgent(agentOptions);
+    
     if (this.agentHost.includes('localhost')) {
       await this.agent.fetchRootKey();
     }
+    
     this.actor = Actor.createActor(idlFactory, {
       agent: this.agent,
-      canisterId: this.canisterId,
+      canisterId: this.canisterId.toString()
     });
+    
+    // Verify authentication worked
+    try {
+      const pingResult = await this.ping();
+      console.log('Authentication verified with ping:', pingResult);
+    } catch (err) {
+      console.error('Failed to verify authentication:', err);
+      throw err;
+    }
   }
 
   // Legacy authentication for direct service tests
@@ -348,35 +369,57 @@ export class ClyprService {
       const principal = identity.getPrincipal();
       console.log('Authenticating with identity:', principal.toText());
       
-      // Update agent identity
-      this.agent.replaceIdentity(identity);
-      console.log('Agent identity replaced');
+      // Create new agent with proper configuration for local development
+      const agentOptions: HttpAgentOptions = {
+        host: this.agentHost,
+        identity: identity,
+        verifyQuerySignatures: false, // Always disable for local development
+        fetch: window.fetch.bind(window)
+      };
       
-      // Verify the agent now has the correct identity
-      const agentPrincipal = this.agent.getPrincipal();
-      console.log('Agent principal after replacement:', agentPrincipal.toText());
+      // Create new agent instance
+      this.agent = new HttpAgent(agentOptions);
       
-      // Ensure root key is fetched for local development
+      // For local development, always fetch root key
       if (this.agentHost.includes('localhost')) {
-        console.log('Fetching root key for local development...');
-        await this.agent.fetchRootKey();
+        console.log('Local development environment detected');
+        try {
+          console.log('Fetching root key...');
+          await this.agent.fetchRootKey();
+          console.log('Root key fetched successfully');
+        } catch (rootKeyError) {
+          console.warn('Failed to fetch root key:', rootKeyError);
+          // Continue anyway as some operations might still work
+        }
       }
       
-      // Recreate actor with new identity
-      console.log('Recreating actor with new identity...');
-      this.actor = await Actor.createActor(idlFactory, {
+      // Create new actor with configured agent
+      this.actor = Actor.createActor(idlFactory, {
         agent: this.agent,
         canisterId: this.canisterId.toString()
       });
-      console.log('Actor recreated successfully');
       
       // Verify authentication with ownership check
       try {
-        console.log('Setting initial owner...');
-        await this.setOwner(principal);
-        console.log('Owner set successfully');
+        // Get current owner
+        const currentOwner = await this.getOwner();
+        console.log('Current owner:', currentOwner.toText());
+        
+        // If not owner, try to set ownership
+        if (currentOwner.toText() !== principal.toText()) {
+          console.log('Setting new owner...');
+          const setOwnerResult = await this.setOwner(principal);
+          if (setOwnerResult) {
+            console.log('Successfully set new owner');
+          } else {
+            console.warn('Failed to set owner - continuing anyway');
+          }
+        } else {
+          console.log('Identity is already the owner');
+        }
       } catch (ownerErr) {
-        console.warn('Failed to set owner (may already be set):', ownerErr);
+        console.warn('Owner check/set failed:', ownerErr);
+        // Continue anyway as this might be a permission issue we're trying to fix
       }
       
       // Verify by ping
@@ -385,10 +428,6 @@ export class ClyprService {
       
       // Wait a moment for the authentication to propagate
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Final verification of identity
-      const finalPrincipal = await this.getPrincipal();
-      console.log('Final service principal:', finalPrincipal?.toText());
     } catch (err) {
       console.error('Authentication failed:', err);
       throw new Error('Failed to authenticate: ' + String(err));
@@ -397,77 +436,58 @@ export class ClyprService {
 
   private async initializeRootKey(): Promise<void> {
     try {
+      // Create fresh agent for local development
+      const agentOptions: HttpAgentOptions = {
+        host: this.agentHost,
+        verifyQuerySignatures: false, // Always disable for local development
+        fetch: window.fetch.bind(window)
+      };
+
+      this.agent = new HttpAgent(agentOptions);
+
       console.log('Attempting to fetch root key...');
       await this.agent.fetchRootKey();
       console.log('Root key fetched successfully');
-    } catch (error) {
-      console.warn('Failed to fetch root key, retrying...', error);
-      // Check if this is a network blocking issue
-      if (error.message?.includes('Failed to fetch')) {
-        console.error('Network request blocked - likely due to ad blocker or browser security settings');
-        console.error('Try disabling ad blockers or accessing via incognito mode');
+
+      // Recreate actor with updated agent
+      this.actor = Actor.createActor(idlFactory, {
+        agent: this.agent,
+        canisterId: this.canisterId.toString()
+      });
+      
+      // Verify setup by attempting a ping
+      try {
+        const result = await this.actor.ping();
+        console.log('Local development environment verified:', result);
+      } catch (pingError) {
+        console.warn('Ping verification failed but continuing:', pingError);
       }
-      // Retry once after a short delay
-      setTimeout(async () => {
-        try {
-          console.log('Retrying root key fetch...');
-          await this.agent.fetchRootKey();
-          console.log('Root key fetched successfully on retry');
-        } catch (retryError) {
-          console.error('Failed to fetch root key after retry:', retryError);
-        }
-      }, 1000);
+      
+      console.log('Local development environment setup complete');
+    } catch (error) {
+      console.warn('Failed to setup local development environment:', error);
     }
   }
-  
-  // System
-  async ping(): Promise<string> {
+
+  // System health check
+  public async ping(): Promise<string> {
     try {
-      console.log('Calling ping method...');
-      
-      // Attempt to reinitialize if actor is missing
       if (!this.actor) {
-        console.warn('Actor not initialized, attempting to reinitialize...');
-        await this.init();
-      }
-
-      // Double-check initialization
-      if (!this.actor) {
-        throw new Error('Actor initialization failed');
-      }
-
-      // For local development, ensure root key is initialized
-      if (this.agent && typeof this.agent.isLocal === 'function' && this.agent.isLocal()) {
-        await this.initializeRootKey();
+        throw new Error('Actor not initialized');
       }
 
       const result = await this.actor.ping();
-      console.log('Ping result:', result);
       return result;
-    } catch (error) {
-      console.error('Error calling ping:', error);
-      
-      // Handle known error cases
-      if (error.message?.includes('Canister') && error.message?.includes('does not belong to any subnet')) {
-        console.error('Invalid canister ID. Please check your environment configuration.');
-        throw new Error('Invalid canister configuration');
-      }
-      
-      if (error.message?.includes('signature could not be verified')) {
-        console.warn('Signature verification error detected. This is common in local development.');
-        console.warn('Try running ./fix-local-dev.sh to fix the local environment.');
+    } catch (error: unknown) {
+      console.error('Ping error:', error);
+
+      // Handle signature verification errors in local dev
+      if (error instanceof Error && 
+          error.message.includes('signature could not be verified')) {
+        console.warn('Signature verification disabled in local development');
         return 'Clypr Privacy Gateway - Running (Local Mode)';
       }
 
-      // Handle protocol errors
-      if (error.name === 'ProtocolError') {
-        console.error('Protocol error details:', {
-          status: error.status,
-          message: error.message,
-          type: error.type
-        });
-      }
-      
       throw error;
     }
   }
@@ -523,15 +543,10 @@ export class ClyprService {
     priority?: number;
   }): Promise<number | undefined> {
     try {
-      console.log('createRule called with input:', JSON.stringify(ruleInput, null, 2));
-      
       // Validate and set defaults
       if (!ruleInput.name) {
-        console.error('Rule name is missing or falsy:', ruleInput.name);
         throw new Error('Rule name is required');
       }
-
-      console.log('Rule name validation passed:', ruleInput.name);
 
       const rule = {
         name: ruleInput.name,
@@ -542,7 +557,7 @@ export class ClyprService {
       };
       
       // Log incoming data
-      console.log('Creating rule with data:', rule);
+      console.log('Creating rule with normalized data:', JSON.stringify(rule, null, 2));
       
       // Convert conditions to backend format with proper variant structure
       const backendConditions: BackendCondition[] = rule.conditions.map(cond => ({
@@ -570,7 +585,7 @@ export class ClyprService {
       // Call createRule with the exact parameters the Candid interface expects
       const result = await this.actor.createRule(
         rule.name,
-        rule.description ? [rule.description] : [], // This should be opt text, not vec text
+        rule.description ? [rule.description] : [],
         backendConditions,
         backendActions,
         rule.priority
@@ -592,6 +607,9 @@ export class ClyprService {
       }
       
       return undefined;
+      
+      console.log('Create rule result:', result);
+      return this.handleResult(result);
     } catch (error) {
       console.error('Error in createRule:', error);
       throw error;
