@@ -48,11 +48,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # editor directories and files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
+.vscode/
+.github/
 .idea
 .DS_Store
 *.suo
