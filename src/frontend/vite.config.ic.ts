@@ -49,11 +49,11 @@ export default defineConfig({
     assetsDir: 'assets',
     // Add source map support for debugging
     sourcemap: true,
-    // Configure custom define values
-    define: {
-      global: 'globalThis', // Important for some libraries
-      'process.env': {}
-    }
+  },
+  // Configure custom define values
+  define: {
+    global: 'globalThis', // Important for some libraries
+    'process.env': {}
   },
   optimizeDeps: {
     esbuildOptions: {

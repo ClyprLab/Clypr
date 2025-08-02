@@ -108,7 +108,7 @@ build_frontend() {
     
     # Build with IC configuration
     print_status "Building with production configuration..."
-    yarn vite build --config vite.config.ic.ts
+    yarn vite build --config vite.config.js
     
     cd ../..
     print_success "Frontend build completed"
@@ -141,8 +141,17 @@ confirm_deployment() {
 deploy_to_mainnet() {
     print_status "Deploying to Internet Computer mainnet..."
     
-    # Deploy all canisters
-    dfx deploy --network ic
+    # Deploy backend first
+    print_status "Deploying backend canister..."
+    dfx deploy --network ic backend
+    print_success "Backend deployment completed"
+    
+    # Wait a moment for backend to stabilize
+    sleep 10
+    
+    # Deploy frontend with increased timeout
+    print_status "Deploying frontend canister..."
+    DFX_HTTP_TIMEOUT=1800000 dfx deploy --network ic frontend
     
     print_success "Mainnet deployment completed"
 }
