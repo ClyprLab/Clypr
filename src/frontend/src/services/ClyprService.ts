@@ -270,9 +270,8 @@ export class ClyprService {
     this.agent = new HttpAgent(agentOptions);
 
     // Get canister IDs from environment, canister-ids.js, or use the local development IDs
-    const backendCanisterId = process.env.NEXT_PUBLIC_BACKEND_CANISTER_ID || 
-      (typeof window !== 'undefined' && window.canisterIds?.backend) || 
-      '5elod-ciaaa-aaaag-aufgq-cai';
+    const backendCanisterId =  process.env.PUBLIC_BACKEND_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
+    
     this.canisterId = backendCanisterId;
     console.log('Using backend canister ID:', backendCanisterId);
 
