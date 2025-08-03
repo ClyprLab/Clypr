@@ -3,13 +3,6 @@ import { Principal } from '@dfinity/principal';
 import { AuthClient } from '@dfinity/auth-client';
 import { idlFactory } from './clypr.did.js';
 
-// Environment configuration
-const isProduction = window.location.hostname.endsWith('icp0.io');
-const isLocalDev = window.location.hostname.endsWith('.localhost') ||
-                  window.location.hostname === 'localhost' ||
-                  window.location.hostname === '127.0.0.1';
-const host = isProduction ? 'https://icp0.io' : 'http://localhost:4943';
-
 // Types that match the Motoko backend
 // Type definitions for the frontend
 export interface Rule {
@@ -226,43 +219,9 @@ export class ClyprService {
     // Private constructor, use create() instead
   }
 
-  private async refreshAgent(identity?: Identity) {
-    const agentOptions: HttpAgentOptions = {
-      host: this.agentHost,
-      identity: identity || (this.authClient ? this.authClient.getIdentity() : undefined),
-      verifyQuerySignatures: !this.agentHost.includes('localhost'), // Enable verification for production
-      fetch: window.fetch.bind(window)
-    };
-
-    this.agent = new HttpAgent(agentOptions);
-
-    // Fetch root key only in local development
-    if (this.agentHost.includes('localhost')) {
-      await this.agent.fetchRootKey().catch(err => {
-        console.warn('Failed to fetch root key:', err);
-      });
-    }
-
-    this.actor = Actor.createActor(idlFactory, {
-      agent: this.agent,
-      canisterId: this.canisterId.toString()
-    });
-  }
-
   private async init(identityOrHostUrl?: Identity | string) {
     if (typeof window === 'undefined') {
       throw new Error('ClyprService requires a browser environment');
-    }
-    
-    // Initialize auth client first
-    try {
-      const { AuthClient } = await import('@dfinity/auth-client');
-      this.authClient = await AuthClient.create({
-        idleOptions: { disableIdle: true }
-      });
-    } catch (err) {
-      console.error('Failed to initialize auth client:', err);
-      throw new Error('Authentication initialization failed');
     }
     
     // Determine the host URL based on the current environment
@@ -274,16 +233,14 @@ export class ClyprService {
     let hostUrl: string;
     let identity: Identity | undefined;
     
-    // Extract host and identity from the input or use auth client identity
+    // Extract host and identity from the input
     if (typeof identityOrHostUrl === 'string') {
       hostUrl = identityOrHostUrl;
-      identity = this.authClient.getIdentity();
     } else if (identityOrHostUrl) {
       identity = identityOrHostUrl;
       hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
     } else {
       hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
-      identity = this.authClient.getIdentity();
     }
     
     this.agentHost = hostUrl;
@@ -298,60 +255,25 @@ export class ClyprService {
       currentHost,
       currentPort,
       isLocalDev,
-      verifySignatures: !isLocalDev,
-      hasIdentity: !!identity
+      verifySignatures: !isLocalDev
     });
 
-    // Configure agent options with production signature verification
+    // Configure agent options
     const agentOptions: HttpAgentOptions = {
       host: hostUrl,
       identity: identity,
-      verifyQuerySignatures: !isLocalDev, // Enable verification for production
+      verifyQuerySignatures: !isLocalDev, // Only disable signature verification for local development
       fetch: window.fetch.bind(window)
     };
     
     // Create agent
     this.agent = new HttpAgent(agentOptions);
-    
-    // Fetch root key only in local development
-    if (this.agentHost.includes('localhost')) {
-      try {
-        console.log('Local development environment detected, fetching root key...');
-        await this.agent.fetchRootKey();
-        console.log('Root key fetched successfully');
-      } catch (err) {
-        console.warn('Failed to fetch root key:', err);
-        // Continue anyway as this might be a network error
-      }
-    } else {
-      console.log('Production environment detected, using IC root key');
-    }
-    
-    // Check if user is already authenticated
-    if (this.authClient && await this.authClient.isAuthenticated()) {
-      const identity = this.authClient.getIdentity();
-      agentOptions.identity = identity;
-    }
 
-    // Create agent with proper identity if authenticated
-    this.agent = new HttpAgent(agentOptions);
-
-    // Determine backend canister ID using local dev flag
-    let backendCanisterId: string;
-    if (isLocalDev) {
-      // In local development, use the injected canister-ids.js
-      backendCanisterId = (window as any).canisterIds?.backend;
-    } else {
-      // In production, prefer Vite env var or injected canister IDs
-      backendCanisterId = (window as any).canisterIds?.backend;
-    }
-    
-    if (!backendCanisterId) {
-      throw new Error('Backend canister ID not found');
-    }
+    // Get canister IDs from environment, canister-ids.js, or use the local development IDs
+    const backendCanisterId =  process.env.PUBLIC_BACKEND_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
     
     this.canisterId = backendCanisterId;
-    console.log('Using backend canister ID:', backendCanisterId);
+    console.log('Using bdackend canister ID:', backendCanisterId);
 
     // For local development, fetch the root key first
     if (isLocalDev) {
@@ -396,81 +318,48 @@ export class ClyprService {
   /** Authenticate using Internet Identity */
   async loginViaInternetIdentity(): Promise<void> {
     const { AuthClient } = await import('@dfinity/auth-client');
+    this.authClient = await AuthClient.create();
+    if (!(await this.authClient.isAuthenticated())) {
+      // Determine the Identity Provider URL
+      let identityProvider: string;
+      // For local development, use the local II canister subdomain URL
+      if (this.agentHost.includes('localhost') || this.agentHost.includes('127.0.0.1')) {
+        const iidCanister = (window as any).canisterIds?.internet_identity;
+        identityProvider = `http://${iidCanister}.localhost:4943`;
+      } else {
+        // Production Identity Provider
+        identityProvider = 'https://identity.ic0.app';
+      }
+      await this.authClient.login({ identityProvider });
+    }
+    const identity = this.authClient.getIdentity();
     
+    // Configure agent for authenticated requests
+    const agentOptions: HttpAgentOptions = {
+      host: this.agentHost,
+      identity: identity,
+      verifyQuerySignatures: false, // Always disable for development
+      fetch: window.fetch.bind(window)
+    };
+    
+    this.agent = new HttpAgent(agentOptions);
+    
+    if (this.agentHost.includes('localhost')) {
+      await this.agent.fetchRootKey();
+    }
+    
+    this.actor = Actor.createActor(idlFactory, {
+      agent: this.agent,
+      canisterId: this.canisterId.toString()
+    });
+    
+    // Verify authentication worked
     try {
-      // Create auth client with proper configuration
-      this.authClient = await AuthClient.create({
-        idleOptions: {
-          disableIdle: true // Prevent automatic logout
-        }
-      });
-
-      // Determine the Identity Provider URL based on environment
-      const identityProvider = isProduction
-        ? 'https://identity.ic0.app'
-        : `http://${(window as any).canisterIds?.internet_identity}.localhost:4943`;
-
-      // Configure login options
-      const loginOptions = {
-        identityProvider,
-        maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days in nanoseconds
-        derivationOrigin: isProduction ? 'https://5nif7-uaaaa-aaaag-aufha-cai.icp0.io' : undefined,
-      };
-
-      // Perform login
-      await this.authClient.login(loginOptions);
-      
-      if (!await this.authClient.isAuthenticated()) {
-        throw new Error('Login failed - user not authenticated');
-      }
-
-      // Get identity
-      const identity = this.authClient.getIdentity();
-      const principal = identity.getPrincipal();
-      console.log('Authenticated with identity:', principal.toText());
-
-      // Reinitialize agent with authenticated identity and environment-aware configuration
-      this.agent = new HttpAgent({
-        host: this.agentHost,
-        identity: identity,
-        verifyQuerySignatures: !this.agentHost.includes('localhost'),
-      });
-
-      // Fetch root key if in local development
-      if (this.agentHost.includes('localhost')) {
-        await this.agent.fetchRootKey();
-      }
-
-      // Create new actor with authenticated agent
-      this.actor = Actor.createActor(idlFactory, {
-        agent: this.agent,
-        canisterId: this.canisterId.toString()
-      });
-
-      // Verify authentication with a ping
       const pingResult = await this.ping();
       console.log('Authentication verified with ping:', pingResult);
-
-      // Check/set owner
-      try {
-        const owner = await this.getOwner();
-        console.log('Current owner:', owner.toText());
-
-        if (owner.toText() !== principal.toText()) {
-          console.log('Setting new owner...');
-          const setOwnerResult = await this.setOwner(principal);
-          console.log('Set owner result:', setOwnerResult);
-        } else {
-          console.log('Identity is already the owner');
-        }
-      } catch (ownerErr) {
-        console.warn('Owner verification failed:', ownerErr);
-        // Don't throw, as this might be a permission issue we need to fix
-      }
-
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw new Error('Failed to complete login: ' + String(error));
+    } catch (err) {
+      console.error('Failed to verify authentication:', err);
+      throw err;
     }
   }
 
@@ -482,11 +371,11 @@ export class ClyprService {
       const principal = identity.getPrincipal();
       console.log('Authenticating with identity:', principal.toText());
       
-      // Create new agent with environment-aware configuration
+      // Create new agent with proper configuration for local development
       const agentOptions: HttpAgentOptions = {
         host: this.agentHost,
         identity: identity,
-        verifyQuerySignatures: !this.agentHost.includes('localhost'),
+        verifyQuerySignatures: false, // Always disable for local development
         fetch: window.fetch.bind(window)
       };
       
@@ -549,10 +438,10 @@ export class ClyprService {
 
   private async initializeRootKey(): Promise<void> {
     try {
-      // Create agent with environment-aware configuration
+      // Create fresh agent for local development
       const agentOptions: HttpAgentOptions = {
         host: this.agentHost,
-        verifyQuerySignatures: !this.agentHost.includes('localhost'), // Enable verification for production
+        verifyQuerySignatures: false, // Always disable for local development
         fetch: window.fetch.bind(window)
       };
 
@@ -656,32 +545,9 @@ export class ClyprService {
     priority?: number;
   }): Promise<number | undefined> {
     try {
-      // Check authentication and actor state
-      if (!this.actor) {
-        throw new Error('Not initialized. Please authenticate first.');
-      }
-      
-      if (!this.authClient || !(await this.authClient.isAuthenticated())) {
-        throw new Error('Not authenticated. Please log in first.');
-      }
-
       // Validate and set defaults
       if (!ruleInput.name) {
         throw new Error('Rule name is required');
-      }
-      
-      // Ensure we have the latest identity
-      const identity = this.authClient.getIdentity();
-      this.agent = new HttpAgent({
-        host: this.agentHost,
-        identity,
-      });
-      
-      // Fetch root key in local development
-      if (!isProduction) {
-        await this.agent.fetchRootKey().catch(err => {
-          console.warn('Failed to fetch root key:', err);
-        });
       }
 
       const rule = {
@@ -761,37 +627,33 @@ export class ClyprService {
     try {
       console.log('Calling getAllRules method...');
       
-      // First check for authentication
-      if (!this.authClient) {
-        throw new Error('Auth client not initialized. Please log in first.');
-      }
-
-      if (!await this.authClient.isAuthenticated()) {
-        throw new Error('Not authenticated. Please log in first.');
-      }
-
-      // Get identity and verify actor initialization
-      const identity = this.authClient.getIdentity();
-      if (!identity) {
-        throw new Error('No identity found. Please log in first.');
-      }
-
-      // Ensure actor is initialized with current identity
+      // Verify we have an authenticated actor
       if (!this.actor) {
-        console.log('Actor not initialized, creating new actor...');
-        await this.refreshAgent(identity);
-      } else {
-        // Verify actor's identity matches current identity
-        const agentPrincipal = await this.agent.getPrincipal();
-        const currentPrincipal = identity.getPrincipal();
-        
-        if (agentPrincipal.toText() !== currentPrincipal.toText()) {
-          console.log('Actor identity mismatch, refreshing agent...');
-          await this.refreshAgent(identity);
-        }
+        throw new Error('Actor not initialized');
       }
-
-      // Attempt the actual operation
+      
+      // Check ownership first
+      try {
+        const owner = await this.getOwner();
+        console.log('Current owner:', owner.toText());
+        
+        const currentIdentity = await this.agent.getPrincipal();
+        console.log('Current identity:', currentIdentity.toText());
+        
+        // If not owner, try to set ownership
+        if (owner.toText() !== currentIdentity.toText()) {
+          console.log('Current identity is not owner, attempting to set ownership...');
+          try {
+            await this.setOwner(currentIdentity);
+            console.log('Successfully set new owner');
+          } catch (setOwnerErr) {
+            console.warn('Failed to set owner (may already be set):', setOwnerErr);
+          }
+        }
+      } catch (ownerErr) {
+        console.warn('Failed to check/set ownership:', ownerErr);
+      }
+      
       const result = await this.actor.getAllRules();
       console.log('getAllRules result:', result);
       
@@ -946,7 +808,6 @@ export class ClyprService {
     if ('ok' in result) {
       return result.ok;
     }
-    
     if ('err' in result) {
       console.error('Error from canister:', result.err);
       console.error('Full error details:', JSON.stringify(result.err, null, 2));
@@ -954,36 +815,16 @@ export class ClyprService {
       // Handle specific error types
       if (result.err && typeof result.err === 'object') {
         if ('NotAuthorized' in result.err) {
-          // Authentication error - try to refresh agent and retry
-          if (this.authClient) {
-            this.refreshAgent(this.authClient.getIdentity())
-              .then(() => {
-                console.log('Refreshed agent after authorization error');
-              })
-              .catch(err => {
-                console.error('Failed to refresh agent:', err);
-              });
-          }
-          throw new Error('Not authorized. Please verify you are logged in and set as the canister owner.');
+          console.error('AUTHORIZATION ERROR: User not authorized for this operation. Make sure you are logged in and set as the canister owner.');
         } else if ('NotFound' in result.err) {
-          throw new Error('The requested resource was not found.');
+          console.error('NOT FOUND ERROR: The requested resource was not found.');
         } else if ('ValidationError' in result.err) {
-          throw new Error(`Validation error: ${result.err.ValidationError}`);
+          console.error('VALIDATION ERROR:', result.err.ValidationError);
         }
       }
-      
-      // Generic error case
-      throw new Error(`Operation failed: ${JSON.stringify(result.err)}`);
     }
-    
     return undefined;
   }
 }
 
-const serviceInstance = {
-  async create(identityOrHostUrl?: Identity | string): Promise<ClyprService> {
-    return ClyprService.create(identityOrHostUrl);
-  }
-};
-
-export default serviceInstance;
+export default ClyprService;
