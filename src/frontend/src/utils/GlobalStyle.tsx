@@ -6,16 +6,24 @@ const GlobalStyle = createGlobalStyle`
     --font-sans: 'Inter', sans-serif;
     
     --color-background: #FFFFFF;
-    --color-text: #000000;
-    --color-text-secondary: #555555;
-    --color-border: #E0E0E0;
-    --color-hover: #F5F5F5;
-    --color-focus: #EEEEEE;
-    --color-active: #000000;
+    --color-text: #1A1A1A;
+    --color-text-secondary: #666666;
+    --color-text-light: #888888;
+    --color-border: #E5E5E5;
+    --color-hover: #F8F9FA;
+    --color-focus: #F1F3F4;
+    --color-active: #1A1A1A;
+    --color-card-bg: #FFFFFF;
+    --color-bg: #FFFFFF;
+    --color-bg-secondary: #F8F9FA;
+    --color-accent: #1A1A1A;
+    --color-error: #DC3545;
+    --color-disabled: #F5F5F5;
+    --color-focus-border: #1A1A1A;
     
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
     
     --radius-sm: 4px;
     --radius-md: 6px;

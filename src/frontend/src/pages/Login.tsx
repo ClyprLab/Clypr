@@ -65,7 +65,7 @@ const Login = () => {
   
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/app');
+      navigate('/app/dashboard');
     }
   }, [isAuthenticated, navigate]);
   
@@ -80,7 +80,7 @@ const Login = () => {
           <LogoIcon>C</LogoIcon>
           <LogoText>clypr</LogoText>
         </Logo>
-        <Tagline>Privacy-first communication relay on the Internet Computer</Tagline>
+        <Tagline>Control your communications with intelligent privacy rules</Tagline>
         
         <Button fullWidth onClick={handleLogin}>
           Login with Local Internet Identity

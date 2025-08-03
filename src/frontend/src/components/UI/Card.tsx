@@ -22,11 +22,11 @@ const getPaddingValue = (padding: CardProps['padding']) => {
 
 const getElevationStyle = (elevation: CardProps['elevation']) => {
   switch (elevation) {
-    case 'flat': return '0px 0px 0px 0px rgba(0, 0, 0, 0)';
-    case 'low': return '0px 1px 2px rgba(0, 0, 0, 0.05)';
-    case 'medium': return '0px 2px 4px rgba(0, 0, 0, 0.1)';
-    case 'high': return '0px 4px 8px rgba(0, 0, 0, 0.12)';
-    default: return '0px 1px 2px rgba(0, 0, 0, 0.05)';
+    case 'flat': return 'none';
+    case 'low': return 'var(--shadow-sm)';
+    case 'medium': return 'var(--shadow-md)';
+    case 'high': return 'var(--shadow-lg)';
+    default: return 'var(--shadow-sm)';
   }
 };
 
@@ -38,6 +38,12 @@ const CardContainer = styled.div<{ elevation: NonNullable<CardProps['elevation']
   border-radius: var(--radius-md);
   box-shadow: ${props => getElevationStyle(props.elevation)};
   overflow: hidden;
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+  
+  &:hover {
+    box-shadow: ${props => props.elevation === 'flat' ? 'var(--shadow-sm)' : 'var(--shadow-md)'};
+    transform: ${props => props.elevation === 'flat' ? 'none' : 'translateY(-2px)'};
+  }
 `;
 
 const CardHeader = styled.div<{ hasPadding: boolean }>`

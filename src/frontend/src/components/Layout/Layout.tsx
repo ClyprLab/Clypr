@@ -37,29 +37,36 @@ const Layout = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // Detect mobile width
   const isMobile = window.innerWidth <= 768;
 
+  // Redirect to login when unauthenticated
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
     }
-    
-    // On mobile, sidebar should be collapsed by default
-    if (isMobile && !sidebarCollapsed) {
-      setSidebarCollapsed(true);
-    }
-    
-    // Add resize event listener to handle mobile view
+  }, [isAuthenticated, navigate]);
+
+  // Collapse sidebar on initial load and on window resize for mobile
+  useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768;
-      if (mobile && !sidebarCollapsed) {
+      if (window.innerWidth <= 768) {
         setSidebarCollapsed(true);
       }
     };
-    
+    // Initial collapse on mount
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [isAuthenticated, navigate, sidebarCollapsed]);
+  }, []);
+
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+      document.body.style.overflow = '';
+    }
+  }, [location.pathname]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);

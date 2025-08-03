@@ -19,13 +19,18 @@ const getVariantStyles = (variant: ButtonVariant) => {
         background-color: var(--color-text);
         color: var(--color-background);
         border: none;
+        box-shadow: var(--shadow-sm);
         
         &:hover:not(:disabled) {
           background-color: #333;
+          box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
         }
         
         &:active:not(:disabled) {
           background-color: #111;
+          transform: translateY(0);
+          box-shadow: var(--shadow-sm);
         }
       `;
     case 'secondary':
@@ -33,13 +38,18 @@ const getVariantStyles = (variant: ButtonVariant) => {
         background-color: var(--color-background);
         color: var(--color-text);
         border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-sm);
         
         &:hover:not(:disabled) {
           background-color: var(--color-hover);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
         }
         
         &:active:not(:disabled) {
           background-color: var(--color-focus);
+          transform: translateY(0);
+          box-shadow: var(--shadow-sm);
         }
       `;
     case 'ghost':
