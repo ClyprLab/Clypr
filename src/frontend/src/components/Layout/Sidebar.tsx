@@ -25,11 +25,13 @@ const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
     top: 0;
     left: 0;
     bottom: 0;
-    width: 240px;
+    width: 280px;
     transform: translateX(${props => props.$collapsed ? '-100%' : '0'});
     box-shadow: ${props => props.$collapsed ? 'none' : 'var(--shadow-lg)'};
-    will-change: transform; /* Optimizes animation performance */
+    will-change: transform;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.95);
   }
 `;
 
@@ -85,12 +87,14 @@ const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
   padding: ${(props) => props.$collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
   text-decoration: none;
   color: var(--color-text-secondary);
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
   border-left: 3px solid transparent;
+  position: relative;
   
   &:hover {
     background-color: var(--color-hover);
     color: var(--color-text);
+    transform: translateX(2px);
   }
   
   &.active {
@@ -98,6 +102,20 @@ const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
     color: var(--color-text);
     border-left-color: var(--color-active);
     font-weight: 500;
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-4) var(--space-6);
+    font-size: var(--font-size-lg);
+    
+    &:hover {
+      transform: none;
+    }
+    
+    &:active {
+      background-color: var(--color-focus);
+      transform: scale(0.98);
+    }
   }
 `;
 

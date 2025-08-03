@@ -599,10 +599,10 @@ const Landing = () => {
       <Hero>
         <HeroContent>
           <HeadlineLarge>
-            The <span>Privacy Gateway</span> for Web3 Communication
+            Your <span>Private Communication</span> Gateway
           </HeadlineLarge>
           <SubHeadline>
-            Clypr enables privacy-first messaging and data control with programmable rules, all built on the Internet Computer Protocol.
+            Take control of your digital communications with intelligent filtering, automated routing, and complete privacy. Built on the Internet Computer for true decentralization.
           </SubHeadline>
           <ButtonGroup>
             <Link to="/login" style={{ textDecoration: 'none' }}>
@@ -622,53 +622,53 @@ const Landing = () => {
       
       <Features id="features">
         <FeatureContainer>
-          <SectionTitle>Privacy and Control, Made Simple</SectionTitle>
+          <SectionTitle>Smart Privacy, Simplified</SectionTitle>
           <FeatureGrid>
             <FeatureCard>
               <FeatureIcon>🔒</FeatureIcon>
-              <FeatureTitle>End-to-End Privacy</FeatureTitle>
+              <FeatureTitle>Complete Privacy Control</FeatureTitle>
               <FeatureDesc>
-                Your data never leaves your control. Messages are encrypted and only you decide who can access them.
+                Your data stays yours. Messages are encrypted and you decide exactly who can access what, when, and how.
               </FeatureDesc>
             </FeatureCard>
             
             <FeatureCard>
               <FeatureIcon>⚙️</FeatureIcon>
-              <FeatureTitle>Rule-Based Filtering</FeatureTitle>
+              <FeatureTitle>Intelligent Message Routing</FeatureTitle>
               <FeatureDesc>
-                Create sophisticated rules to automatically process, forward, or block messages based on content or source.
+                Set up smart rules that automatically sort, forward, or block messages based on content, sender, or priority.
               </FeatureDesc>
             </FeatureCard>
             
             <FeatureCard>
               <FeatureIcon>🌐</FeatureIcon>
-              <FeatureTitle>Web3 Native</FeatureTitle>
+              <FeatureTitle>True Decentralization</FeatureTitle>
               <FeatureDesc>
-                Built on the Internet Computer, offering decentralized security and eliminating single points of failure.
+                Built on the Internet Computer Protocol for unmatched security, reliability, and zero single points of failure.
               </FeatureDesc>
             </FeatureCard>
             
             <FeatureCard>
               <FeatureIcon>🔌</FeatureIcon>
-              <FeatureTitle>API Integration</FeatureTitle>
+              <FeatureTitle>Easy Integration</FeatureTitle>
               <FeatureDesc>
-                Seamlessly integrate with your existing applications through our comprehensive API and webhooks.
+                Connect seamlessly with your existing apps through our simple API and webhook system.
               </FeatureDesc>
             </FeatureCard>
             
             <FeatureCard>
               <FeatureIcon>📊</FeatureIcon>
-              <FeatureTitle>Analytics & Insights</FeatureTitle>
+              <FeatureTitle>Privacy-First Analytics</FeatureTitle>
               <FeatureDesc>
-                Monitor your message flow with detailed analytics while maintaining complete privacy.
+                Get insights into your message flow and patterns while keeping your data completely private.
               </FeatureDesc>
             </FeatureCard>
             
             <FeatureCard>
               <FeatureIcon>🚀</FeatureIcon>
-              <FeatureTitle>Scalable Architecture</FeatureTitle>
+              <FeatureTitle>Built to Scale</FeatureTitle>
               <FeatureDesc>
-                Handle millions of messages with low latency, ensuring your communications never skip a beat.
+                Handle millions of messages with lightning-fast speed, ensuring your communications never slow down.
               </FeatureDesc>
             </FeatureCard>
           </FeatureGrid>
@@ -676,29 +676,29 @@ const Landing = () => {
       </Features>
       
       <HowItWorks id="how-it-works">
-        <SectionTitle>How Clypr Works</SectionTitle>
+        <SectionTitle>How It Works</SectionTitle>
         <StepsContainer>
           <Step>
             <StepNumber>1</StepNumber>
-            <StepTitle>Connect</StepTitle>
+            <StepTitle>Connect & Authenticate</StepTitle>
             <StepDesc>
-              Authenticate with Internet Identity or another Web3 wallet and set up your personal relay.
+              Sign in with Internet Identity and set up your personal communication gateway in seconds.
             </StepDesc>
           </Step>
           
           <Step>
             <StepNumber>2</StepNumber>
-            <StepTitle>Configure</StepTitle>
+            <StepTitle>Set Your Rules</StepTitle>
             <StepDesc>
-              Create custom rules and filters to determine how your messages should be processed and routed.
+              Create smart filters and rules to automatically sort, forward, or block messages based on your preferences.
             </StepDesc>
           </Step>
           
           <Step>
             <StepNumber>3</StepNumber>
-            <StepTitle>Control</StepTitle>
+            <StepTitle>Take Control</StepTitle>
             <StepDesc>
-              Receive, filter, and forward messages through your private gateway with complete control and transparency.
+              Your messages flow through your private gateway with complete transparency and control over every interaction.
             </StepDesc>
           </Step>
         </StepsContainer>
@@ -706,12 +706,12 @@ const Landing = () => {
       
       <CTASection id="developers">
         <CTAContainer>
-          <CTATitle>Ready to Take Control of Your Communications?</CTATitle>
+          <CTATitle>Ready to Take Control?</CTATitle>
           <CTAText>
-            Whether you're a developer building the next Web3 application or an organization seeking enhanced privacy and control over your communications, Clypr provides the infrastructure you need.
+            Whether you're a developer building the next big Web3 app or just want better control over your digital communications, Clypr gives you the tools you need.
           </CTAText>
           <Link to="/login" style={{ textDecoration: 'none' }}>
-            <Button variant="primary" size="lg">Create Your Clypr Gateway</Button>
+            <Button variant="primary" size="lg">Start Your Free Gateway</Button>
           </Link>
         </CTAContainer>
       </CTASection>
@@ -724,7 +724,7 @@ const Landing = () => {
               <FooterLogoText>clypr</FooterLogoText>
             </FooterLogo>
             <FooterDesc>
-              Clypr is a programmable privacy gateway for Web3 messaging built on the Internet Computer Protocol (ICP).
+              Clypr is your personal privacy gateway for Web3 communications, built on the Internet Computer Protocol for true decentralization.
             </FooterDesc>
           </FooterColumn>
           

@@ -269,8 +269,18 @@ export class ClyprService {
     // Create agent
     this.agent = new HttpAgent(agentOptions);
 
-    // Get canister IDs from environment, canister-ids.js, or use the local development IDs
-    const backendCanisterId =  process.env.PUBLIC_BACKEND_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
+    // Determine backend canister ID using local dev flag
+    let backendCanisterId: string;
+    if (isLocalDev) {
+      // In local development, use the injected canister-ids.js
+      backendCanisterId = (window as any).canisterIds?.backend;
+    } else {
+      // In production, prefer Vite env var or injected canister IDs, else fallback to hardcoded
+      backendCanisterId =
+        (import.meta.env.VITE_BACKEND_CANISTER_ID as string) ||
+        (window as any).canisterIds?.backend ||
+        '5elod-ciaaa-aaaag-aufgq-cai';
+    }
     
     this.canisterId = backendCanisterId;
     console.log('Using backend canister ID:', backendCanisterId);

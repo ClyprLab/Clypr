@@ -14,10 +14,12 @@ const DashboardContainer = styled.div`
   
   @media (max-width: 1200px) {
     grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
   }
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
+    gap: var(--space-4);
   }
 `;
 
@@ -26,17 +28,42 @@ const StatsSection = styled.div`
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const StatCard = styled(Card)`
   padding: var(--space-4);
+  text-align: center;
+  transition: transform var(--transition-base);
+  
+  &:hover {
+    transform: translateY(-2px);
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--space-3);
+  }
 `;
 
 const StatValue = styled.div`
   font-size: var(--font-size-3xl);
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--space-2);
   font-family: var(--font-mono);
+  color: var(--color-text);
+  
+  @media (max-width: 768px) {
+    font-size: var(--font-size-2xl);
+  }
 `;
 
 const StatLabel = styled.div`
@@ -55,6 +82,8 @@ const ActivityCard = styled(Card)`
   
   @media (max-width: 768px) {
     grid-column: span 1;
+    height: auto;
+    min-height: 200px;
   }
 `;
 

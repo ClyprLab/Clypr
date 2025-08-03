@@ -16,9 +16,12 @@ const TopbarContainer = styled.header`
   padding: 0 var(--space-6);
   background-color: var(--color-background);
   z-index: 50;
+  position: sticky;
+  top: 0;
   
   @media (max-width: 768px) {
     padding: 0 var(--space-4);
+    height: 60px;
   }
 `;
 
