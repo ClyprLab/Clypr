@@ -191,13 +191,11 @@ service : {
   getAllRules: () -> (Result_6) query;
   getChannel: (channelId: ChannelId) -> (Result_5) query;
   getMessage: (messageId: MessageId) -> (Result_4) query;
-  getOwner: () -> (principal) query;
   getRule: (ruleId: RuleId) -> (Result_3) query;
   getStats: () -> (Result_2) query;
   init: () -> ();
   ping: () -> (text) query;
   sendMessage: (messageType: text, content: MessageContent) -> (Result_1);
-  setOwner: (newOwner: principal) -> (Result);
   updateChannel: (channelId: ChannelId, updatedChannel: Channel) -> (Result);
   updateRule: (ruleId: RuleId, updatedRule: Rule) -> (Result);
 }

@@ -133,13 +133,11 @@ export interface _SERVICE {
   'getAllRules' : ActorMethod<[], Result_6>,
   'getChannel' : ActorMethod<[ChannelId], Result_5>,
   'getMessage' : ActorMethod<[MessageId], Result_4>,
-  'getOwner' : ActorMethod<[], Principal>,
   'getRule' : ActorMethod<[RuleId], Result_3>,
   'getStats' : ActorMethod<[], Result_2>,
   'init' : ActorMethod<[], undefined>,
   'ping' : ActorMethod<[], string>,
   'sendMessage' : ActorMethod<[string, MessageContent], Result_1>,
-  'setOwner' : ActorMethod<[Principal], Result>,
   'updateChannel' : ActorMethod<[ChannelId, Channel], Result>,
   'updateRule' : ActorMethod<[RuleId, Rule], Result>,
 }

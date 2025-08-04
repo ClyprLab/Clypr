@@ -3,141 +3,54 @@ import { Principal } from '@dfinity/principal';
 import ClyprService, { Rule, Channel, Message, Stats } from '../services/ClyprService';
 import { useAuth } from './useAuth';
 
-// Default canister ID - should be configured from environment
-const CANISTER_ID = process.env.CLYPR_CANISTER_ID || 'your-canister-id-here';
-
 export function useClypr() {
-  const { isAuthenticated, principal, authClient } = useAuth();
+  const { isAuthenticated, principal, authClient, login: authLogin, logout: authLogout } = useAuth();
   const [service, setService] = useState<ClyprService | null>(null);
-  const [isOwner, setIsOwner] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize the service when authentication state changes
+  // Initialize the service
   useEffect(() => {
-    const init = async () => {
+    const initService = async () => {
       try {
         setLoading(true);
-        
+        const clyprService = new ClyprService();
         if (isAuthenticated && authClient) {
           const identity = authClient.getIdentity();
-          const clyprService = await ClyprService.create(identity);
-          setService(clyprService);
-          
-          // Check if user is the canister owner
-          try {
-            const owner = await clyprService.getOwner();
-            const isCurrentOwner = principal?.toText() === owner.toText();
-            
-            // If there's no owner set (anonymous) or user is already owner
-            if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
-              // Set current user as owner
-              if (!isCurrentOwner && principal) {
-                console.log('Setting user as canister owner...');
-                await clyprService.setOwner(principal);
-              }
-              setIsOwner(true);
-            } else {
-              setIsOwner(isCurrentOwner);
-            }
-          } catch (err) {
-            console.error("Failed to check owner status", err);
-          }
-        } else {
-          // Initialize with anonymous client
-          const clyprService = await ClyprService.create();
-          setService(clyprService);
+          await clyprService.authenticate(identity);
         }
-        
-        setLoading(false);
+        setService(clyprService);
       } catch (err) {
         console.error("Failed to initialize Clypr service", err);
         setError("Failed to initialize: " + String(err));
+      } finally {
         setLoading(false);
       }
     };
-    
-    init();
-  }, [isAuthenticated, authClient, principal]);
-  
-  // Authentication state is handled by useAuth hook
-  const login = async (): Promise<boolean> => {
-    if (!authClient) return false;
 
-    try {
-      await new Promise<void>((resolve) => {
-        authClient.login({
-          identityProvider: process.env.DFX_NETWORK === 'ic' 
-            ? 'https://identity.ic0.app' 
-            : `http://uzt4z-lp777-77774-qaabq-cai.localhost:4943`,
-          onSuccess: async () => {
-            const identity = authClient.getIdentity();
-            
-            const clyprService = await ClyprService.create(identity);
-            setService(clyprService);
-            
-            // Check if user is the canister owner
-            try {
-              const owner = await clyprService.getOwner();
-              const isCurrentOwner = principal?.toText() === owner.toText();
-              
-              // If there's no owner set (anonymous) or user is already owner
-              if (owner.toText() === '2vxsx-fae' || isCurrentOwner) {
-                // Set current user as owner
-                if (!isCurrentOwner && principal) {
-                  console.log('Setting user as canister owner...');
-                  await clyprService.setOwner(userPrincipal);
-                }
-                setIsOwner(true);
-              } else {
-                setIsOwner(isCurrentOwner);
-              }
-            } catch (err) {
-              console.error("Failed to check owner status", err);
-            }
-            
-            resolve(true);
-          },
-          onError: (error) => {
-            console.error("Login error:", error);
-            setError("Login failed: " + String(error));
-            resolve(false);
-          }
-        });
-      });
-    } catch (err) {
-      console.error("Login initialization error:", err);
-      setError("Login initialization failed: " + String(err));
-      return false;
-    }
+    initService();
+  }, [isAuthenticated, authClient]);
+
+  const login = async () => {
+    await authLogin();
   };
-  
-  const logout = async (): Promise<void> => {
-    const authClient = await AuthClient.create();
-    await authClient.logout();
-    
-    setIsAuthenticated(false);
-    setPrincipal(null);
-    setIsOwner(false);
-    
-    // Reset to anonymous service
-    const clyprService = new ClyprService();
-    setService(clyprService);
+
+  const logout = async () => {
+    await authLogout();
+    setService(new ClyprService()); // Re-initialize with anonymous identity
   };
-  
+
   // Rule-related functions
   const [rules, setRules] = useState<Rule[]>([]);
   const [rulesLoading, setRulesLoading] = useState<boolean>(false);
-  
-  const loadRules = async (): Promise<void> => {
+
+  const loadRules = async () => {
     if (!service || !isAuthenticated) return;
     
     try {
       setRulesLoading(true);
       const result = await service.getAllRules();
-      if (result) {
-        setRules(result);
-      }
+      setRules(result || []);
     } catch (err) {
       console.error("Failed to load rules:", err);
       setError("Failed to load rules: " + String(err));
@@ -145,35 +58,20 @@ export function useClypr() {
       setRulesLoading(false);
     }
   };
-  
+
   const createRule = async (
-    name: string,
-    description: string | undefined,
-    conditions: any[],
-    actions: any[],
-    priority: number
+    ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<number | undefined> => {
     if (!service || !isAuthenticated) {
-      console.error("Cannot create rule: service or authentication missing", { service: !!service, isAuthenticated });
+      setError("Not authenticated or service not available.");
       return undefined;
     }
     
     try {
-      console.log("Creating rule with data:", { name, description, conditions, actions, priority });
-      const ruleId = await service.createRule(
-        name, 
-        description, 
-        conditions, 
-        actions, 
-        priority
-      );
-      
-      console.log("Rule created with ID:", ruleId);
-      
+      const ruleId = await service.createRule(ruleData);
       if (ruleId !== undefined) {
-        await loadRules(); // Refresh rules
+        await loadRules();
       }
-      
       return ruleId;
     } catch (err) {
       console.error("Failed to create rule:", err);
@@ -181,14 +79,14 @@ export function useClypr() {
       return undefined;
     }
   };
-  
+
   const updateRule = async (ruleId: number, rule: Rule): Promise<boolean> => {
     if (!service || !isAuthenticated) return false;
     
     try {
       const success = await service.updateRule(ruleId, rule);
       if (success) {
-        await loadRules(); // Refresh rules
+        await loadRules();
       }
       return success;
     } catch (err) {
@@ -197,14 +95,14 @@ export function useClypr() {
       return false;
     }
   };
-  
+
   const deleteRule = async (ruleId: number): Promise<boolean> => {
     if (!service || !isAuthenticated) return false;
     
     try {
       const success = await service.deleteRule(ruleId);
       if (success) {
-        await loadRules(); // Refresh rules
+        await loadRules();
       }
       return success;
     } catch (err) {
@@ -213,20 +111,18 @@ export function useClypr() {
       return false;
     }
   };
-  
+
   // Channel-related functions
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState<boolean>(false);
-  
-  const loadChannels = async (): Promise<void> => {
+
+  const loadChannels = async () => {
     if (!service || !isAuthenticated) return;
     
     try {
       setChannelsLoading(true);
       const result = await service.getAllChannels();
-      if (result) {
-        setChannels(result);
-      }
+      setChannels(result || []);
     } catch (err) {
       console.error("Failed to load channels:", err);
       setError("Failed to load channels: " + String(err));
@@ -234,25 +130,22 @@ export function useClypr() {
       setChannelsLoading(false);
     }
   };
-  
+
   const createChannel = async (
-    name: string,
-    description: string | undefined,
-    channelType: any,
-    config: [string, string][]
+    channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<number | undefined> => {
     if (!service || !isAuthenticated) return undefined;
     
     try {
       const channelId = await service.createChannel(
-        name, 
-        description, 
-        channelType, 
-        config
+        channelData.name,
+        channelData.description,
+        channelData.channelType,
+        channelData.config
       );
       
       if (channelId !== undefined) {
-        await loadChannels(); // Refresh channels
+        await loadChannels();
       }
       
       return channelId;
@@ -262,14 +155,14 @@ export function useClypr() {
       return undefined;
     }
   };
-  
+
   const updateChannel = async (channelId: number, channel: Channel): Promise<boolean> => {
     if (!service || !isAuthenticated) return false;
     
     try {
       const success = await service.updateChannel(channelId, channel);
       if (success) {
-        await loadChannels(); // Refresh channels
+        await loadChannels();
       }
       return success;
     } catch (err) {
@@ -278,14 +171,14 @@ export function useClypr() {
       return false;
     }
   };
-  
+
   const deleteChannel = async (channelId: number): Promise<boolean> => {
     if (!service || !isAuthenticated) return false;
     
     try {
       const success = await service.deleteChannel(channelId);
       if (success) {
-        await loadChannels(); // Refresh channels
+        await loadChannels();
       }
       return success;
     } catch (err) {
@@ -294,20 +187,18 @@ export function useClypr() {
       return false;
     }
   };
-  
+
   // Message-related functions
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
-  
-  const loadMessages = async (): Promise<void> => {
+
+  const loadMessages = async () => {
     if (!service || !isAuthenticated) return;
     
     try {
       setMessagesLoading(true);
       const result = await service.getAllMessages();
-      if (result) {
-        setMessages(result);
-      }
+      setMessages(result || []);
     } catch (err) {
       console.error("Failed to load messages:", err);
       setError("Failed to load messages: " + String(err));
@@ -315,48 +206,33 @@ export function useClypr() {
       setMessagesLoading(false);
     }
   };
-  
+
   const sendMessage = async (
     messageType: string,
-    title: string,
-    body: string,
-    priority: number,
-    metadata: [string, string][] = []
+    content: Message['content']
   ) => {
     if (!service) return undefined;
     
     try {
-      const receipt = await service.sendMessage(
-        messageType,
-        {
-          title,
-          body,
-          priority,
-          metadata
-        }
-      );
-      
-      return receipt;
+      return await service.sendMessage(messageType, content);
     } catch (err) {
       console.error("Failed to send message:", err);
       setError("Failed to send message: " + String(err));
       return undefined;
     }
   };
-  
+
   // Stats function
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
-  
-  const loadStats = async (): Promise<void> => {
-    if (!service || !isAuthenticated || !isOwner) return;
+
+  const loadStats = async () => {
+    if (!service || !isAuthenticated) return;
     
     try {
       setStatsLoading(true);
       const result = await service.getStats();
-      if (result) {
-        setStats(result);
-      }
+      setStats(result || null);
     } catch (err) {
       console.error("Failed to load stats:", err);
       setError("Failed to load stats: " + String(err));
@@ -364,30 +240,23 @@ export function useClypr() {
       setStatsLoading(false);
     }
   };
-  
+
   // Load initial data when authenticated
   useEffect(() => {
     if (isAuthenticated && service) {
       loadRules();
       loadChannels();
-      if (isOwner) {
-        loadMessages();
-        loadStats();
-      }
+      loadMessages();
+      loadStats();
     }
-  }, [isAuthenticated, isOwner, service]);
-  
-  // Add ping method for testing
+  }, [isAuthenticated, service]);
+
   const ping = async (): Promise<string> => {
     if (!service) {
-      console.error("Service not initialized for ping");
       throw new Error("Service not initialized");
     }
-    console.log("Attempting to ping backend...");
     try {
-      const result = await service.ping();
-      console.log("Ping successful:", result);
-      return result;
+      return await service.ping();
     } catch (error) {
       console.error("Ping failed:", error);
       throw error;
@@ -395,43 +264,31 @@ export function useClypr() {
   };
 
   return {
-    // Auth
     isAuthenticated,
     principal,
-    isOwner,
     login,
     logout,
     ping,
     service,
-    
-    // Rules
     rules,
     rulesLoading,
     loadRules,
     createRule,
     updateRule,
     deleteRule,
-    
-    // Channels
     channels,
     channelsLoading,
     loadChannels,
     createChannel,
     updateChannel,
     deleteChannel,
-    
-    // Messages
     messages,
     messagesLoading,
     loadMessages,
     sendMessage,
-    
-    // Stats
     stats,
     statsLoading,
     loadStats,
-    
-    // General
     loading,
     error,
     clearError: () => setError(null)

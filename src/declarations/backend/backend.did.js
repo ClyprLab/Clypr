@@ -143,13 +143,11 @@ export const idlFactory = ({ IDL }) => {
     'getAllRules' : IDL.Func([], [Result_6], ['query']),
     'getChannel' : IDL.Func([ChannelId], [Result_5], ['query']),
     'getMessage' : IDL.Func([MessageId], [Result_4], ['query']),
-    'getOwner' : IDL.Func([], [IDL.Principal], ['query']),
     'getRule' : IDL.Func([RuleId], [Result_3], ['query']),
     'getStats' : IDL.Func([], [Result_2], ['query']),
     'init' : IDL.Func([], [], []),
     'ping' : IDL.Func([], [IDL.Text], ['query']),
     'sendMessage' : IDL.Func([IDL.Text, MessageContent], [Result_1], []),
-    'setOwner' : IDL.Func([IDL.Principal], [Result], []),
     'updateChannel' : IDL.Func([ChannelId, Channel], [Result], []),
     'updateRule' : IDL.Func([RuleId, Rule], [Result], []),
   });
