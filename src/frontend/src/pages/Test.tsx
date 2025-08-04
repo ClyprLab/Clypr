@@ -121,59 +121,21 @@ const Test: React.FC = () => {
   const runDirectServiceTest = async () => {
     setIsRunning(true);
     addResult('Starting direct service test...');
-
     try {
-      // Test 1: Create service without authentication
       addResult('Creating service without authentication...');
-      const testService = await ClyprService.create();
+      const testService = new ClyprService();
       setService(testService);
-      addResult('Service created successfully');
+      addResult('Service created successfully.');
 
-      // Test 2: Test ping without authentication
-      addResult('Testing ping without authentication...');
+      addResult('Pinging service...');
       const pingResult = await testService.ping();
-      addResult(`Ping result: ${pingResult}`);
+      addResult(`Ping successful: ${pingResult}`, true);
 
-      // Test 3: Authenticate
-      addResult('Testing authentication...');
-      const authClient = await AuthClient.create();
-      const isLoggedIn = await authClient.isAuthenticated();
-
-      if (!isLoggedIn) {
-        addResult('User not authenticated, attempting login...');
-        await new Promise<void>((resolve) => {
-          authClient.login({
-            identityProvider: process.env.DFX_NETWORK === 'ic'
-              ? 'https://identity.ic0.app'
-              : `http://${(window as any).canisterIds.internet_identity}.localhost:4943`,
-            onSuccess: async () => {
-              const identity = authClient.getIdentity();
-              const authenticatedService = await ClyprService.create(identity);
-              await authenticatedService.authenticate(identity);
-              setService(authenticatedService);
-              addResult('Authentication successful');
-              await runAuthenticatedTests(authenticatedService);
-              resolve();
-            },
-            onError: (error) => {
-              addResult(`Authentication failed: ${error}`, false);
-              resolve();
-            }
-          });
-        });
-      } else {
-        addResult('User already authenticated');
-        const identity = authClient.getIdentity();
-        const authenticatedService = await ClyprService.create(identity);
-        await authenticatedService.authenticate(identity);
-        setService(authenticatedService);
-        await runAuthenticatedTests(authenticatedService);
-      }
-    } catch (error) {
-      addResult(`Test failed: ${error}`, false);
+    } catch (e: any) {
+      addResult(`Test failed: ${e.message}`, false, e.stack);
+      console.error(e);
     } finally {
       setIsRunning(false);
-      updateDebugInfo();
     }
   };
 

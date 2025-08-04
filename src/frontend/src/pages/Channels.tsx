@@ -275,12 +275,7 @@ const Channels = () => {
 
   const handleCreateChannel = async (channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const success = await createChannel(
-        channelData.name,
-        channelData.description,
-        channelData.channelType,
-        channelData.config
-      );
+      const success = await createChannel(channelData);
       
       if (success) {
         setShowForm(false);
