@@ -196,13 +196,7 @@ const Rules = () => {
         throw new Error('Channel ID is required for route actions');
       }
 
-      const ruleId = await createRule(
-        ruleData.name,
-        ruleData.description,
-        ruleData.conditions,
-        ruleData.actions,
-        ruleData.priority
-      );
+      const ruleId = await createRule(ruleData);
       
       if (ruleId !== undefined) {
         setShowForm(false);
