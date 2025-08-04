@@ -70,7 +70,7 @@ const Test: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [service, setService] = useState<ClyprService | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
-  const { isAuthenticated, principal, isOwner, loading, error } = useClypr();
+  const { isAuthenticated, principal, loading, error } = useClypr();
 
   const addResult = (message: string, success: boolean = true, details?: string) => {
     setResults(prev => [...prev, {
@@ -83,7 +83,7 @@ const Test: React.FC = () => {
 
   useEffect(() => {
     updateDebugInfo();
-  }, [isAuthenticated, principal, isOwner, loading, error]);
+  }, [isAuthenticated, principal, loading, error]);
 
   const updateDebugInfo = () => {
     const info = {
@@ -103,7 +103,6 @@ const Test: React.FC = () => {
       authentication: {
         isAuthenticated,
         principal: principal?.toText(),
-        isOwner,
         loading,
         error
       },

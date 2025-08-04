@@ -40,13 +40,16 @@ persistent actor ClyprCanister {
   type Error = Types.Error;
   type Result<T, E> = Types.Result<T, E>;
   
+  // Legacy state variables (for migration)
+  private stable var owner : Principal = Principal.fromText("2vxsx-fae"); // Default principal
+  private stable var owner_v2 : ?Principal = null; // New optional version
+  
   // State storage - User-isolated data
   private stable var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
   private stable var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
   private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
   private stable var nextRuleId : Nat = 0;
   private stable var nextChannelId : Nat = 0;
-  private stable var owner : Principal = Principal.fromText("2vxsx-fae"); // Default to anonymous principal
   
   // Runtime state - User-isolated data
   private transient var userRules = HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
@@ -113,6 +116,10 @@ persistent actor ClyprCanister {
   
   // Store stable variables before upgrades
   system func preupgrade() {
+    // Migrate the owner to the new optional type
+    owner_v2 := null;
+
+    // Store maps as stable arrays
     let userRulesBuffer = Buffer.Buffer<(UserId, [(RuleId, Rule)])>(userRules.size());
     for ((userId, rulesMap) in userRules.entries()) {
       userRulesBuffer.add((userId, Iter.toArray(rulesMap.entries())));
@@ -133,6 +140,10 @@ persistent actor ClyprCanister {
   };
   
   system func postupgrade() {
+    // Complete the migration by setting old owner to default and new one to null
+    owner := Principal.fromText("2vxsx-fae");
+    owner_v2 := null;
+    
     // Initialize empty hashmaps
     userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
     userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
@@ -161,26 +172,8 @@ persistent actor ClyprCanister {
     // Anonymous principals are not allowed for data operations
     return not Principal.isAnonymous(caller);
   };
-
-  func isOwner(caller : Principal) : Bool {
-    // Check if caller is the canister owner (for admin operations)
-    return Principal.equal(caller, owner);
-  };
-  
-  public shared(msg) func setOwner(newOwner : Principal) : async Result<(), Error> {
-    // Allow setting owner if no owner is set (anonymous) or caller is current owner
-    if (Principal.isAnonymous(owner) or Principal.equal(msg.caller, owner)) {
-      owner := newOwner;
-      return #ok();
-    } else {
-      return #err(#NotAuthorized);
-    };
-  };
   
   // User Profile Management
-  public shared query(msg) func getOwner() : async Principal {
-    return owner;
-  };
   
   // Rule Management - User-specific data
   public shared(msg) func createRule(
@@ -228,10 +221,6 @@ persistent actor ClyprCanister {
   };
   
   public shared query(msg) func getAllRules() : async Result<[Rule], Error> {
-    if (not isAuthorized(msg.caller)) {
-      return #err(#NotAuthorized);
-    };
-    
     let userRulesMap = getUserRules(msg.caller);
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
     return #ok(rulesArray);
@@ -323,10 +312,6 @@ persistent actor ClyprCanister {
   };
   
   public shared query(msg) func getAllChannels() : async Result<[Channel], Error> {
-    if (not isAuthorized(msg.caller)) {
-      return #err(#NotAuthorized);
-    };
-    
     let userChannelsMap = getUserChannels(msg.caller);
     let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
     return #ok(channelsArray);
@@ -427,10 +412,6 @@ persistent actor ClyprCanister {
   };
   
   public shared query(msg) func getAllMessages() : async Result<[Message], Error> {
-    if (not isAuthorized(msg.caller)) {
-      return #err(#NotAuthorized);
-    };
-    
     let userMessagesMap = getUserMessages(msg.caller);
     let messagesArray = Iter.toArray(Iter.map(userMessagesMap.vals(), func (m : Message) : Message { m }));
     return #ok(messagesArray);
@@ -449,10 +430,6 @@ persistent actor ClyprCanister {
     blockedCount : Nat;
     deliveredCount : Nat;
   }, Error> {
-    if (not isAuthorized(msg.caller)) {
-      return #err(#NotAuthorized);
-    };
-    
     let userRulesMap = getUserRules(msg.caller);
     let userChannelsMap = getUserChannels(msg.caller);
     let userMessagesMap = getUserMessages(msg.caller);

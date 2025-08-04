@@ -199,118 +199,49 @@ export interface Stats {
 
 // Service class for interacting with the Clypr backend
 export class ClyprService {
-  private agent: HttpAgent;
   private actor: any;
+  private authClient: AuthClient | null = null;
+  private identity: Identity | null = null;
+  private isAuthInitialized: boolean = false;
+  private agent: HttpAgent;
+  private canisterId: Principal;
   private agentHost: string;
-  private canisterId: string | Principal;
-  private authClient?: AuthClient;
-  
-  private static async initialize(identityOrHostUrl?: Identity | string): Promise<ClyprService> {
-    const service = new ClyprService();
-    await service.init(identityOrHostUrl);
-    return service;
-  }
 
-  public static create(identityOrHostUrl?: Identity | string): Promise<ClyprService> {
-    return ClyprService.initialize(identityOrHostUrl);
-  }
+  constructor() {
+    // Get canister IDs from environment or window object
+    const backendCanisterId = (window as any).canisterIds?.backend ||
+                              process.env.PUBLIC_BACKEND_CANISTER_ID || 
+                              'uxrrr-q7777-77774-qaaaq-cai';
 
-  private constructor() {
-    // Private constructor, use create() instead
-  }
+    console.log("Backend Canister ID:", backendCanisterId);
+    this.canisterId = Principal.fromText(backendCanisterId);
+    this.agentHost = window.location.origin;
 
-  private async init(identityOrHostUrl?: Identity | string) {
-    if (typeof window === 'undefined') {
-      throw new Error('ClyprService requires a browser environment');
-    }
-    
-    // Determine the host URL based on the current environment
-    const isIcpDomain = window.location.hostname.endsWith('.icp0.io');
-    const defaultHost = isIcpDomain ? 'https://icp0.io' : 'http://localhost:4943';
-    const currentHost = window.location.hostname;
-    const currentPort = window.location.port;
-    
-    let hostUrl: string;
-    let identity: Identity | undefined;
-    
-    // Extract host and identity from the input
-    if (typeof identityOrHostUrl === 'string') {
-      hostUrl = identityOrHostUrl;
-    } else if (identityOrHostUrl) {
-      identity = identityOrHostUrl;
-      hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
-    } else {
-      hostUrl = isIcpDomain ? 'https://icp0.io' : `http://${currentHost}:${currentPort}`;
-    }
-    
-    this.agentHost = hostUrl;
-    
-    // Check if we're in local development
-    const isLocalDev = window.location.hostname.endsWith('.localhost') ||
-                      window.location.hostname === 'localhost' ||
-                      window.location.hostname === '127.0.0.1';
-    
-    console.log('Environment:', {
-      host: hostUrl,
-      currentHost,
-      currentPort,
-      isLocalDev,
-      verifySignatures: !isLocalDev
-    });
-
-    // Configure agent options
     const agentOptions: HttpAgentOptions = {
-      host: hostUrl,
-      identity: identity,
-      verifyQuerySignatures: !isLocalDev, // Only disable signature verification for local development
+      host: this.agentHost,
+      identity: undefined,
+      verifyQuerySignatures: true,
       fetch: window.fetch.bind(window)
     };
-    
-    // Create agent
+
     this.agent = new HttpAgent(agentOptions);
 
-    // Get canister IDs from environment, canister-ids.js, or use the local development IDs
-    const backendCanisterId =  process.env.PUBLIC_BACKEND_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
-    
-    this.canisterId = backendCanisterId;
-    console.log('Using bdackend canister ID:', backendCanisterId);
-
     // For local development, fetch the root key first
-    if (isLocalDev) {
+    if (this.agentHost.includes('localhost') || this.agentHost.includes('127.0.0.1')) {
       console.log('Local development environment detected');
       console.log('Attempting to fetch root key...');
-      await this.agent.fetchRootKey().catch(err => {
+      this.agent.fetchRootKey().then(() => {
+        console.log('Root key fetched successfully');
+      }).catch(err => {
         console.warn('Unable to fetch root key:', err);
-        throw new Error('Failed to fetch root key: ' + String(err));
       });
-      console.log('Root key fetched successfully');
     }
 
     // Create actor
-    try {
-      // Ensure we have a valid canisterId
-      if (!this.canisterId) {
-        throw new Error('Canister ID is not configured');
-      }
-
-      // Create actor with proper initialization
-      this.actor = await Actor.createActor(idlFactory, {
-        agent: this.agent,
-        canisterId: this.canisterId.toString()
-      });
-
-      // Verify actor creation with a test call
-      try {
-        await this.actor.ping();
-        console.log('Actor initialized successfully');
-      } catch (pingErr) {
-        console.warn('Actor initialized but ping failed:', pingErr);
-        // Continue anyway as some methods might still work
-      }
-    } catch (err) {
-      console.error('Failed to create actor:', err);
-      throw new Error('Failed to create actor: ' + String(err));
-    }
+    this.actor = Actor.createActor(idlFactory, {
+      agent: this.agent,
+      canisterId: this.canisterId
+    });
   }
   /**
    * Authenticate via Internet Identity and reinitialize the agent and actor
@@ -401,28 +332,8 @@ export class ClyprService {
         canisterId: this.canisterId.toString()
       });
       
-      // Verify authentication with ownership check
-      try {
-        // Get current owner
-        const currentOwner = await this.getOwner();
-        console.log('Current owner:', currentOwner.toText());
-        
-        // If not owner, try to set ownership
-        if (currentOwner.toText() !== principal.toText()) {
-          console.log('Setting new owner...');
-          const setOwnerResult = await this.setOwner(principal);
-          if (setOwnerResult) {
-            console.log('Successfully set new owner');
-          } else {
-            console.warn('Failed to set owner - continuing anyway');
-          }
-        } else {
-          console.log('Identity is already the owner');
-        }
-      } catch (ownerErr) {
-        console.warn('Owner check/set failed:', ownerErr);
-        // Continue anyway as this might be a permission issue we're trying to fix
-      }
+      // Verify authentication
+      console.log('Authenticated with principal:', principal.toText());
       
       // Verify by ping
       const result = await this.ping();
@@ -514,25 +425,16 @@ export class ClyprService {
     }
   }
   
-  async getOwner(): Promise<Principal> {
+    // Method to check if the current user is authorized (no longer owner-based)
+  async isAuthorized(): Promise<boolean> {
     try {
-      console.log('Calling getOwner method...');
-      const result = await this.actor.getOwner();
-      console.log('getOwner result:', result);
-      
-      // Handle potential variant response
-      if (result && typeof result === 'object') {
-        if ('ok' in result) {
-          return result.ok;
-        } else if ('err' in result) {
-          throw new Error(`Failed to get owner: ${result.err}`);
-        }
-      }
-      
-      return result;
+      // In the new model, any authenticated user is authorized
+      // The backend now handles per-user data access
+      const identity = await this.agent.getPrincipal();
+      return !identity.isAnonymous();
     } catch (error) {
-      console.error('Error calling getOwner:', error);
-      throw error;
+      console.error('Error checking authorization:', error);
+      return false;
     }
   }
   
@@ -623,69 +525,17 @@ export class ClyprService {
     return this.handleResult(result);
   }
   
-  async getAllRules(): Promise<Rule[] | undefined> {
+  async getAllRules(): Promise<Rule[]> {
     try {
-      console.log('Calling getAllRules method...');
-      
-      // Verify we have an authenticated actor
-      if (!this.actor) {
-        throw new Error('Actor not initialized');
-      }
-      
-      // Check ownership first
-      try {
-        const owner = await this.getOwner();
-        console.log('Current owner:', owner.toText());
-        
-        const currentIdentity = await this.agent.getPrincipal();
-        console.log('Current identity:', currentIdentity.toText());
-        
-        // If not owner, try to set ownership
-        if (owner.toText() !== currentIdentity.toText()) {
-          console.log('Current identity is not owner, attempting to set ownership...');
-          try {
-            await this.setOwner(currentIdentity);
-            console.log('Successfully set new owner');
-          } catch (setOwnerErr) {
-            console.warn('Failed to set owner (may already be set):', setOwnerErr);
-          }
-        }
-      } catch (ownerErr) {
-        console.warn('Failed to check/set ownership:', ownerErr);
-      }
-      
       const result = await this.actor.getAllRules();
-      console.log('getAllRules result:', result);
-      
-      if ('ok' in result) {
-        // Convert backend rules to frontend format
-        const rules = result.ok.map(rule => {
-          try {
-            return fromBackendRule(rule);
-          } catch (convErr) {
-            console.error('Failed to convert rule:', rule, convErr);
-            return null;
-          }
-        }).filter((rule): rule is Rule => rule !== null);
-        
-        console.log('Retrieved rules:', rules.length);
-        return rules;
-      } else if ('err' in result) {
-        if ('NotAuthorized' in result.err) {
-          console.error('Not authorized to access rules. Current identity may not be the owner.');
-          throw new Error('Not authorized to access rules - ensure current identity is the owner');
-        }
-        console.error('getAllRules error:', result.err);
-        return [];
-      }
-      
-      return [];
+            const backendRules: BackendRule[] | undefined = this.handleResult(result);
+      return backendRules ? backendRules.map(fromBackendRule) : [];
     } catch (error) {
-      console.error('Error calling getAllRules:', error);
+      console.error("Error getting all rules:", error);
       throw error;
     }
   }
-  
+
   async updateRule(ruleId: number, rule: Rule): Promise<boolean> {
     const ruleData = toBackendRule(rule);
     const result = await this.actor.updateRule(ruleId, ruleData);
