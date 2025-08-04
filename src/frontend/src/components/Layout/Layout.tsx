@@ -33,72 +33,70 @@ const ContentWrapper = styled.div`
 `;
 
 const Layout = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isMobile = () => window.innerWidth <= 768;
+
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile());
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = window.innerWidth <= 768;
 
+  // Effect for auth redirect
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
     }
-    
-    // On mobile, sidebar should be collapsed by default
-    if (isMobile && !sidebarCollapsed) {
-      setSidebarCollapsed(true);
-    }
-    
-    // Add resize event listener to handle mobile view
+  }, [isAuthenticated, navigate]);
+
+  // Effect for managing sidebar state based on screen size and route changes
+  useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768;
-      if (mobile && !sidebarCollapsed) {
-        setSidebarCollapsed(true);
+      if (!isMobile()) {
+        setSidebarOpen(true); // Open sidebar on desktop
+      } else {
+        setSidebarOpen(false); // Close sidebar on mobile
       }
     };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isAuthenticated, navigate, sidebarCollapsed, isMobile]);
 
-  // Close sidebar when route changes on mobile
+    // Close sidebar on route change on mobile
+    if (isMobile()) {
+      setSidebarOpen(false);
+    }
+
+    window.addEventListener('resize', handleResize);
+    // Initial check
+    handleResize();
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, [location.pathname]); // Reruns on route change
+
+  // Effect for body scroll lock
   useEffect(() => {
-    if (isMobile && !sidebarCollapsed) {
-      setSidebarCollapsed(true);
+    if (sidebarOpen && isMobile()) {
+      document.body.style.overflow = 'hidden';
+    } else {
       document.body.style.overflow = '';
     }
-  }, [location.pathname, isMobile, sidebarCollapsed]);
+    // Cleanup function to ensure scroll is restored on component unmount
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-    
-    // On mobile, when opening the sidebar, lock the body scroll
-    if (sidebarCollapsed && window.innerWidth <= 768) {
-      document.body.style.overflow = 'hidden';
-    } else if (!sidebarCollapsed) {
-      document.body.style.overflow = '';
-    }
-  };
-  
-  // Close sidebar when clicking overlay (mobile only)
-  const handleOverlayClick = () => {
-    if (!sidebarCollapsed) {
-      setSidebarCollapsed(true);
-      document.body.style.overflow = '';
-    }
+    setSidebarOpen(!sidebarOpen);
   };
 
   return (
     <LayoutContainer>
-      <Sidebar collapsed={sidebarCollapsed} />
+      <Sidebar collapsed={!sidebarOpen} />
       {/* Overlay for mobile view when sidebar is open */}
-      <div 
-        className={`sidebar-overlay ${!sidebarCollapsed ? 'active' : ''}`} 
-        onClick={handleOverlayClick}
+      <div
+        className={`sidebar-overlay ${sidebarOpen && isMobile() ? 'active' : ''}`}
+        onClick={toggleSidebar}
         aria-hidden="true"
       />
       <MainContent>
-        <Topbar toggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+        <Topbar toggleSidebar={toggleSidebar} sidebarCollapsed={!sidebarOpen} />
         <ContentWrapper>
           <Outlet />
         </ContentWrapper>
