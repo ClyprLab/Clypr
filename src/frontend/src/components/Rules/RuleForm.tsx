@@ -131,6 +131,9 @@ const RuleForm: React.FC<RuleFormProps> = ({
 }) => {
   const [name, setName] = useState(initialRule?.name || '');
   const [description, setDescription] = useState(initialRule?.description || '');
+  const [dappPrincipal, setDappPrincipal] = useState(
+    initialRule?.dappPrincipal ? initialRule.dappPrincipal.toText() : ''
+  );
   const [priority, setPriority] = useState(initialRule?.priority || 5);
   const [isActive, setIsActive] = useState(initialRule?.isActive ?? true);
   const [conditions, setConditions] = useState<Condition[]>(
@@ -146,6 +149,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
     onSubmit({
       name,
       description: description || undefined,
+      dappPrincipal: dappPrincipal ? { toText: () => dappPrincipal } : undefined,
       conditions,
       actions,
       priority,
@@ -217,6 +221,15 @@ const RuleForm: React.FC<RuleFormProps> = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what this rule does..."
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>dApp Principal (Optional)</Label>
+              <Input
+                value={dappPrincipal}
+                onChange={(e) => setDappPrincipal(e.target.value)}
+                placeholder="Enter a dApp Principal to make this rule dApp-specific"
               />
             </FormGroup>
             
