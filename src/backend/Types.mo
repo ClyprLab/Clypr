@@ -76,6 +76,7 @@ module {
     id : RuleId;
     name : Text;
     description : ?Text;
+    dappPrincipal : ?Principal;
     conditions : [Condition];
     actions : [Action];
     priority : Nat8;
@@ -107,9 +108,9 @@ module {
   // Error types
   public type Error = {
     #NotFound;
-    #AlreadyExists;
+    #AlreadyExists : ?Text;
     #NotAuthorized;
-    #InvalidInput;
+    #InvalidInput : ?Text;
     #InternalError;
     #RateLimitExceeded;
     #Other : Text;

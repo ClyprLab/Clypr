@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '@/hooks/useAuth';
+import { useClypr } from '@/hooks/useClypr';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -9,7 +10,7 @@ interface SidebarProps {
 
 // Use type-safe props with $ prefix for styled components
 const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
-  width: ${props => props.$collapsed ? '80px' : '240px'};
+  width: ${({ $collapsed }) => ($collapsed ? '80px' : '240px')};
   height: 100%;
   background-color: var(--color-background);
   border-right: 1px solid var(--color-border);
@@ -26,8 +27,8 @@ const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
     left: 0;
     bottom: 0;
     width: 280px;
-    transform: translateX(${props => props.$collapsed ? '-100%' : '0'});
-    box-shadow: ${props => props.$collapsed ? 'none' : 'var(--shadow-lg)'};
+    transform: translateX(${({ $collapsed }) => ($collapsed ? '-100%' : '0')});
+    box-shadow: ${({ $collapsed }) => ($collapsed ? 'none' : 'var(--shadow-lg)')};
     will-change: transform;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     backdrop-filter: blur(10px);
@@ -36,16 +37,16 @@ const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
 `;
 
 const Logo = styled.div<{ $collapsed: boolean }>`
-  padding: ${props => props.$collapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-6)'};
+  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-6)')};
   margin-bottom: var(--space-6);
   display: flex;
   align-items: center;
-  justify-content: ${props => props.$collapsed ? 'center' : 'flex-start'};
+  justify-content: ${({ $collapsed }) => ($collapsed ? 'center' : 'flex-start')};
 `;
 
 const LogoText = styled.h1<{ $collapsed: boolean }>`
   font-family: var(--font-mono);
-  font-size: ${props => props.$collapsed ? '0' : 'var(--font-size-xl)'};
+  font-size: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--font-size-xl)')};
   font-weight: 700;
   margin: 0;
   overflow: hidden;
@@ -58,7 +59,7 @@ const LogoIcon = styled.div<{ $collapsed: boolean }>`
   height: 32px;
   background-color: var(--color-text);
   border-radius: var(--radius-sm);
-  margin-right: ${props => props.$collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,7 +85,7 @@ const NavItem = styled.li`
 const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
-  padding: ${(props) => props.$collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
+  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)')};
   text-decoration: none;
   color: var(--color-text-secondary);
   transition: all var(--transition-fast);
@@ -122,7 +123,7 @@ const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
 const NavIcon = styled.div<{ $collapsed: boolean }>`
   width: 20px;
   height: 20px;
-  margin-right: ${(props) => props.$collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,12 +132,12 @@ const NavIcon = styled.div<{ $collapsed: boolean }>`
 const NavText = styled.span<{ $collapsed: boolean }>`
   font-size: var(--font-size-sm);
   white-space: nowrap;
-  opacity: ${(props) => props.$collapsed ? 0 : 1};
+  opacity: ${({ $collapsed }) => ($collapsed ? 0 : 1)};
   transition: opacity var(--transition-base);
 `;
 
 const ProfileSection = styled.div<{ $collapsed: boolean }>`
-  padding: ${(props) => props.$collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
+  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)')};
   border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
@@ -152,12 +153,12 @@ const Avatar = styled.div<{ $collapsed?: boolean }>`
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  margin-right: ${(props) => props.$collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
 `;
 
 const ProfileInfo = styled.div<{ $collapsed: boolean }>`
   overflow: hidden;
-  opacity: ${(props) => props.$collapsed ? 0 : 1};
+  opacity: ${({ $collapsed }) => ($collapsed ? 0 : 1)};
   transition: opacity var(--transition-base);
 `;
 
@@ -174,10 +175,37 @@ const ProfileRole = styled.div`
   color: var(--color-text-secondary);
 `;
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
+const Sidebar = ({ collapsed }: SidebarProps) => {
   const { principal } = useAuth();
+  const { actor } = useClypr();
   const location = useLocation();
   const path = location.pathname;
+
+  const [username, setUsername] = useState<string | null>(null);
+  const [loadingUsername, setLoadingUsername] = useState(true);
+
+  useEffect(() => {
+    const fetchUsername = async () => {
+      if (actor && principal) {
+        setLoadingUsername(true);
+        try {
+          const result = await actor.getMyUsername();
+          if ('ok' in result) {
+            setUsername(result.ok);
+          } else {
+            setUsername(null); // User doesn't have a username
+          }
+        } catch (error) {
+          console.error("Failed to fetch username:", error);
+          setUsername(null);
+        } finally {
+          setLoadingUsername(false);
+        }
+      }
+    };
+
+    fetchUsername();
+  }, [actor, principal]);
 
   // Custom active logic for each nav item
   const isDashboard = path.startsWith('/app/dashboard');
@@ -185,6 +213,19 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const isMessages = path.startsWith('/app/messages');
   const isChannels = path.startsWith('/app/channels');
   const isSettings = path.startsWith('/app/settings');
+
+  const getProfileName = () => {
+    if (loadingUsername) return 'Loading...';
+    if (username) return username;
+    if (principal) return `${principal.toString().substring(0, 6)}...`;
+    return 'Guest User';
+  };
+
+  const getProfileSubtext = () => {
+    if (loadingUsername) return 'Fetching details...';
+    if (username) return `Clypr_${username}`;
+    return 'Privacy Agent';
+  };
 
   return (
     <SidebarContainer $collapsed={collapsed}>
@@ -254,9 +295,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         </Avatar>
         <ProfileInfo $collapsed={collapsed}>
           <ProfileName>
-            {principal ? `${principal.toString().substring(0, 8)}...` : 'Guest User'}
+            {getProfileName()}
           </ProfileName>
-          <ProfileRole>Privacy Agent</ProfileRole>
+          <ProfileRole>{getProfileSubtext()}</ProfileRole>
         </ProfileInfo>
       </ProfileSection>
     </SidebarContainer>

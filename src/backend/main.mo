@@ -50,11 +50,20 @@ persistent actor ClyprCanister {
   private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
   private stable var nextRuleId : Nat = 0;
   private stable var nextChannelId : Nat = 0;
-  
+
+  // User Alias System State
+  private stable var usernameRegistryEntries: [(Text, Principal)] = [];
+  private stable var principalToUsernameEntries: [(Principal, Text)] = [];
+
   // Runtime state - User-isolated data
   private transient var userRules = HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
   private transient var userChannels = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
   private transient var userMessages = HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+
+  // Runtime state - Alias System
+  private transient var usernameRegistry = HashMap.HashMap<Text, Principal>(10, Text.equal, Text.hash);
+  private transient var principalToUsername = HashMap.HashMap<Principal, Text>(10, Principal.equal, Principal.hash);
+
   
   // Helper functions for user-specific data access
   private func getUserRules(userId : UserId) : HashMap.HashMap<RuleId, Rule> {
@@ -112,6 +121,10 @@ persistent actor ClyprCanister {
       let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
       userMessages.put(userId, messagesMap);
     };
+
+    // Restore alias data
+    usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
+    principalToUsername := HashMap.fromIter<Principal, Text>(Iter.fromArray(principalToUsernameEntries), 10, Principal.equal, Principal.hash);
   };
   
   // Store stable variables before upgrades
@@ -137,6 +150,10 @@ persistent actor ClyprCanister {
       userMessagesBuffer.add((userId, Iter.toArray(messagesMap.entries())));
     };
     userMessagesEntries := Buffer.toArray(userMessagesBuffer);
+
+    // Store alias maps as stable arrays
+    usernameRegistryEntries := Iter.toArray(usernameRegistry.entries());
+    principalToUsernameEntries := Iter.toArray(principalToUsername.entries());
   };
   
   system func postupgrade() {
@@ -164,6 +181,10 @@ persistent actor ClyprCanister {
       let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
       userMessages.put(userId, messagesMap);
     };
+
+    // Restore alias data
+    usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
+    principalToUsername := HashMap.fromIter<Principal, Text>(Iter.fromArray(principalToUsernameEntries), 10, Principal.equal, Principal.hash);
   };
   
   // Access Control - Proper user isolation
@@ -174,11 +195,57 @@ persistent actor ClyprCanister {
   };
   
   // User Profile Management
+  public shared(msg) func registerUsername(username: Text) : async Result<(), Error> {
+    let caller = msg.caller;
+    if (not isAuthorized(caller)) {
+      return #err(#NotAuthorized);
+    };
+
+    // Validate username format (basic example)
+    if (Text.size(username) < 3 or Text.size(username) > 20) {
+      return #err(#InvalidInput(?"Username must be between 3 and 20 characters."));
+    };
+
+    // Check if username is already taken
+    if (usernameRegistry.get(username) != null) {
+      return #err(#AlreadyExists(?"Username is already taken."));
+    };
+
+    // Check if the principal already has a username
+    if (principalToUsername.get(caller) != null) {
+      return #err(#AlreadyExists(?"You have already registered a username."));
+    };
+
+    usernameRegistry.put(username, caller);
+    principalToUsername.put(caller, username);
+
+    return #ok();
+  };
+
+  public shared query(msg) func getMyUsername() : async Result<Text, Error> {
+    let caller = msg.caller;
+    if (not isAuthorized(caller)) {
+      return #err(#NotAuthorized);
+    };
+
+    switch (principalToUsername.get(caller)) {
+      case null { return #err(#NotFound); };
+      case (?username) { return #ok(username); };
+    };
+  };
+
+  public query func resolveUsername(username: Text) : async Result<Principal, Error> {
+    switch (usernameRegistry.get(username)) {
+      case null { return #err(#NotFound); };
+      case (?principal) { return #ok(principal); };
+    };
+  };
   
   // Rule Management - User-specific data
   public shared(msg) func createRule(
     name : Text, 
     description : ?Text,
+    dappPrincipal : ?Principal,
     conditions : [Condition], 
     actions : [Action],
     priority : Nat8
@@ -196,6 +263,7 @@ persistent actor ClyprCanister {
       id = ruleId;
       name = name;
       description = description;
+      dappPrincipal = dappPrincipal;
       conditions = conditions;
       actions = actions;
       priority = priority;
@@ -239,6 +307,7 @@ persistent actor ClyprCanister {
           id = ruleId;
           name = updatedRule.name;
           description = updatedRule.description;
+          dappPrincipal = updatedRule.dappPrincipal;
           conditions = updatedRule.conditions;
           actions = updatedRule.actions;
           priority = updatedRule.priority;

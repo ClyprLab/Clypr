@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
+import { useClypr } from '../hooks/useClypr';
+import { useAuth } from '../hooks/useAuth';
 
 const SettingsContainer = styled.div`
   display: flex;
@@ -125,6 +127,54 @@ const CardFooter = styled.div`
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
+  const { actor } = useClypr();
+  const { principal } = useAuth();
+  const [username, setUsername] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUsername = async () => {
+      if (actor) {
+        try {
+          const result = await actor.getMyUsername();
+          if ('ok' in result) {
+            setUsername(result.ok);
+          } else if ('err' in result && 'NotFound' in result.err) {
+            setUsername(''); // No username set yet
+          } else {
+            setError('Failed to fetch username.');
+          }
+        } catch (e) {
+          setError('An error occurred while fetching your username.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchUsername();
+  }, [actor]);
+
+  const handleRegisterUsername = async () => {
+    if (actor && newUsername) {
+      try {
+        const result = await actor.registerUsername(newUsername);
+        if ('ok' in result) {
+          setUsername(newUsername);
+          setNewUsername('');
+          setError(null);
+        } else if ('err' in result) {
+          const errKey = Object.keys(result.err)[0];
+          const errValue = (result.err as any)[errKey];
+          setError(`${errKey}: ${errValue || 'An unknown error occurred.'}`);
+        }
+      } catch (e) {
+        setError('An error occurred during registration.');
+      }
+    }
+  };
   
   return (
     <SettingsContainer>
@@ -155,13 +205,29 @@ const Settings: React.FC = () => {
           <FormSection>
             <SectionTitle>Account Information</SectionTitle>
             <FormGroup>
-              <Label htmlFor="display-name">Display Name</Label>
-              <Input id="display-name" defaultValue="Privacy Agent" />
+              <Label htmlFor="username">Clypr Username</Label>
+              {loading ? (
+                <p>Loading username...</p>
+              ) : username ? (
+                <Input id="username" value={username} readOnly />
+              ) : (
+                <div>
+                  <Input 
+                    id="new-username" 
+                    placeholder="Choose a username" 
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                  />
+                  <Button onClick={handleRegisterUsername} style={{ marginTop: '8px' }}>Register Username</Button>
+                </div>
+              )}
+              {error && <Description style={{ color: 'red' }}>{error}</Description>}
+              <Description>Your unique Clypr username. This can be used by dApps to send you messages.</Description>
             </FormGroup>
             
             <FormGroup>
               <Label htmlFor="principal">Internet Identity Principal</Label>
-              <Input id="principal" value="x4dc7-bz2sy-6kp2b-dovma-..." readOnly />
+              <Input id="principal" value={principal?.toText() || 'Loading...'} readOnly />
               <Description>Your unique Internet Identity principal (read-only)</Description>
             </FormGroup>
           </FormSection>
