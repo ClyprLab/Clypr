@@ -1,14 +1,4 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App';
-import GlobalStyle from './utils/GlobalStyle';
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <GlobalStyle />
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+// Deprecated entry point: this app uses `src/main.tsx` (see `index.html`).
+// This file is intentionally left as a no-op to avoid accidental double mounts
+// and to prevent legacy GlobalStyle injection.
+export {};

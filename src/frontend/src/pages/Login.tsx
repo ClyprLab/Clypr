@@ -1,69 +1,14 @@
-import React, { useEffect } from 'react';
-import styled from 'styled-components';
+import React from 'react';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
-const LoginContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: var(--color-background);
-`;
-
-const LoginCard = styled(Card)`
-  width: 100%;
-  max-width: 440px;
-  padding: var(--space-8);
-`;
-
-const Logo = styled.div`
-  text-align: center;
-  margin-bottom: var(--space-6);
-`;
-
-const LogoIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  background-color: var(--color-text);
-  border-radius: var(--radius-sm);
-  margin: 0 auto var(--space-4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xl);
-`;
-
-const LogoText = styled.h1`
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  margin: 0;
-`;
-
-const Tagline = styled.p`
-  text-align: center;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-6);
-`;
-
-const FooterText = styled.p`
-  text-align: center;
-  margin-top: var(--space-6);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-`;
-
 const Login = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (isAuthenticated) {
       navigate('/app/dashboard');
     }
@@ -74,23 +19,29 @@ const Login = () => {
   };
   
   return (
-    <LoginContainer>
-      <LoginCard>
-        <Logo>
-          <LogoIcon>C</LogoIcon>
-          <LogoText>clypr</LogoText>
-        </Logo>
-        <Tagline>Control your communications with intelligent privacy rules</Tagline>
-        
-        <Button fullWidth onClick={handleLogin}>
-          Login with Local Internet Identity
-        </Button>
-        
-        <FooterText>
-          By logging in, you agree to our Privacy Policy and Terms of Service.
-        </FooterText>
-      </LoginCard>
-    </LoginContainer>
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-[440px]">
+        <Card padding="lg">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-neutral-100 text-neutral-900 rounded-md mx-auto mb-4 flex items-center justify-center font-mono font-bold text-xl">
+              C
+            </div>
+            <h1 className="font-mono text-2xl font-bold m-0">clypr</h1>
+          </div>
+          <p className="text-center text-neutral-400 mb-6">
+            Control your communications with intelligent privacy rules
+          </p>
+          
+          <Button fullWidth onClick={handleLogin}>
+            Login with Local Internet Identity
+          </Button>
+          
+          <p className="text-center mt-6 text-sm text-neutral-400">
+            By logging in, you agree to our Privacy Policy and Terms of Service.
+          </p>
+        </Card>
+      </div>
+    </div>
   );
 };
 

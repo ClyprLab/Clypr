@@ -1,158 +1,62 @@
-import React, { ButtonHTMLAttributes } from 'react';
-import styled, { css } from 'styled-components';
+import React from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'light' | string;
-export type ButtonSize = 'sm' | 'md' | 'lg' | 'large' | string;
+// Keep string unions in runtime via JSDoc for docs; avoid TS React types to bypass IDE issues
+/** @typedef {'primary'|'secondary'|'ghost'|'danger'|'outline'|'light'|string} ButtonVariant */
+/** @typedef {'sm'|'md'|'lg'|'large'|string} ButtonSize */
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  fullWidth?: boolean;
-  as?: React.ElementType;
-  to?: string;
-}
+const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition focus:outline-none focus:ring-2 focus:ring-neutral-700 focus:ring-offset-0 select-none whitespace-nowrap shadow-sm';
 
-const getVariantStyles = (variant: ButtonVariant) => {
+const variantClasses = (variant /** @type {ButtonVariant} */) => {
   switch (variant) {
     case 'primary':
-      return css`
-        background-color: var(--color-text);
-        color: var(--color-background);
-        border: none;
-        box-shadow: var(--shadow-sm);
-        
-        &:hover:not(:disabled) {
-          background-color: #333;
-          box-shadow: var(--shadow-md);
-          transform: translateY(-1px);
-        }
-        
-        &:active:not(:disabled) {
-          background-color: #111;
-          transform: translateY(0);
-          box-shadow: var(--shadow-sm);
-        }
-      `;
+      return 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300';
     case 'secondary':
-      return css`
-        background-color: var(--color-background);
-        color: var(--color-text);
-        border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-sm);
-        
-        &:hover:not(:disabled) {
-          background-color: var(--color-hover);
-          box-shadow: var(--shadow-md);
-          transform: translateY(-1px);
-        }
-        
-        &:active:not(:disabled) {
-          background-color: var(--color-focus);
-          transform: translateY(0);
-          box-shadow: var(--shadow-sm);
-        }
-      `;
+      return 'bg-transparent text-neutral-100 border border-neutral-800 hover:bg-neutral-900/60 active:bg-neutral-900';
     case 'ghost':
-      return css`
-        background-color: transparent;
-        color: var(--color-text);
-        border: none;
-        
-        &:hover:not(:disabled) {
-          background-color: var(--color-hover);
-        }
-        
-        &:active:not(:disabled) {
-          background-color: var(--color-focus);
-        }
-      `;
+      return 'bg-transparent text-neutral-200 hover:bg-neutral-900/60 active:bg-neutral-900';
     case 'danger':
-      return css`
-        background-color: #FFF0F0;
-        color: #D32F2F;
-        border: 1px solid #FFCDD2;
-        
-        &:hover:not(:disabled) {
-          background-color: #FFEBEE;
-        }
-        
-        &:active:not(:disabled) {
-          background-color: #FFCDD2;
-        }
-      `;
+      return 'border border-red-700/50 text-red-400 bg-red-500/10 hover:bg-red-500/20';
+    case 'outline':
+      return 'bg-transparent text-neutral-100 border border-neutral-700 hover:bg-neutral-900/60';
+    case 'light':
+      return 'bg-neutral-800 text-neutral-100 hover:bg-neutral-700';
     default:
-      return '';
+      return 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200';
   }
 };
 
-const getSizeStyles = (size: ButtonSize) => {
+const sizeClasses = (size /** @type {ButtonSize} */) => {
   switch (size) {
     case 'sm':
-      return css`
-        height: 32px;
-        padding: 0 var(--space-3);
-        font-size: var(--font-size-xs);
-      `;
+      return 'h-8 px-3 text-xs';
     case 'md':
-      return css`
-        height: 40px;
-        padding: 0 var(--space-4);
-        font-size: var(--font-size-sm);
-      `;
+      return 'h-10 px-4 text-sm';
     case 'lg':
-      return css`
-        height: 48px;
-        padding: 0 var(--space-5);
-        font-size: var(--font-size-md);
-      `;
+    case 'large':
+      return 'h-12 px-5 text-base';
     default:
-      return '';
+      return 'h-10 px-4 text-sm';
   }
 };
 
-const ButtonContainer = styled.button<{
-  $variant?: ButtonVariant;
-  $size?: ButtonSize;
-  $fullWidth?: boolean;
-}>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: var(--font-mono);
-  line-height: 1;
-  white-space: nowrap;
-  width: ${(props) => props.$fullWidth ? '100%' : 'auto'};
-  
-  ${(props) => getVariantStyles(props.$variant || 'primary')}
-  ${(props) => getSizeStyles(props.$size || 'md')}
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
+function Button(props /** @type {any} */) {
+  const { children, variant = 'primary', size = 'md', fullWidth = false, className, ...rest } = props;
+  const classes = [
+    baseClasses,
+    variantClasses(variant),
+    sizeClasses(size),
+    fullWidth ? 'w-full' : '',
+    'disabled:opacity-50 disabled:cursor-not-allowed',
+    className || ''
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-const Button: React.FC<ButtonProps> = ({
-  children,
-  variant = 'primary',
-  size = 'md',
-  fullWidth = false,
-  ...props
-}) => {
   return (
-    <ButtonContainer
-      $variant={variant}
-      $size={size}
-      $fullWidth={fullWidth}
-      {...props}
-    >
+    <button className={classes} {...rest}>
       {children}
-    </ButtonContainer>
+    </button>
   );
-};
+}
 
 export default Button;

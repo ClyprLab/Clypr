@@ -108,7 +108,7 @@ build_frontend() {
     
     # Build with IC configuration
     print_status "Building with production configuration..."
-    yarn vite build --config vite.config.js
+    yarn vite build
     
     cd ../..
     print_success "Frontend build completed"

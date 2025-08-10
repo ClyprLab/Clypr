@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const Demo: React.FC = () => {
+const Demo = () => {
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-zinc-100">
       <div className="mx-auto max-w-5xl px-4 py-10">
         <header className="mb-8 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="h-6 w-6 rounded-md bg-gradient-to-br from-cyan-400 to-fuchsia-500" />
+            <div className="h-6 w-6 rounded-md bg-neutral-100 text-neutral-900 flex items-center justify-center font-mono font-bold">C</div>
             <span className="text-sm uppercase tracking-[0.18em] text-zinc-300">clypr</span>
           </Link>
           <Link to="/" className="text-sm text-zinc-300 hover:text-white">Back to landing</Link>

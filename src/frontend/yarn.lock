@@ -1176,6 +1176,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tailwindcss/vite@npm:^4.1.11":
+  version: 4.1.11
+  resolution: "@tailwindcss/vite@npm:4.1.11"
+  dependencies:
+    "@tailwindcss/node": "npm:4.1.11"
+    "@tailwindcss/oxide": "npm:4.1.11"
+    tailwindcss: "npm:4.1.11"
+  peerDependencies:
+    vite: ^5.2.0 || ^6 || ^7
+  checksum: 10c0/32ddf0716d717786bf89c5c079222675d39366ad1c3e431ad139f5d3d89aac5b67e89c3c9421b93b92c466bc0cf4eecc741f0d37771c0f7a100dfcf83cbb4fec
+  languageName: node
+  linkType: hard
+
 "@tybys/wasm-util@npm:^0.10.0":
   version: 0.10.0
   resolution: "@tybys/wasm-util@npm:0.10.0"
@@ -2107,6 +2120,7 @@ __metadata:
     "@noble/hashes": "npm:^1.5.0"
     "@peculiar/webcrypto": "npm:^1.4.3"
     "@tailwindcss/postcss": "npm:^4.1.11"
+    "@tailwindcss/vite": "npm:^4.1.11"
     "@types/babel__core": "npm:^7"
     "@types/node": "npm:^18.17.14"
     "@types/react": "npm:^19.1.8"

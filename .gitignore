@@ -94,3 +94,4 @@ credentials.json
 # User-specific content
 .user
 user.config.json
+.draft.md

@@ -1,186 +1,45 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import React from 'react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import Text from '../UI/Text';
 import Input from '../UI/Input';
-import { Channel } from '../../services/ClyprService';
 
-const FormContainer = styled.div`
-  max-width: 600px;
-  margin: 0 auto;
-`;
-
-const FormSection = styled.div`
-  margin-bottom: var(--space-6);
-`;
-
-const SectionTitle = styled.h3`
-  font-size: var(--font-size-lg);
-  margin-bottom: var(--space-4);
-  color: var(--color-text);
-`;
-
-const FormRow = styled.div`
-  display: flex;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-`;
-
-const FormGroup = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-`;
-
-const Label = styled.label`
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-1);
-`;
-
-const Select = styled.select`
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-`;
-
-const TextArea = styled.textarea`
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  min-height: 80px;
-  resize: vertical;
-  font-family: inherit;
-  
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-`;
-
-const ConfigList = styled.div`
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  background: var(--color-bg-secondary);
-`;
-
-const ConfigItem = styled.div`
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  margin-bottom: var(--space-2);
-  padding: var(--space-2);
-  background: var(--color-bg);
-  border-radius: var(--radius-sm);
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const RemoveButton = styled.button`
-  background: #ff4444;
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-1);
-  cursor: pointer;
-  font-size: var(--font-size-xs);
-  
-  &:hover {
-    background: #cc3333;
-  }
-`;
-
-const AddButton = styled(Button)`
-  margin-top: var(--space-2);
-`;
-
-const ButtonRow = styled.div`
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  margin-top: var(--space-6);
-`;
-
-const ChannelTypeInfo = styled.div`
-  padding: var(--space-3);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-`;
-
-interface ChannelFormProps {
-  initialChannel?: Partial<Channel>;
-  onSubmit: (channel: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  onCancel: () => void;
-  isLoading?: boolean;
-}
-
-const ChannelForm: React.FC<ChannelFormProps> = ({
-  initialChannel,
-  onSubmit,
-  onCancel,
-  isLoading = false
-}) => {
-  const [name, setName] = useState(initialChannel?.name || '');
-  const [description, setDescription] = useState(initialChannel?.description || '');
-  const [channelType, setChannelType] = useState<string>(
+const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: any) => {
+  const [name, setName] = (React as any).useState(initialChannel?.name || '');
+  const [description, setDescription] = (React as any).useState(initialChannel?.description || '');
+  const [channelType, setChannelType] = (React as any).useState(
     typeof initialChannel?.channelType === 'string' 
       ? initialChannel.channelType 
       : typeof initialChannel?.channelType === 'object' && initialChannel.channelType.custom
       ? 'custom'
       : 'email'
   );
-  const [customType, setCustomType] = useState(
+  const [customType, setCustomType] = (React as any).useState(
     typeof initialChannel?.channelType === 'object' && initialChannel.channelType.custom
       ? initialChannel.channelType.custom
       : ''
   );
-  const [isActive, setIsActive] = useState(initialChannel?.isActive ?? true);
-  const [config, setConfig] = useState<[string, string][]>(
+  const [isActive, setIsActive] = (React as any).useState(initialChannel?.isActive ?? true);
+  const [config, setConfig] = (React as any).useState(
     initialChannel?.config || [['host', ''], ['port', ''], ['username', ''], ['password', '']]
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: any) => {
     e.preventDefault();
-    
     const finalChannelType = channelType === 'custom' 
       ? { custom: customType }
-      : { [channelType]: null } as { email: null } | { sms: null } | { webhook: null } | { push: null };
-    
+      : { [channelType]: null } as any;
     onSubmit({
       name,
       description: description || undefined,
       channelType: finalChannelType,
-      config: config.filter(([key, value]) => key && value),
+      config: config.filter(([key, value]: any) => key && value),
       isActive
     });
   };
 
-  const addConfigItem = () => {
-    setConfig([...config, ['', '']]);
-  };
-
-  const removeConfigItem = (index: number) => {
-    setConfig(config.filter((_, i) => i !== index));
-  };
-
+  const addConfigItem = () => setConfig([...config, ['', '']]);
+  const removeConfigItem = (index: number) => setConfig(config.filter((_: any, i: number) => i !== index));
   const updateConfigItem = (index: number, keyOrValue: 0 | 1, value: string) => {
     const updated = [...config];
     updated[index][keyOrValue] = value;
@@ -221,128 +80,107 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
 
   const handleChannelTypeChange = (newType: string) => {
     setChannelType(newType);
-    if (newType !== 'custom') {
-      setConfig(getDefaultConfig(newType));
-    }
+    if (newType !== 'custom') setConfig(getDefaultConfig(newType));
   };
 
   return (
-    <FormContainer>
-      <Card>
+    <div className="max-w-[600px] mx-auto">
+      <Card className="p-4 md:p-6">
         <form onSubmit={handleSubmit}>
-          <FormSection>
-            <SectionTitle>Basic Information</SectionTitle>
-            
-            <FormGroup>
-              <Label>Channel Name *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Primary Email Gateway"
-                required
-              />
-            </FormGroup>
-            
-            <FormGroup>
-              <Label>Description</Label>
-              <TextArea
+          <div className="mb-6">
+            <h3 className="text-lg mb-4">Basic Information</h3>
+
+            <div className="mb-4">
+              <label className="block mb-2 font-medium">Channel Name *</label>
+              <Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="e.g., Primary Email Gateway" required />
+            </div>
+
+            <div className="mb-4">
+              <label className="block mb-2 font-medium">Description</label>
+              <textarea
+                className="w-full h-24 rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => setDescription((e as any).target.value)}
                 placeholder="Describe this channel's purpose..."
               />
-            </FormGroup>
-            
-            <FormRow>
-              <FormGroup>
-                <Label>Channel Type *</Label>
-                <Select
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-2 font-medium">Channel Type *</label>
+                <select
+                  className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
                   value={channelType}
-                  onChange={(e) => handleChannelTypeChange(e.target.value)}
+                  onChange={(e) => handleChannelTypeChange((e as any).target.value)}
                 >
                   <option value="email">Email (SMTP)</option>
                   <option value="sms">SMS</option>
                   <option value="webhook">Webhook</option>
                   <option value="push">Push Notification</option>
                   <option value="custom">Custom</option>
-                </Select>
-                
+                </select>
+
                 {channelType === 'custom' && (
-                  <Input
-                    value={customType}
-                    onChange={(e) => setCustomType(e.target.value)}
-                    placeholder="Custom channel type..."
-                    style={{ marginTop: 'var(--space-2)' }}
-                    required
-                  />
+                  <div className="mt-2">
+                    <Input value={customType} onChange={(e: any) => setCustomType(e.target.value)} placeholder="Custom channel type..." required />
+                  </div>
                 )}
-              </FormGroup>
-              
-              <FormGroup>
-                <Label>Status</Label>
-                <Select
+              </div>
+
+              <div>
+                <label className="block mb-2 font-medium">Status</label>
+                <select
+                  className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
                   value={isActive ? 'active' : 'inactive'}
-                  onChange={(e) => setIsActive(e.target.value === 'active')}
+                  onChange={(e) => setIsActive(((e as any).target.value) === 'active')}
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
-                </Select>
-              </FormGroup>
-            </FormRow>
-            
-            <ChannelTypeInfo>
-              {getChannelTypeInfo()}
-            </ChannelTypeInfo>
-          </FormSection>
+                </select>
+              </div>
+            </div>
 
-          <FormSection>
-            <SectionTitle>Configuration</SectionTitle>
-            <Text size="sm" color="secondary" style={{ marginBottom: 'var(--space-3)' }}>
+            <div className="mt-3 p-3 rounded-md bg-neutral-900/50 text-sm text-neutral-300">
+              {getChannelTypeInfo()}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-lg mb-2">Configuration</h3>
+            <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
               Configure the connection parameters for this channel.
             </Text>
-            
-            <ConfigList>
-              {config.map((item, index) => (
-                <ConfigItem key={index}>
-                  <FormGroup>
-                    <Input
-                      value={item[0]}
-                      onChange={(e) => updateConfigItem(index, 0, e.target.value)}
-                      placeholder="Parameter name..."
-                    />
-                  </FormGroup>
-                  
-                  <FormGroup>
-                    <Input
-                      value={item[1]}
-                      onChange={(e) => updateConfigItem(index, 1, e.target.value)}
-                      placeholder="Value..."
-                      type={item[0].toLowerCase().includes('password') ? 'password' : 'text'}
-                    />
-                  </FormGroup>
-                  
-                  <RemoveButton onClick={() => removeConfigItem(index)} type="button">
-                    ×
-                  </RemoveButton>
-                </ConfigItem>
-              ))}
-              
-              <AddButton onClick={addConfigItem} type="button" variant="secondary" size="sm">
-                Add Parameter
-              </AddButton>
-            </ConfigList>
-          </FormSection>
 
-          <ButtonRow>
+            <div className="rounded-md border border-neutral-800 p-3 bg-neutral-900/30">
+              {config.map((item: any, index: number) => (
+                <div key={index} className="flex items-center gap-2 mb-2 p-2 rounded-md bg-neutral-950">
+                  <Input value={item[0]} onChange={(e: any) => updateConfigItem(index, 0, e.target.value)} placeholder="Parameter name..." />
+                  <Input value={item[1]} onChange={(e: any) => updateConfigItem(index, 1, e.target.value)} placeholder="Value..." type={String(item[0]).toLowerCase().includes('password') ? 'password' : 'text'} />
+                  <button type="button" onClick={() => removeConfigItem(index)} className="bg-red-500 text-white rounded px-2 py-1 text-xs">
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              <div>
+                <Button onClick={addConfigItem} type="button" variant="secondary" size="sm">
+                  Add Parameter
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
             <Button type="button" variant="secondary" onClick={onCancel}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || !name || (channelType === 'custom' && !customType)}>
               {isLoading ? 'Creating...' : 'Create Channel'}
             </Button>
-          </ButtonRow>
+          </div>
         </form>
       </Card>
-    </FormContainer>
+    </div>
   );
 };
 

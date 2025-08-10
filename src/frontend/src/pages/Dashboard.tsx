@@ -1,144 +1,9 @@
-import styled from 'styled-components';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Button from '../components/UI/Button';
 import { useClypr } from '../hooks/useClypr';
-import type { Stats, Rule } from '../services/ClyprService';
-
-const DashboardContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-6);
-  
-  @media (max-width: 1200px) {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
-  }
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-`;
-
-const StatsSection = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-  }
-  
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const StatCard = styled(Card)`
-  padding: var(--space-4);
-  text-align: center;
-  transition: transform var(--transition-base);
-  
-  &:hover {
-    transform: translateY(-2px);
-  }
-  
-  @media (max-width: 768px) {
-    padding: var(--space-3);
-  }
-`;
-
-const StatValue = styled.div`
-  font-size: var(--font-size-3xl);
-  font-weight: 700;
-  margin-bottom: var(--space-2);
-  font-family: var(--font-mono);
-  color: var(--color-text);
-  
-  @media (max-width: 768px) {
-    font-size: var(--font-size-2xl);
-  }
-`;
-
-const StatLabel = styled.div`
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-`;
-
-const SectionTitle = styled.h3`
-  margin-bottom: var(--space-4);
-  font-family: var(--font-mono);
-`;
-
-const ActivityCard = styled(Card)`
-  grid-column: span 2;
-  height: 320px;
-  
-  @media (max-width: 768px) {
-    grid-column: span 1;
-    height: auto;
-    min-height: 200px;
-  }
-`;
-
-const RulesCard = styled(Card)`
-  display: flex;
-  flex-direction: column;
-`;
-
-const RulesList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  flex: 1;
-`;
-
-const RuleItem = styled.li`
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const RuleName = styled.div`
-  font-weight: 500;
-`;
-
-const StatusBadge = styled.span`
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  
-  &.active {
-    background-color: #E8F5E9;
-    color: #388E3C;
-  }
-  
-  &.inactive {
-    background-color: #FFEBEE;
-    color: #D32F2F;
-  }
-`;
-
-const CardFooter = styled.div`
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-4);
-  margin-top: var(--space-4);
-  display: flex;
-  justify-content: flex-end;
-`;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -154,8 +19,7 @@ const Dashboard = () => {
     clearError
   } = useClypr();
 
-  // Load data when authenticated
-  useEffect(() => {
+  React.useEffect(() => {
     if (isAuthenticated) {
       if (!statsLoading && !stats) {
         loadStats();
@@ -166,10 +30,8 @@ const Dashboard = () => {
     }
   }, [isAuthenticated]);
 
-  // Calculate active rules count
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
 
-  // System diagnostics
   const getSystemStatus = () => {
     if (!isAuthenticated) return 'Not Connected';
     if (rulesLoading || statsLoading) return 'Loading...';
@@ -177,20 +39,10 @@ const Dashboard = () => {
     return 'Operational';
   };
 
-  const handleCreateRule = () => {
-    navigate('/app/rules');
-  };
-
-  const handleConnectChannel = () => {
-    navigate('/app/channels');
-  };
-
-  const handleViewAllRules = () => {
-    navigate('/app/rules');
-  };
-
+  const handleCreateRule = () => navigate('/app/rules');
+  const handleConnectChannel = () => navigate('/app/channels');
+  const handleViewAllRules = () => navigate('/app/rules');
   const handleSystemDiagnostics = () => {
-    // For now, just show current system status
     alert(`System Status: ${getSystemStatus()}\n\nRules: ${rules.length} total, ${activeRulesCount} active\nAuthenticated: ${isAuthenticated ? 'Yes' : 'No'}\nError: ${error || 'None'}`);
   };
 
@@ -209,20 +61,14 @@ const Dashboard = () => {
     return (
       <div>
         <Text as="h1">Dashboard</Text>
-        <StatsSection>
-          <StatCard>
-            <StatValue>-</StatValue>
-            <StatLabel>Loading...</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>-</StatValue>
-            <StatLabel>Loading...</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>-</StatValue>
-            <StatLabel>Loading...</StatLabel>
-          </StatCard>
-        </StatsSection>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0,1,2].map(i => (
+            <Card key={i}>
+              <div className="text-3xl font-bold font-mono mb-2">-</div>
+              <div className="text-sm text-neutral-400">Loading...</div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -232,108 +78,104 @@ const Dashboard = () => {
       <div>
         <Text as="h1">Dashboard</Text>
         <Card>
-          <Text color="error">{error}</Text>
-          <Button onClick={() => { clearError(); loadStats(); loadRules(); }}>Retry</Button>
+          <Text color="red">{error}</Text>
+          <div className="mt-4">
+            <Button onClick={() => { clearError(); loadStats(); loadRules(); }}>Retry</Button>
+          </div>
         </Card>
       </div>
     );
   }
 
-  // Show top 4 rules, prioritize active ones
   const topRules = rules
     .sort((a, b) => {
-      // Active rules first, then by priority, then by creation date
       if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
       return Number(b.createdAt - a.createdAt);
     })
     .slice(0, 4);
+
   return (
     <div>
       <Text as="h1">Dashboard</Text>
-      
-      <StatsSection>
-        <StatCard>
-          <StatValue>{stats?.messagesCount || 0}</StatValue>
-          <StatLabel>Messages Processed</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{activeRulesCount}</StatValue>
-          <StatLabel>Active Rules</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats?.channelsCount || 0}</StatValue>
-          <StatLabel>Connected Channels</StatLabel>
-        </StatCard>
-      </StatsSection>
-      
-      <DashboardContainer>
-        <ActivityCard>
-          <SectionTitle>Message Activity</SectionTitle>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <div className="text-3xl font-bold font-mono mb-2">{stats?.messagesCount || 0}</div>
+          <div className="text-sm text-neutral-400">Messages Processed</div>
+        </Card>
+        <Card>
+          <div className="text-3xl font-bold font-mono mb-2">{activeRulesCount}</div>
+          <div className="text-sm text-neutral-400">Active Rules</div>
+        </Card>
+        <Card>
+          <div className="text-3xl font-bold font-mono mb-2">{stats?.channelsCount || 0}</div>
+          <div className="text-sm text-neutral-400">Connected Channels</div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 min-h-[320px]">
+          <h3 className="mb-4 font-mono">Message Activity</h3>
           {stats ? (
             <div>
-              <Text>
-                <strong>Delivered:</strong> {stats.deliveredCount || 0} | 
-                <strong> Blocked:</strong> {stats.blockedCount || 0}
-              </Text>
-              <Text style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-                Chart visualization coming soon
-              </Text>
+              <p>
+                <strong>Delivered:</strong> {stats.deliveredCount || 0} |{' '}
+                <strong>Blocked:</strong> {stats.blockedCount || 0}
+              </p>
+              <p className="mt-2 text-sm text-neutral-400">Chart visualization coming soon</p>
             </div>
           ) : (
             <div>
-              <Text>
-                <strong>Delivered:</strong> 0 | 
-                <strong> Blocked:</strong> 0
-              </Text>
-              <Text style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+              <p>
+                <strong>Delivered:</strong> 0 | <strong>Blocked:</strong> 0
+              </p>
+              <p className="mt-2 text-sm text-neutral-400">
                 No message data yet - stats will appear once you start processing messages
-              </Text>
+              </p>
             </div>
           )}
-        </ActivityCard>
-        
-        <RulesCard>
-          <SectionTitle>Top Rules</SectionTitle>
-          <RulesList>
+        </Card>
+
+        <Card>
+          <h3 className="mb-4 font-mono">Top Rules</h3>
+          <ul className="list-none p-0 m-0">
             {topRules.length > 0 ? (
               topRules.map((rule) => (
-                <RuleItem key={rule.id}>
-                  <RuleName>{rule.name}</RuleName>
-                  <StatusBadge className={rule.isActive ? 'active' : 'inactive'}>
+                <li key={rule.id} className="py-3 border-b border-neutral-800 flex items-center justify-between last:border-b-0">
+                  <div className="font-medium">{rule.name}</div>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${rule.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {rule.isActive ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                </RuleItem>
+                  </span>
+                </li>
               ))
             ) : (
-              <RuleItem>
-                <RuleName>No rules created yet</RuleName>
-                <StatusBadge className="inactive">-</StatusBadge>
-              </RuleItem>
+              <li className="py-3 border-b border-neutral-800 flex items-center justify-between last:border-b-0">
+                <div className="font-medium">No rules created yet</div>
+                <span className="inline-block px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">-</span>
+              </li>
             )}
-          </RulesList>
-          <CardFooter>
+          </ul>
+          <div className="border-t border-neutral-800 pt-4 mt-4 flex justify-end">
             <Button variant="secondary" size="sm" onClick={handleViewAllRules}>
               View All Rules
             </Button>
-          </CardFooter>
-        </RulesCard>
-        
-        <Card>
-          <SectionTitle>Quick Actions</SectionTitle>
-          <div>
-            <Button fullWidth style={{ marginBottom: 'var(--space-3)' }} onClick={handleCreateRule}>
-              Create New Rule
-            </Button>
-            <Button variant="secondary" fullWidth style={{ marginBottom: 'var(--space-3)' }} onClick={handleConnectChannel}>
-              Connect Channel
-            </Button>
-            <Button variant="ghost" fullWidth onClick={handleSystemDiagnostics}>
-              System Diagnostics
-            </Button>
           </div>
         </Card>
-      </DashboardContainer>
+
+        <Card>
+          <h3 className="mb-4 font-mono">Quick Actions</h3>
+          <div>
+            <div className="mb-3">
+              <Button fullWidth onClick={handleCreateRule}>Create New Rule</Button>
+            </div>
+            <div className="mb-3">
+              <Button variant="secondary" fullWidth onClick={handleConnectChannel}>Connect Channel</Button>
+            </div>
+            <Button variant="ghost" fullWidth onClick={handleSystemDiagnostics}>System Diagnostics</Button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
-import styled from 'styled-components';
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Rules from './pages/Rules';
@@ -14,14 +13,10 @@ import Test from './pages/Test';
 import Demo from './pages/Demo';
 import { AuthProvider } from './hooks/useAuth';
 
-const AppContainer = styled.div`
-  height: 100%;
-`;
-
 const App = () => {
   return (
     <AuthProvider>
-      <AppContainer>
+      <div className="min-h-screen bg-neutral-950 text-neutral-100">
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -40,7 +35,7 @@ const App = () => {
           
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </AppContainer>
+      </div>
     </AuthProvider>
   );
 };
