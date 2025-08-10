@@ -4,6 +4,7 @@ import Array "mo:base/Array";
 import Debug "mo:base/Debug";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
@@ -28,6 +29,20 @@ module {
         return false;
       };
       
+      // Check for dApp-specific rule match
+      switch (rule.dappPrincipal) {
+        case (?ruleDapp) {
+          // If the rule is for a specific dApp, the sender must match
+          if (not Principal.equal(ruleDapp, message.senderId)) {
+            return false;
+          };
+        };
+        case (null) {
+          // If the rule is not dApp-specific, it applies to any sender.
+          // No action needed here.
+        };
+      };
+
       // Check if all conditions are met
       let allConditionsMet = Array.foldLeft<Condition, Bool>(
         rule.conditions,

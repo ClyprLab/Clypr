@@ -48,8 +48,8 @@ persistent actor ClyprCanister {
   private stable var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
   private stable var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
   private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
-  private stable var nextRuleId : Nat = 0;
-  private stable var nextChannelId : Nat = 0;
+  private stable var nextRuleId : RuleId = 0;
+  private stable var nextChannelId : ChannelId = 0;
 
   // User Alias System State
   private stable var usernameRegistryEntries: [(Text, Principal)] = [];
@@ -423,6 +423,57 @@ persistent actor ClyprCanister {
       case (_) {
         ignore userChannelsMap.remove(channelId);
         return #ok();
+      };
+    };
+  };
+
+  // Message Processing - Smart Endpoint for dApps
+  public shared(msg) func processMessage(
+    recipientUsername: Text,
+    messageType : Text,
+    content : MessageContent
+  ) : async Result<MessageReceipt, Error> {
+    let senderId = msg.caller;
+
+    // 1. Resolve recipient username to Principal
+    let recipientResult = await resolveUsername(recipientUsername);
+    let recipientId = switch(recipientResult) {
+      case (#err(e)) { return #err(e); };
+      case (#ok(p)) { p; };
+    };
+
+    // 2. Create the message
+    let newMessage = MessageProcessor.createMessage(
+      senderId,
+      recipientId,
+      messageType,
+      content
+    );
+
+    // 3. Get recipient's data
+    let userMessagesMap = getUserMessages(recipientId);
+    let userRulesMap = getUserRules(recipientId);
+    let userChannelsMap = getUserChannels(recipientId);
+
+    // 4. Store the message
+    userMessagesMap.put(newMessage.messageId, newMessage);
+
+    // 5. Get all rules and channels as arrays
+    let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
+    let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
+
+    // 6. Process message against rules
+    switch (MessageProcessor.processMessage(newMessage, rulesArray, channelsArray)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(processedMessage)) {
+        // Update the message with processed state
+        userMessagesMap.put(processedMessage.messageId, processedMessage);
+
+        // Create and return receipt
+        let receipt = MessageProcessor.createReceipt(processedMessage);
+        return #ok(receipt);
       };
     };
   };

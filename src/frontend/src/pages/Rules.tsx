@@ -232,6 +232,7 @@ const Rules = () => {
         ...editingRule,
         name: ruleData.name,
         description: ruleData.description,
+        dappPrincipal: (ruleData as any).dappPrincipal, // Make sure to pass this
         conditions: ruleData.conditions,
         actions: ruleData.actions,
         priority: ruleData.priority,
