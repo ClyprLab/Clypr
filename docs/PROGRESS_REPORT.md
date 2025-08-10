@@ -1,58 +1,39 @@
-# Clypr Development Progress Report
+# Clypr Development Progress Report (Aug 2025)
 
 ## Completed Features
 
 ### Authentication & Infrastructure
-- ✅ Internet Identity integration
-- ✅ Local development environment setup
-- ✅ Authentication flow implementation
-- ✅ Signature verification handling
-
-### Frontend
-- ✅ Basic UI components library
-- ✅ Message display and filtering
-- ✅ Rule creation interface
-- ✅ Dashboard layout
-- ✅ Responsive design implementation
-- ✅ Error handling and user feedback
+- ✅ Internet Identity integration (local + mainnet)
+- ✅ Local end-to-end deploy script (`deploy-ic.sh`)
 
 ### Backend
-- ✅ Core message processing
-- ✅ Basic rule engine implementation
-- ✅ Message status tracking
-- ✅ Owner management
-- ✅ Stats collection
+- ✅ Persistent actor with stable storage
+- ✅ Alias system: registerUsername/getMyUsername/resolveUsername
+- ✅ Public endpoints: processMessage and resolveUsername
+- ✅ Rules: CRUD with dappPrincipal, priority, active flag
+- ✅ Channels: CRUD with types and config
+- ✅ Message processing: default allow, block support, receipts
+- ✅ Stats endpoint
+
+### Frontend
+- ✅ Layout, Dashboard, Rules, Channels, Messages, Settings
+- ✅ Service layer aligned to Candid (opt as []|[], nat as BigInt)
+- ✅ Uses generated backend.did.js
+- ✅ Local build passes; mainnet backend reinstalled
 
 ## Current Status
+- RuleEngine evaluates conditions, priority sort, dApp filter
+- MessageProcessor applies first matching rule actions (block/deliver)
 
-### Working Features
-1. **Authentication**
-   - Internet Identity integration
-   - Local and production environment support
-   - Principal-based user identification
-
-2. **Message Management**
-   - Message display with filtering
-   - Status tracking and updates
-   - Message content rendering
-   - Search functionality
-
-3. **Rule Engine**
-   - Rule creation with validation
-   - Rule listing and management
-   - Basic rule processing
-
-### Known Issues
-1. Message status display formatting in some cases
-2. Rule creation form validation feedback
-3. Local development environment occasional signature verification issues
-
-## Recent Updates
-1. Fixed message status rendering issues
-2. Improved rule creation validation
-3. Enhanced error handling
-4. Updated local development configuration
-5. Improved documentation and setup instructions
+## Known Issues / Gaps
+- Route/transform/prioritize actions not yet executed end-to-end
+- No webhook outcalls yet (delivery to Email/SMS not implemented)
+- Public endpoints lack rate limiting/allowlists
+- Billing/top-ups not implemented
 
 ## Next Steps
-See [TODO.md](TODO.md) for detailed upcoming tasks and features.
+- Implement routing and content transform in MessageProcessor
+- Add webhook bridge via HTTPS outcalls
+- Add Settings UI: alias claim/availability check
+- Document processMessage for integrators; optional JS SDK
+- Add quotas/billing and a Billing page
