@@ -80,10 +80,10 @@ const Headline = styled.h1`
   font-weight: 700;
   margin-bottom: 20px;
   line-height: 1.2;
-  max-width: 900px;
+  max-width: 1000px;
 
   @media (min-width: 768px) {
-    font-size: 4.5rem;
+    font-size: 4.2rem;
   }
 `;
 
@@ -98,7 +98,7 @@ const GradientText = styled.span`
 const Subheadline = styled.p`
   font-size: 1.2rem;
   margin-bottom: 40px;
-  max-width: 700px;
+  max-width: 860px;
 
   @media (min-width: 768px) {
     font-size: 1.5rem;
@@ -124,37 +124,40 @@ const CTAButton = styled(Link)`
   }
 `;
 
+const Muted = styled.span`
+  color: var(--color-text-secondary);
+`;
+
 const ProblemSection = styled(Section)`
-  background-color: #0D0D14; /* Slightly lighter dark */
+  background-color: #0D0D14;
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 2.5rem;
+  font-size: 2.4rem;
   font-weight: 700;
-  margin-bottom: 60px;
+  margin-bottom: 24px;
 
   @media (min-width: 768px) {
     font-size: 3rem;
   }
 `;
 
-const ProblemText = styled.p`
-  font-size: 1.1rem;
-  max-width: 800px;
-  margin-bottom: 30px;
+const SectionLead = styled.p`
+  max-width: 900px;
+  font-size: 1.15rem;
+`;
+
+const Paragraph = styled.p`
+  max-width: 900px;
+  font-size: 1.05rem;
 `;
 
 const SolutionSection = styled(Section)`
   background-color: var(--color-background);
 `;
 
-const SolutionText = styled.p`
-  font-size: 1.1rem;
-  max-width: 800px;
-`;
-
 const HowItWorksSection = styled(Section)`
-  background-color: #0D0D14; /* Slightly lighter dark */
+  background-color: #0D0D14;
 `;
 
 const HowItWorksGrid = styled.div`
@@ -184,7 +187,7 @@ const StepNumber = styled.div`
 `;
 
 const StepTitle = styled.h3`
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 600;
   margin-bottom: 10px;
 `;
@@ -201,7 +204,7 @@ const CodeBlock = styled.pre`
   border-radius: 8px;
   overflow-x: auto;
   text-align: left;
-  margin-top: 30px;
+  margin-top: 20px;
   font-size: 0.9rem;
   width: calc(100% - 40px);
 `;
@@ -230,7 +233,7 @@ const BenefitCard = styled.div`
 `;
 
 const BenefitTitle = styled.h3`
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
   margin-bottom: 10px;
 `;
@@ -240,7 +243,7 @@ const BenefitDescription = styled.p`
 `;
 
 const UseCasesSection = styled(Section)`
-  background-color: #0D0D14; /* Slightly lighter dark */
+  background-color: #0D0D14;
 `;
 
 const UseCasesGrid = styled.div`
@@ -254,9 +257,7 @@ const UseCasesGrid = styled.div`
   }
 `;
 
-const UseCaseCard = styled(BenefitCard)`
-  /* Inherits styling from BenefitCard */
-`;
+const UseCaseCard = styled(BenefitCard)``;
 
 const VisionSection = styled(Section)`
   background-color: var(--color-background);
@@ -264,7 +265,11 @@ const VisionSection = styled(Section)`
 
 const VisionText = styled.p`
   font-size: 1.1rem;
-  max-width: 800px;
+  max-width: 900px;
+`;
+
+const DemoSection = styled(Section)`
+  background-color: #0D0D14;
 `;
 
 const FinalCTASection = styled(Section)`
@@ -273,15 +278,14 @@ const FinalCTASection = styled(Section)`
 `;
 
 const FinalCTATitle = styled.h2`
-  font-size: 2.5rem;
+  font-size: 2.6rem;
   font-weight: 700;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 
   @media (min-width: 768px) {
-    font-size: 3.5rem;
+    font-size: 3.4rem;
   }
 `;
-
 
 const Footer = styled.footer`
   width: 100%;
@@ -293,159 +297,205 @@ const Footer = styled.footer`
   border-top: 1px solid #1A1A25;
 `;
 
-
 const Landing: React.FC = () => {
   return (
     <>
       <GlobalStyle />
       <PageContainer>
+        {/* Hero */}
         <HeroSection>
           <Headline>
-            Your <GradientText>Private, Programmable</GradientText> Communication Layer for Web3
+            Direct, private contact with your users — <GradientText>without addresses</GradientText>
           </Headline>
           <Subheadline>
-            Enable secure, verifiable, and direct communication with your users, without compromising on privacy or control. Built for the decentralized future.
+            Clypr is a decentralized, programmable communication layer for Web3 teams. Send a single, verifiable payload and let your users’ agents decide how and where it’s delivered.
           </Subheadline>
           <CTAButton to="/login">Get Started with Clypr</CTAButton>
         </HeroSection>
 
+        {/* Problem */}
         <ProblemSection>
-          <SectionTitle>The Challenge: Reaching Your Users in a Decentralized World</SectionTitle>
-          <ProblemText>
-            You've built a groundbreaking dApp, a vibrant community, or a critical protocol. Now, how do you reliably communicate with your users? Traditional methods like email are centralized and leak data. Relying solely on on-chain events is limiting. Building custom, secure messaging is a massive undertaking, prone to vulnerabilities and complex identity management.
-          </ProblemText>
-          <ProblemText>
-             The cost of ineffective communication isn't just missed updates. It's fragmented communities, frustrated users, and compromised security. Your users deserve direct contact, but they also demand privacy and control over their identity. How do you bridge this gap without becoming a central point of failure or a data liability?
-          </ProblemText>
+          <SectionTitle>The problem you can feel</SectionTitle>
+          <SectionLead>
+            You can ship features. You can ship tokens. What you can’t reliably ship is a message. Email leaks identity. Wallet inboxes are fragmented. On-chain events don’t reach humans.
+          </SectionLead>
+          <Paragraph>
+            So teams blast Telegram. Users miss votes. Security notices arrive late. Community trust erodes. The cost of poor communication isn’t abstract—it’s stalled governance, confused users, and preventable exploits.
+          </Paragraph>
         </ProblemSection>
 
+        {/* Turning Point */}
         <SolutionSection>
-          <SectionTitle>Clypr: The Bridge Between Your dApp and Your Users</SectionTitle>
-          <SolutionText>
-            Clypr is a decentralized communication layer designed specifically for Web3. It’s not another inbox. It's a privacy-preserving gateway that allows your dApp to send structured, verifiable messages directly to a user's self-sovereign communication agent, bypassing centralized servers and complex identity systems. Think of it as a programmable post office box for the decentralized web.
-          </SolutionText>
+          <SectionTitle>The turning point</SectionTitle>
+          <SectionLead>
+            We realized the problem wasn’t “messaging.” It was addresses. Every system asked the sender to know where and how to reach a user. That’s backwards.
+          </SectionLead>
+          <Paragraph>
+            Clypr flips the model: developers send one structured payload to a user’s privacy-preserving alias. The user’s agent owns delivery. No exposed emails. No wallet lists to maintain. No central gatekeeper.
+          </Paragraph>
         </SolutionSection>
 
+        {/* Solution Definition */}
+        <SolutionSection>
+          <SectionTitle>The solution: Clypr</SectionTitle>
+          <SectionLead>
+            Clypr is an API-first, decentralized communication layer. DApps send a single payload; users set programmable rules that decide who gets through, when, and where.
+          </SectionLead>
+          <Paragraph>
+            Technical pillars: end-to-end encryption, programmable routing, decentralized delivery, and wallet-linked identity for verification. Built to respect ownership and minimize data exposure.
+          </Paragraph>
+          <Paragraph>
+            Current payload shape (predictable for devs, consistent for users):
+          </Paragraph>
+          <CodeBlock>{`// processMessage(recipientUsername, messageType, content)
+recipientUsername: Text
+messageType: Text
+content: {
+  title: Text,
+  body: Text,
+  priority: Nat8,
+  metadata: [(Text, Text)]
+}`}</CodeBlock>
+        </SolutionSection>
+
+        {/* How It Works */}
         <HowItWorksSection>
-          <SectionTitle>How It Works: Simple Integration, Powerful Routing</SectionTitle>
+          <SectionTitle>How it works</SectionTitle>
           <HowItWorksGrid>
             <StepCard>
               <StepNumber>1</StepNumber>
-              <StepTitle>Send a Single Payload</StepTitle>
+              <StepTitle>Send one structured payload</StepTitle>
               <StepDescription>
-                Your dApp crafts a single, structured message payload using the Clypr API. No need to manage complex user addresses or network specifics.
-                <CodeBlock>
-{`clypr.sendMessage({
-    recipientUsername: "user_agent_username",
-    messageType: "notification.governance.proposal",
-    content: {
-        title: "New Proposal Available",
-        body: "A new governance proposal has been submitted. View details and vote now.",
-        priority: 5,
-        metadata: [["proposalId", "xyz123"], ["link", "dapp.com/proposal/xyz123"]]
-    }
-});`}
-                </CodeBlock>
+                Your dApp sends a single, well-defined payload to a user’s alias. No address books, no contact syncing, no guessing the right channel.
+                <CodeBlock>{`// JS/TS example
+await clypr.processMessage(
+  "alice",                     // recipientUsername
+  "notification.security",     // messageType
+  {
+    title: "Rotation Required",
+    body: "Rotate your API keys within 24 hours.",
+    priority: 9,
+    metadata: [["ticket", "#8421"], ["link", "https://app.example.com/keys"]]
+  }
+);`}</CodeBlock>
               </StepDescription>
             </StepCard>
             <StepCard>
               <StepNumber>2</StepNumber>
-              <StepTitle>Clypr Routes Securely</StepTitle>
+              <StepTitle>Rules evaluate, not inboxes</StepTitle>
               <StepDescription>
-                Clypr's decentralized network encrypts the payload end-to-end and routes it to the user's Clypr Agent based on their unique, privacy-preserving username. The dApp never sees the user's wallet address or other personal data.
+                The user’s Clypr Agent evaluates sender identity, message type, priority, and metadata against programmable rules—without revealing personal addresses.
               </StepDescription>
             </StepCard>
             <StepCard>
               <StepNumber>3</StepNumber>
-              <StepTitle>User Rules Trigger Actions</StepTitle>
+              <StepTitle>Decentralized delivery</StepTitle>
               <StepDescription>
-                The user's Clypr Agent receives the encrypted message. Based on the user's pre-defined, programmable rules, the agent decides whether to accept, filter, forward, or block the message. This enables complete spam immunity and personalized delivery.
+                Allowed messages are routed to user-chosen channels (email/SMS/webhook) via decentralized delivery—no central gatekeeper—with verifiable origin tied to wallet-linked identity.
               </StepDescription>
             </StepCard>
           </HowItWorksGrid>
         </HowItWorksSection>
 
+        {/* Benefits tied to outcomes */}
         <BenefitsSection>
-          <SectionTitle>Outcomes, Not Just Features</SectionTitle>
+          <SectionTitle>Outcomes that compound</SectionTitle>
           <BenefitsGrid>
             <BenefitCard>
-              <BenefitTitle>Enhanced User Trust</BenefitTitle>
+              <BenefitTitle>Trust without exposure</BenefitTitle>
               <BenefitDescription>
-                Users communicate directly with your dApp without sharing sensitive data like email or wallet addresses, fostering a foundation of trust.
+                Reach users without storing emails, phone numbers, or wallet lists. Users control what’s revealed and to whom.
               </BenefitDescription>
             </BenefitCard>
             <BenefitCard>
-              <BenefitTitle>Spam & Phishing Immunity</BenefitTitle>
+              <BenefitTitle>Spam immunity by design</BenefitTitle>
               <BenefitDescription>
-                Users define strict rules for who can contact them and under what conditions, effectively eliminating unwanted messages and reducing phishing vectors.
+                Rules enforce who can contact a user and under what conditions—by sender principal, message type, priority, or metadata.
               </BenefitDescription>
             </BenefitCard>
             <BenefitCard>
-              <BenefitTitle>Simplified Development</BenefitTitle>
+              <BenefitTitle>Delivery you can verify</BenefitTitle>
               <BenefitDescription>
-                Integrate secure, programmable communication with a minimal API. Focus on your core dApp logic, not complex messaging infrastructure.
+                Wallet-linked identity and signed origin make messages attributable without exposing personal contact data.
               </BenefitDescription>
             </BenefitCard>
             <BenefitCard>
-              <BenefitTitle>Persistent Identity</BenefitTitle>
+              <BenefitTitle>Integrate in minutes</BenefitTitle>
               <BenefitDescription>
-                Users can update their underlying contact methods (e.g., move wallets, change notification endpoints) without your dApp needing to update any records.
+                API-first design with one payload shape. Start on ICP today; roadmap includes multichain reach without re-architecting.
               </BenefitDescription>
             </BenefitCard>
             <BenefitCard>
-              <BenefitTitle>Decentralization Native</BenefitTitle>
+              <BenefitTitle>Contacts that persist</BenefitTitle>
               <BenefitDescription>
-                Built on the Internet Computer Protocol, Clypr offers inherent security, resilience, and censorship resistance without a central gatekeeper.
-              </BenefitDescription>
-            </BenefitCard>
-            <BenefitCard>
-              <BenefitTitle>Future-Proof Flexibility</BenefitTitle>
-              <BenefitDescription>
-                Designed API-first for easy integration and planned expansion to support two-way communication and multiple blockchains.
+                Users can change how they receive messages at any time. Your dApp keeps sending the same payload—no data churn.
               </BenefitDescription>
             </BenefitCard>
           </BenefitsGrid>
         </BenefitsSection>
 
+        {/* Use Cases */}
         <UseCasesSection>
-            <SectionTitle>Where Clypr Transforms Communication</SectionTitle>
-            <UseCasesGrid>
-                <UseCaseCard>
-                    <BenefitTitle>Decentralized Governance Notifications</BenefitTitle>
-                    <BenefitDescription>Alert users instantly and securely about new proposals, voting deadlines, and proposal outcomes without revealing their identity.</BenefitDescription>
-                </UseCaseCard>
-                <UseCaseCard>
-                    <BenefitTitle>dApp Critical Alerts</BenefitTitle>
-                    <BenefitDescription>Send high-priority alerts about security events, platform upgrades, or critical account activity directly to the user's agent.</BenefitDescription>
-                </UseCaseCard>
-                <UseCaseCard>
-                    <BenefitTitle>NFT & Digital Asset Updates</BenefitTitle>
-                    <BenefitDescription>Notify collectors about drops, auctions, or changes related to their digital assets with privacy and verifiable origin.</BenefitDescription>
-                </UseCaseCard>
-                 <UseCaseCard>
-                    <BenefitTitle>Web3 Community Engagement</BenefitTitle>
-                    <BenefitDescription>Provide structured updates, event invitations, or personalized messages based on user roles or activity, controlled by user rules.</BenefitDescription>
-                </UseCaseCard>
-            </UseCasesGrid>
+          <SectionTitle>What teams ship with Clypr</SectionTitle>
+          <UseCasesGrid>
+            <UseCaseCard>
+              <BenefitTitle>Governance that actually reaches voters</BenefitTitle>
+              <BenefitDescription>
+                Notify on proposal creation, quorum risks, and final outcomes with structured, signed messages.
+              </BenefitDescription>
+            </UseCaseCard>
+            <UseCaseCard>
+              <BenefitTitle>Security and infrastructure alerts</BenefitTitle>
+              <BenefitDescription>
+                Critical notices (key rotations, incident updates) delivered under strict allow-lists and elevated priority.
+              </BenefitDescription>
+            </UseCaseCard>
+            <UseCaseCard>
+              <BenefitTitle>NFT and asset events</BenefitTitle>
+              <BenefitDescription>
+                Drops, auctions, or trait-level updates—sent without exposing collector identities.
+              </BenefitDescription>
+            </UseCaseCard>
+            <UseCaseCard>
+              <BenefitTitle>Protocol lifecycle updates</BenefitTitle>
+              <BenefitDescription>
+                Upgrades, deprecations, and breaking changes communicated with predictable payloads and verifiable origin.
+              </BenefitDescription>
+            </UseCaseCard>
+          </UseCasesGrid>
         </UseCasesSection>
 
+        {/* Why It Matters */}
         <VisionSection>
-            <SectionTitle>Why It Matters: Reclaiming Digital Connection</SectionTitle>
-            <VisionText>
-                We believe that in a truly decentralized web, users should own their identity and control who can reach them. Communication shouldn't require sacrificing privacy or being tied to centralized platforms. Clypr is our step towards this future – a persistent, private, chain-agnostic point of contact between you and the decentralized applications you interact with. We're building the infrastructure for trust and direct connection in Web3.
-            </VisionText>
+          <SectionTitle>Why it matters</SectionTitle>
+          <VisionText>
+            Decentralization promised ownership, but communication stayed centralized—addresses, lists, and leaks. Clypr removes the address entirely. A single, private alias stands between your user and the world, with rules that express consent as code. No lock-in. No central mail server. No guessing where people live on-chain.
+          </VisionText>
+          <VisionText>
+            The result is a new primitive for Web3: a chain-agnostic, privacy-preserving point of contact that puts users in control and gives developers a simpler, safer way to reach them.
+          </VisionText>
         </VisionSection>
 
+        {/* Demo Invitation */}
+        <DemoSection>
+          <SectionTitle>See it in action</SectionTitle>
+          <SectionLead>
+            Explore the live dashboard, create rules, and send your first payload in minutes. If you’re evaluating, follow the project and watch the roadmap unfold.
+          </SectionLead>
+          <CTAButton to="/login">Open the Demo</CTAButton>
+        </DemoSection>
+
+        {/* Final Close */}
         <FinalCTASection>
-            <FinalCTATitle>Ready to Build Trust with Your Users?</FinalCTATitle>
-             <Subheadline style={{ marginBottom: '40px' }}>
-                 Explore how Clypr can simplify your dApp's communication and give your users the privacy and control they deserve.
-            </Subheadline>
-            <CTAButton to="/login">Start Building with Clypr</CTAButton>
+          <FinalCTATitle>Make contact a product advantage</FinalCTATitle>
+          <Subheadline style={{ marginBottom: '28px' }}>
+            Ship messages your users want—and nothing they don’t. Private by default. Programmable by design.
+          </Subheadline>
+          <CTAButton to="/login">Start Building with Clypr</CTAButton>
         </FinalCTASection>
 
         <Footer>
-            © {new Date().getFullYear()} Clypr. All rights reserved.
+          © {new Date().getFullYear()} Clypr. All rights reserved.
         </Footer>
       </PageContainer>
     </>
