@@ -1,267 +1,122 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import React from 'react';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
 import { useClypr } from '../hooks/useClypr';
-import { Message as ClyprMessage } from '../services/ClyprService';
 
-const MessagesContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
+// Note: Avoid strict typing in TSX per project guidance
+// to prevent IDE type noise and keep runtime logic intact.
 
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-6);
-`;
-
-const SearchContainer = styled.div`
-  display: flex;
-  gap: var(--space-2);
-  width: 320px;
-`;
-
-const FilterContainer = styled.div`
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-`;
-
-const FilterGroup = styled.div`
-  display: flex;
-  gap: var(--space-2);
-`;
-
-const Select = styled.select`
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-`;
-
-const MessageList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-`;
-
-const MessageCard = styled(Card)`
-  padding: var(--space-4);
-`;
-
-const MessageHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-`;
-
-const MessageInfo = styled.div``;
-
-const MessageTimestamp = styled.div`
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-`;
-
-const MessageTitle = styled.h3`
-  font-size: var(--font-size-md);
-  margin: 0;
-  margin-bottom: var(--space-1);
-`;
-
-const MessageContent = styled.div`
-  margin-bottom: var(--space-3);
-  font-size: var(--font-size-sm);
-`;
-
-const MessageMeta = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-`;
-
-const MessageTags = styled.div`
-  display: flex;
-  gap: var(--space-2);
-`;
-
-const Tag = styled.span`
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  background-color: var(--color-hover);
-`;
-
-const StatusBadge = styled.span<{ $processed?: boolean }>`
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  background-color: ${(props) => props.$processed ? '#E8F5E9' : '#FFF3E0'};
-  color: ${(props) => props.$processed ? '#388E3C' : '#F57C00'};
-`;
-
-const MessageActions = styled.div`
-  display: flex;
-  gap: var(--space-2);
-`;
-
-const LoadingContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: var(--space-8);
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: var(--space-8);
-  color: var(--color-text-secondary);
-`;
-
-const getProcessedTags = (message: ClyprMessage): string[] => {
-  const tags = [];
+const getProcessedTags = (message: any): string[] => {
+  const tags: string[] = [];
   tags.push(message.messageType || 'Unknown');
   if (message.isProcessed) tags.push('Processed');
-  
-  // Add tags from metadata
   message.content.metadata.forEach(([key, value]) => {
     if (key === 'tags') {
       tags.push(...value.split(','));
     }
   });
-  
   return tags;
 };
 
-interface MessageListProps {
-  messages: ClyprMessage[];
-  searchTerm: string;
-  statusFilter: string;
-}
-
-const MessageListComponent = ({ messages, searchTerm, statusFilter }: MessageListProps) => {
+const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages: any[]; searchTerm: string; statusFilter: string; }) => {
   const filteredMessages = messages.filter(message => {
     const matchesSearch = !searchTerm || 
       message.content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       message.content.body.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const messageStatus = typeof message.status === 'object' 
       ? Object.keys(message.status)[0] 
       : message.status || 'unknown';
-    
+
     const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'processed' && message.isProcessed) ||
       (statusFilter === 'unprocessed' && !message.isProcessed) ||
       (statusFilter === messageStatus);
-    
+
     return matchesSearch && matchesStatus;
   });
 
   if (filteredMessages.length === 0) {
     return (
-      <EmptyState>
+      <div className="text-center p-8 text-neutral-400">
         <Text>No messages found matching your criteria.</Text>
-      </EmptyState>
+      </div>
     );
   }
 
   return (
-    <MessageList>
+    <div className="flex flex-col gap-4">
       {filteredMessages.map(message => (
-        <MessageCard key={message.messageId}>
-          <MessageHeader>
-            <MessageInfo>
-              <MessageTitle>{message.content.title}</MessageTitle>
-              <MessageTimestamp>
+        <Card key={message.messageId} className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-base m-0 mb-1">{message.content.title}</h3>
+              <div className="text-xs text-neutral-400 font-mono">
                 {new Date(Number(message.timestamp) / 1000000).toLocaleString()}
-              </MessageTimestamp>
-            </MessageInfo>
-            <StatusBadge $processed={message.isProcessed}>
-              {typeof message.status === 'object' 
-                ? Object.keys(message.status)[0] 
-                : message.status || 'Unknown'}
-            </StatusBadge>
-          </MessageHeader>
-          
-          <MessageContent>
+              </div>
+            </div>
+            <span className={`inline-block px-2 py-1 rounded-full text-xs ${message.isProcessed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+              {typeof message.status === 'object' ? Object.keys(message.status)[0] : message.status || 'Unknown'}
+            </span>
+          </div>
+
+          <div className="mb-3 text-sm">
             {message.content.body}
-          </MessageContent>
-          
-          <MessageMeta>
-            <MessageTags>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
+            <div className="flex gap-2 flex-wrap">
               {getProcessedTags(message).map((tag, index) => (
-                <Tag key={index}>{tag}</Tag>
+                <span key={index} className="inline-block px-2 py-1 rounded-full text-xs bg-neutral-900/60">
+                  {tag}
+                </span>
               ))}
-            </MessageTags>
-            
-            <MessageActions>
+            </div>
+            <div className="flex gap-2">
               <Button variant="secondary" size="sm">View Details</Button>
               {!message.isProcessed && (
                 <Button size="sm">Process</Button>
               )}
-            </MessageActions>
-          </MessageMeta>
-        </MessageCard>
+            </div>
+          </div>
+        </Card>
       ))}
-    </MessageList>
+    </div>
   );
 };
 
 const Messages = () => {
-  const { 
-    messages, 
-    messagesLoading,
-    loadMessages,
-    isAuthenticated,
-    error
-  } = useClypr();
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { messages, messagesLoading, loadMessages, isAuthenticated, error } = useClypr();
+  const [searchTerm, setSearchTerm] = (React as any).useState('');
+  const [statusFilter, setStatusFilter] = (React as any).useState('all');
 
   if (!isAuthenticated) {
     return (
-      <MessagesContainer>
+      <div>
         <Text>Please authenticate to view messages.</Text>
-      </MessagesContainer>
+      </div>
     );
   }
-  
+
   return (
-    <MessagesContainer>
-      <Header>
+    <div>
+      <div className="flex items-center justify-between mb-6">
         <Text as="h1">Messages & Logs</Text>
-        <SearchContainer>
-          <Input 
-            placeholder="Search messages..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-2 w-80">
+          <Input placeholder="Search messages..." value={searchTerm} onChange={(e: any) => setSearchTerm(e.target.value)} />
           <Button onClick={() => loadMessages()}>Refresh</Button>
-        </SearchContainer>
-      </Header>
-      
-      <FilterContainer>
-        <FilterGroup>
-          <Select 
-            value={statusFilter} 
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-2">
+          <select
+            value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             title="Filter messages by status"
+            className="h-9 px-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-md text-sm"
           >
             <option value="all">All Messages</option>
             <option value="processed">Processed</option>
@@ -271,34 +126,29 @@ const Messages = () => {
             <option value="delivered">Delivered</option>
             <option value="blocked">Blocked</option>
             <option value="failed">Failed</option>
-          </Select>
-        </FilterGroup>
-        
-        <Text size="sm" color="secondary">
+          </select>
+        </div>
+        <Text variant="body-sm" color="var(--color-text-secondary)">
           {messages.length} total messages
         </Text>
-      </FilterContainer>
-      
+      </div>
+
       {error && (
-        <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
-          <Text color="error">{error}</Text>
+        <Card className="mb-4 p-3">
+          <Text color="red">{error}</Text>
         </Card>
       )}
 
       <Card>
         {messagesLoading ? (
-          <LoadingContainer>
+          <div className="flex items-center justify-center p-8">
             <Text>Loading messages...</Text>
-          </LoadingContainer>
+          </div>
         ) : (
-          <MessageListComponent 
-            messages={messages}
-            searchTerm={searchTerm}
-            statusFilter={statusFilter}
-          />
+          <MessageListComponent messages={messages} searchTerm={searchTerm} statusFilter={statusFilter} />
         )}
       </Card>
-    </MessagesContainer>
+    </div>
   );
 };
 

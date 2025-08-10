@@ -1,5 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
 import { useAuth } from '@/hooks/useAuth';
 
 interface TopbarProps {
@@ -7,216 +6,49 @@ interface TopbarProps {
   sidebarCollapsed?: boolean;
 }
 
-const TopbarContainer = styled.header`
-  height: 64px;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-6);
-  background-color: var(--color-background);
-  z-index: 50;
-  position: sticky;
-  top: 0;
-  
-  @media (max-width: 768px) {
-    padding: 0 var(--space-4);
-    height: 60px;
-  }
-`;
-
-const LeftSection = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
-const MenuButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  margin-right: var(--space-4);
-  transition: all var(--transition-fast);
-  position: relative;
-  padding: 10px;
-  margin-left: -10px;
-  -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
-  
-  &:hover {
-    background-color: var(--color-hover);
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
-  /* Make the touch target larger on mobile without affecting layout */
-  @media (max-width: 768px) {
-    &::before {
-      content: '';
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      right: -10px;
-      bottom: -10px;
-    }
-  }
-  
-  .hamburger-icon {
-    position: relative;
-    width: 16px;
-    height: 16px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-
-  .hamburger-line {
-    display: block;
-    width: 100%;
-    height: 2px;
-    background-color: var(--color-text);
-    border-radius: 1px;
-    transition: transform 0.3s ease, opacity 0.2s ease;
-  }
-  
-  &.active {
-    .hamburger-line:nth-child(1) {
-      transform: translateY(7px) rotate(45deg);
-    }
-    
-    .hamburger-line:nth-child(2) {
-      opacity: 0;
-    }
-    
-    .hamburger-line:nth-child(3) {
-      transform: translateY(-7px) rotate(-45deg);
-    }
-  }
-`;
-
-const PageTitle = styled.h2`
-  font-size: var(--font-size-lg);
-  font-weight: 500;
-  margin: 0;
-`;
-
-const RightSection = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
-const Button = styled.button`
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: var(--font-mono);
-  
-  &:hover {
-    background-color: var(--color-hover);
-  }
-`;
-
-const ActionButton = styled(Button)`
-  background-color: var(--color-text);
-  color: var(--color-background);
-  border: none;
-  margin-left: var(--space-3);
-  
-  &:hover {
-    background-color: #333;
-  }
-`;
-
-const IconButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  margin-left: var(--space-2);
-  
-  &:hover {
-    background-color: var(--color-hover);
-  }
-`;
-
-const CanisterIdDisplay = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  margin-right: var(--space-3);
-`;
-
 const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
   const { logout, principal } = useAuth();
-  
-  // Get page title based on current route
+
   const getPageTitle = () => {
     const path = window.location.pathname;
-    
     if (path === '/app/dashboard') return 'Dashboard';
     if (path === '/app/rules') return 'Privacy Rules';
     if (path === '/app/messages') return 'Message History';
     if (path === '/app/channels') return 'Communication Channels';
     if (path === '/app/settings') return 'Settings';
-    
     return 'Clypr';
   };
-  
+
   return (
-    <TopbarContainer>
-      <LeftSection>
-        <MenuButton 
-          onClick={toggleSidebar} 
+    <header className="h-16 border-b border-neutral-800 flex items-center justify-between px-6 md:px-4 bg-neutral-950 sticky top-0 z-50">
+      <div className="flex items-center">
+        <button
+          onClick={toggleSidebar}
           aria-label="Toggle sidebar"
-          className={!sidebarCollapsed ? 'active' : ''}
+          className={`relative -ml-2 p-2 w-9 h-9 rounded-md transition ${!sidebarCollapsed ? 'active' : ''} hover:bg-neutral-900 active:scale-95`}
         >
-          <span className="hamburger-icon">
-            <span className="hamburger-line"></span>
-            <span className="hamburger-line"></span>
-            <span className="hamburger-line"></span>
+          <span className="relative w-4 h-4 flex flex-col justify-between">
+            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
+            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
+            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
           </span>
-        </MenuButton>
-        <PageTitle>{getPageTitle()}</PageTitle>
-      </LeftSection>
-      
-      <RightSection>
+        </button>
+        <h2 className="text-lg font-medium m-0 ml-2">{getPageTitle()}</h2>
+      </div>
+
+      <div className="flex items-center">
         {principal && (
-          <CanisterIdDisplay className="hide-on-mobile">
+          <div className="hidden md:block font-mono text-xs px-3 py-1 border border-neutral-800 rounded-full mr-3">
             {`${principal.toString().substring(0, 8)}...`}
-          </CanisterIdDisplay>
+          </div>
         )}
-        
-        <Button className="hide-on-mobile">New Rule</Button>
-        <ActionButton className="hide-on-mobile">Test Rule</ActionButton>
-        
-        <IconButton aria-label="Notifications" className="hide-on-mobile">
-          ⊡
-        </IconButton>
-        <IconButton aria-label="Help" className="hide-on-mobile">
-          ?
-        </IconButton>
-        <IconButton onClick={logout} aria-label="Logout">
-          ⍇
-        </IconButton>
-      </RightSection>
-    </TopbarContainer>
+        <button className="hidden md:inline-flex border border-neutral-800 rounded-md px-4 py-2 text-sm hover:bg-neutral-900">New Rule</button>
+        <button className="hidden md:inline-flex ml-3 bg-neutral-100 text-neutral-900 rounded-md px-4 py-2 text-sm hover:bg-neutral-200">Test Rule</button>
+        <button aria-label="Notifications" className="hidden md:inline-flex ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center">□</button>
+        <button aria-label="Help" className="hidden md:inline-flex ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center">?</button>
+        <button onClick={logout} aria-label="Logout" className="ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center inline-flex">⍇</button>
+      </div>
+    </header>
   );
 };
 

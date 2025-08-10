@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
 import { useAuth } from '@/hooks/useAuth';
 import { useClypr } from '@/hooks/useClypr';
 
@@ -8,206 +7,41 @@ interface SidebarProps {
   collapsed: boolean;
 }
 
-// Use type-safe props with $ prefix for styled components
-const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
-  width: ${({ $collapsed }) => ($collapsed ? '80px' : '240px')};
-  height: 100%;
-  background-color: var(--color-background);
-  border-right: 1px solid var(--color-border);
-  padding: var(--space-4) 0;
-  display: flex;
-  flex-direction: column;
-  transition: width var(--transition-base), transform var(--transition-base);
-  overflow: hidden;
-  z-index: 100;
-  
-  @media (max-width: 768px) {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    transform: translateX(${({ $collapsed }) => ($collapsed ? '-100%' : '0')});
-    box-shadow: ${({ $collapsed }) => ($collapsed ? 'none' : 'var(--shadow-lg)')};
-    will-change: transform;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    backdrop-filter: blur(10px);
-    background-color: rgba(255, 255, 255, 0.95);
-  }
-`;
-
-const Logo = styled.div<{ $collapsed: boolean }>`
-  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-6)')};
-  margin-bottom: var(--space-6);
-  display: flex;
-  align-items: center;
-  justify-content: ${({ $collapsed }) => ($collapsed ? 'center' : 'flex-start')};
-`;
-
-const LogoText = styled.h1<{ $collapsed: boolean }>`
-  font-family: var(--font-mono);
-  font-size: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--font-size-xl)')};
-  font-weight: 700;
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: font-size var(--transition-base);
-`;
-
-const LogoIcon = styled.div<{ $collapsed: boolean }>`
-  width: 32px;
-  height: 32px;
-  background-color: var(--color-text);
-  border-radius: var(--radius-sm);
-  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-family: var(--font-mono);
-`;
-
-const Nav = styled.nav`
-  flex: 1;
-`;
-
-const NavList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-`;
-
-const NavItem = styled.li`
-  margin-bottom: var(--space-1);
-`;
-
-const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
-  display: flex;
-  align-items: center;
-  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)')};
-  text-decoration: none;
-  color: var(--color-text-secondary);
-  transition: all var(--transition-fast);
-  border-left: 3px solid transparent;
-  position: relative;
-  
-  &:hover {
-    background-color: var(--color-hover);
-    color: var(--color-text);
-    transform: translateX(2px);
-  }
-  
-  &.active {
-    background-color: var(--color-hover);
-    color: var(--color-text);
-    border-left-color: var(--color-active);
-    font-weight: 500;
-  }
-  
-  @media (max-width: 768px) {
-    padding: var(--space-4) var(--space-6);
-    font-size: var(--font-size-lg);
-    
-    &:hover {
-      transform: none;
-    }
-    
-    &:active {
-      background-color: var(--color-focus);
-      transform: scale(0.98);
-    }
-  }
-`;
-
-const NavIcon = styled.div<{ $collapsed: boolean }>`
-  width: 20px;
-  height: 20px;
-  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const NavText = styled.span<{ $collapsed: boolean }>`
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-  opacity: ${({ $collapsed }) => ($collapsed ? 0 : 1)};
-  transition: opacity var(--transition-base);
-`;
-
-const ProfileSection = styled.div<{ $collapsed: boolean }>`
-  padding: ${({ $collapsed }) => ($collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)')};
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-`;
-
-const Avatar = styled.div<{ $collapsed?: boolean }>`
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-text);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  margin-right: ${({ $collapsed }) => ($collapsed ? '0' : 'var(--space-3)')};
-`;
-
-const ProfileInfo = styled.div<{ $collapsed: boolean }>`
-  overflow: hidden;
-  opacity: ${({ $collapsed }) => ($collapsed ? 0 : 1)};
-  transition: opacity var(--transition-base);
-`;
-
-const ProfileName = styled.div`
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-
-const ProfileRole = styled.div`
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-`;
-
 const Sidebar = ({ collapsed }: SidebarProps) => {
   const { principal } = useAuth();
-  const { actor } = useClypr();
+  const clypr = useClypr();
+  // Access possible internal actor leniently to avoid TS issues; guard at runtime
+  const actor = (clypr as any)?.actor;
   const location = useLocation();
   const path = location.pathname;
 
-  const [username, setUsername] = useState<string | null>(null);
-  const [loadingUsername, setLoadingUsername] = useState(true);
+  const [username, setUsername] = React.useState<string | null>(null);
+  const [loadingUsername, setLoadingUsername] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const fetchUsername = async () => {
-      if (actor && principal) {
+      if (actor && principal && typeof actor.getMyUsername === 'function') {
         setLoadingUsername(true);
         try {
           const result = await actor.getMyUsername();
           if ('ok' in result) {
             setUsername(result.ok);
           } else {
-            setUsername(null); // User doesn't have a username
+            setUsername(null);
           }
         } catch (error) {
-          console.error("Failed to fetch username:", error);
+          console.error('Failed to fetch username:', error);
           setUsername(null);
         } finally {
           setLoadingUsername(false);
         }
+      } else {
+        setLoadingUsername(false);
       }
     };
-
     fetchUsername();
   }, [actor, principal]);
 
-  // Custom active logic for each nav item
   const isDashboard = path.startsWith('/app/dashboard');
   const isRules = path.startsWith('/app/rules');
   const isMessages = path.startsWith('/app/messages');
@@ -228,79 +62,79 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
   };
 
   return (
-    <SidebarContainer $collapsed={collapsed}>
-      <Logo $collapsed={collapsed}>
-        <LogoIcon $collapsed={collapsed}>C</LogoIcon>
-        <LogoText $collapsed={collapsed}>clypr</LogoText>
-      </Logo>
+    <aside
+      className={
+        `h-full border-r border-neutral-800 py-4 flex flex-col overflow-hidden z-50 md:static md:translate-x-0 md:shadow-none md:bg-neutral-950 ` +
+        (collapsed
+          ? 'fixed top-0 left-0 bottom-0 w-[280px] -translate-x-full shadow-none backdrop-blur md:w-[240px] md:translate-x-0'
+          : 'fixed top-0 left-0 bottom-0 w-[280px] translate-x-0 shadow-lg backdrop-blur bg-neutral-950/95 md:w-[240px] md:translate-x-0')
+      }
+    >
+      <div className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-6'} pb-6`}>
+        <div className="w-8 h-8 bg-neutral-100 text-neutral-900 rounded-md flex items-center justify-center font-mono font-bold mr-3">C</div>
+        <h1 className={`font-mono font-bold transition-all ${collapsed ? 'text-[0]' : 'text-xl'}`}>clypr</h1>
+      </div>
 
-      <Nav>
-        <NavList>
-          <NavItem>
-            <StyledNavLink
-              to="/app/dashboard"
-              $collapsed={collapsed}
-              className={isDashboard ? 'active' : ''}
-            >
-              <NavIcon $collapsed={collapsed}>□</NavIcon>
-              <NavText $collapsed={collapsed}>Dashboard</NavText>
-            </StyledNavLink>
-          </NavItem>
-          <NavItem>
-            <StyledNavLink
-              to="/app/rules"
-              $collapsed={collapsed}
-              className={isRules ? 'active' : ''}
-            >
-              <NavIcon $collapsed={collapsed}>⚙</NavIcon>
-              <NavText $collapsed={collapsed}>Rules</NavText>
-            </StyledNavLink>
-          </NavItem>
-          <NavItem>
-            <StyledNavLink
-              to="/app/messages"
-              $collapsed={collapsed}
-              className={isMessages ? 'active' : ''}
-            >
-              <NavIcon $collapsed={collapsed}>✉</NavIcon>
-              <NavText $collapsed={collapsed}>Messages</NavText>
-            </StyledNavLink>
-          </NavItem>
-          <NavItem>
-            <StyledNavLink
-              to="/app/channels"
-              $collapsed={collapsed}
-              className={isChannels ? 'active' : ''}
-            >
-              <NavIcon $collapsed={collapsed}>⟿</NavIcon>
-              <NavText $collapsed={collapsed}>Channels</NavText>
-            </StyledNavLink>
-          </NavItem>
-          <NavItem>
-            <StyledNavLink
-              to="/app/settings"
-              $collapsed={collapsed}
-              className={isSettings ? 'active' : ''}
-            >
-              <NavIcon $collapsed={collapsed}>⚙</NavIcon>
-              <NavText $collapsed={collapsed}>Settings</NavText>
-            </StyledNavLink>
-          </NavItem>
-        </NavList>
-      </Nav>
+      <nav className="flex-1">
+        <ul className="list-none p-0 m-0">
+          <li className="mb-1">
+            <NavLink to="/app/dashboard" className={({ isActive }) => 
+              `flex items-center ${collapsed ? 'px-2 py-3' : 'px-6 py-3'} text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900 border-l-4 border-transparent ` +
+              ((isActive || isDashboard) ? 'bg-neutral-900 text-neutral-100 border-l-neutral-400 font-medium' : '')
+            }>
+              <span className={`${collapsed ? 'mr-0' : 'mr-3'} w-5 h-5 flex items-center justify-center`}>□</span>
+              <span className={`${collapsed ? 'opacity-0' : 'opacity-100'} text-sm`}>Dashboard</span>
+            </NavLink>
+          </li>
+          <li className="mb-1">
+            <NavLink to="/app/rules" className={({ isActive }) => 
+              `flex items-center ${collapsed ? 'px-2 py-3' : 'px-6 py-3'} text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900 border-l-4 border-transparent ` +
+              ((isActive || isRules) ? 'bg-neutral-900 text-neutral-100 border-l-neutral-400 font-medium' : '')
+            }>
+              <span className={`${collapsed ? 'mr-0' : 'mr-3'} w-5 h-5 flex items-center justify-center`}>⚙</span>
+              <span className={`${collapsed ? 'opacity-0' : 'opacity-100'} text-sm`}>Rules</span>
+            </NavLink>
+          </li>
+          <li className="mb-1">
+            <NavLink to="/app/messages" className={({ isActive }) => 
+              `flex items-center ${collapsed ? 'px-2 py-3' : 'px-6 py-3'} text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900 border-l-4 border-transparent ` +
+              ((isActive || isMessages) ? 'bg-neutral-900 text-neutral-100 border-l-neutral-400 font-medium' : '')
+            }>
+              <span className={`${collapsed ? 'mr-0' : 'mr-3'} w-5 h-5 flex items-center justify-center`}>✉</span>
+              <span className={`${collapsed ? 'opacity-0' : 'opacity-100'} text-sm`}>Messages</span>
+            </NavLink>
+          </li>
+          <li className="mb-1">
+            <NavLink to="/app/channels" className={({ isActive }) => 
+              `flex items-center ${collapsed ? 'px-2 py-3' : 'px-6 py-3'} text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900 border-l-4 border-transparent ` +
+              ((isActive || isChannels) ? 'bg-neutral-900 text-neutral-100 border-l-neutral-400 font-medium' : '')
+            }>
+              <span className={`${collapsed ? 'mr-0' : 'mr-3'} w-5 h-5 flex items-center justify-center`}>⟿</span>
+              <span className={`${collapsed ? 'opacity-0' : 'opacity-100'} text-sm`}>Channels</span>
+            </NavLink>
+          </li>
+          <li className="mb-1">
+            <NavLink to="/app/settings" className={({ isActive }) => 
+              `flex items-center ${collapsed ? 'px-2 py-3' : 'px-6 py-3'} text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900 border-l-4 border-transparent ` +
+              ((isActive || isSettings) ? 'bg-neutral-900 text-neutral-100 border-l-neutral-400 font-medium' : '')
+            }>
+              <span className={`${collapsed ? 'mr-0' : 'mr-3'} w-5 h-5 flex items-center justify-center`}>⚙</span>
+              <span className={`${collapsed ? 'opacity-0' : 'opacity-100'} text-sm`}>Settings</span>
+            </NavLink>
+          </li>
+        </ul>
+      </nav>
 
-      <ProfileSection $collapsed={collapsed}>
-        <Avatar $collapsed={collapsed}>
+      <div className={`${collapsed ? 'px-2' : 'px-6'} border-t border-neutral-800 flex items-center py-3`}>
+        <div className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-900 flex items-center justify-center font-semibold mr-3">
           {principal ? principal.toString().substring(0, 1).toUpperCase() : 'G'}
-        </Avatar>
-        <ProfileInfo $collapsed={collapsed}>
-          <ProfileName>
-            {getProfileName()}
-          </ProfileName>
-          <ProfileRole>{getProfileSubtext()}</ProfileRole>
-        </ProfileInfo>
-      </ProfileSection>
-    </SidebarContainer>
+        </div>
+        <div className={`${collapsed ? 'opacity-0' : 'opacity-100'} overflow-hidden`}>
+          <div className="text-sm font-medium truncate">{getProfileName()}</div>
+          <div className="text-xs text-neutral-400">{getProfileSubtext()}</div>
+        </div>
+      </div>
+    </aside>
   );
 };
 

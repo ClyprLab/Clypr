@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
+import React from 'react';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
@@ -8,160 +7,13 @@ import RuleForm from '../components/Rules/RuleForm';
 import { useClypr } from '../hooks/useClypr';
 import { Rule } from '../services/ClyprService';
 
-const RulesContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-6);
-`;
-
-const SearchContainer = styled.div`
-  display: flex;
-  gap: var(--space-2);
-  width: 320px;
-`;
-
-const CardHeader = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-4);
-`;
-
-const RulesTable = styled('table')`
-  width: 100%;
-  border-collapse: collapse;
-`;
-
-const RulesTableHeader = styled('thead')`
-  background-color: var(--color-hover);
-  
-  th {
-    font-weight: 500;
-    font-family: var(--font-mono);
-    text-align: left;
-    padding: var(--space-3) var(--space-4);
-  }
-`;
-
-const RulesTableBody = styled('tbody')`
-  tr {
-    border-bottom: 1px solid var(--color-border);
-    
-    &:hover {
-      background-color: var(--color-hover);
-    }
-  }
-  
-  td {
-    padding: var(--space-3) var(--space-4);
-  }
-`;
-
-interface StatusBadgeProps {
-  active?: boolean;
-}
-
-const StatusBadge = styled('span')<StatusBadgeProps>`
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  background-color: ${props => props.active ? '#E8F5E9' : '#FFEBEE'};
-  color: ${props => props.active ? '#388E3C' : '#D32F2F'};
-`;
-
-const ActionButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  
-  &:hover {
-    background-color: var(--color-hover);
-  }
-`;
-
-const LoadingContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: var(--space-8);
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: var(--space-8);
-  color: var(--color-text-secondary);
-`;
-
-interface RuleTableProps {
-  rules: Rule[];
-  onEdit: (rule: Rule) => void;
-  onDelete: (ruleId: number) => void;
-  onToggle: (ruleId: number, isActive: boolean) => void;
-}
-
-const RuleTable = ({ rules, onEdit, onDelete, onToggle }: RuleTableProps) => {
-  if (rules.length === 0) {
-    return (
-      <EmptyState>
-        <Text>No rules created yet. Create your first privacy rule to get started.</Text>
-      </EmptyState>
-    );
-  }
-
-  return (
-    <RulesTable>
-      <RulesTableHeader>
-        <tr>
-          <th>Name</th>
-          <th>Description</th>
-          <th>Conditions</th>
-          <th>Actions</th>
-          <th>Priority</th>
-          <th>Status</th>
-          <th>Created</th>
-        </tr>
-      </RulesTableHeader>
-      <RulesTableBody>
-        {rules.map(rule => (
-          <tr key={rule.id}>
-            <td>{rule.name}</td>
-            <td>{rule.description || '-'}</td>
-            <td>{rule.conditions.length}</td>
-            <td>{rule.actions.length}</td>
-            <td>{rule.priority}</td>
-            <td>
-              <StatusBadge active={rule.isActive}>
-                {rule.isActive ? 'Active' : 'Inactive'}
-              </StatusBadge>
-            </td>
-            <td>{new Date(Number(rule.createdAt) / 1000000).toLocaleDateString()}</td>
-            <td>
-              <ActionButton title="Edit" onClick={() => onEdit(rule)}>✎</ActionButton>
-              <ActionButton title="Delete" onClick={() => onDelete(rule.id)}>⨯</ActionButton>
-              <ActionButton 
-                title={rule.isActive ? 'Disable' : 'Enable'}
-                onClick={() => onToggle(rule.id, !rule.isActive)}
-              >
-                {rule.isActive ? '⏻' : '⏼'}
-              </ActionButton>
-            </td>
-          </tr>
-        ))}
-      </RulesTableBody>
-    </RulesTable>
-  );
-};
+const StatusBadge = ({ active }: { active?: boolean }) => (
+  <span className={`inline-block px-2 py-1 rounded-full text-xs ${active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+    {active ? 'Active' : 'Inactive'}
+  </span>
+);
 
 const Rules = () => {
-  // Get Clypr service hooks
   const { 
     rules, 
     rulesLoading,
@@ -172,14 +24,12 @@ const Rules = () => {
     isAuthenticated,
     error
   } = useClypr();
-  
-  // Component state
-  const [showForm, setShowForm] = useState(false);
-  const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // Load rules on mount if authenticated
-  useEffect(() => {
+  const [showForm, setShowForm] = React.useState(false);
+  const [editingRule, setEditingRule] = React.useState<Rule | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  React.useEffect(() => {
     if (isAuthenticated && !rulesLoading && rules.length === 0) {
       loadRules();
     }
@@ -187,26 +37,18 @@ const Rules = () => {
 
   const handleCreateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      // Validate channel IDs for route actions
       const hasInvalidChannelId = ruleData.actions.some(
         action => action.actionType === 'route' && !action.channelId
       );
-      
-      if (hasInvalidChannelId) {
-        throw new Error('Channel ID is required for route actions');
-      }
-
+      if (hasInvalidChannelId) throw new Error('Channel ID is required for route actions');
       const ruleId = await createRule(ruleData);
-      
       if (ruleId !== undefined) {
         setShowForm(false);
         setEditingRule(null);
-        // Refresh rules list
         await loadRules();
       }
     } catch (err) {
       console.error('Error creating rule:', err);
-      // You could add a toast notification here
     }
   };
 
@@ -217,79 +59,57 @@ const Rules = () => {
 
   const handleUpdateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingRule) return;
-    
     try {
-      // Validate channel IDs for route actions
       const hasInvalidChannelId = ruleData.actions.some(
         action => action.actionType === 'route' && !action.channelId
       );
-      
-      if (hasInvalidChannelId) {
-        throw new Error('Channel ID is required for route actions');
-      }
+      if (hasInvalidChannelId) throw new Error('Channel ID is required for route actions');
 
       const updatedRule: Rule = {
         ...editingRule,
         name: ruleData.name,
         description: ruleData.description,
-        dappPrincipal: (ruleData as any).dappPrincipal, // Make sure to pass this
+        dappPrincipal: (ruleData as any).dappPrincipal,
         conditions: ruleData.conditions,
         actions: ruleData.actions,
         priority: ruleData.priority,
         isActive: ruleData.isActive,
-        updatedAt: BigInt(Date.now() * 1000000) // Convert to nanoseconds
+        updatedAt: BigInt(Date.now() * 1000000)
       };
-      
       const success = await updateRule(editingRule.id, updatedRule);
-      
       if (success) {
         setShowForm(false);
         setEditingRule(null);
-        // Refresh rules list
         await loadRules();
       }
     } catch (err) {
       console.error('Error updating rule:', err);
-      // You could add a toast notification here
     }
   };
 
   const handleDeleteRule = async (ruleId: number) => {
     if (!window.confirm('Are you sure you want to delete this rule?')) return;
-    
     try {
       const success = await deleteRule(ruleId);
-      
-      if (success) {
-        // Refresh rules list
-        await loadRules();
-      }
+      if (success) await loadRules();
     } catch (err) {
       console.error('Error deleting rule:', err);
-      // You could add a toast notification here
     }
   };
 
   const handleToggleRule = async (ruleId: number, isActive: boolean) => {
     const rule = rules.find(r => r.id === ruleId);
     if (!rule) return;
-    
     try {
       const updatedRule: Rule = {
         ...rule,
         isActive,
         updatedAt: BigInt(Date.now() * 1000000)
       };
-      
       const success = await updateRule(ruleId, updatedRule);
-      
-      if (success) {
-        // Refresh rules list
-        await loadRules();
-      }
+      if (success) await loadRules();
     } catch (err) {
       console.error('Error updating rule:', err);
-      // You could add a toast notification here
     }
   };
 
@@ -300,78 +120,106 @@ const Rules = () => {
 
   if (showForm) {
     return (
-      <RulesContainer>
-        <Header>
+      <div>
+        <div className="flex items-center justify-between mb-6">
           <Text as="h1">{editingRule ? 'Edit Rule' : 'Create New Rule'}</Text>
-          <Button variant="secondary" onClick={() => {
-            setShowForm(false);
-            setEditingRule(null);
-          }}>
+          <Button variant="secondary" onClick={() => { setShowForm(false); setEditingRule(null); }}>
             ← Back to Rules
           </Button>
-        </Header>
-        
+        </div>
+
         {error && (
-          <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
-            <Text color="error">{error}</Text>
+          <Card className="mb-4">
+            <p className="text-red-500">{error}</p>
           </Card>
         )}
-        
+
         <RuleForm
           initialRule={editingRule || undefined}
           onSubmit={editingRule ? handleUpdateRule : handleCreateRule}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingRule(null);
-          }}
+          onCancel={() => { setShowForm(false); setEditingRule(null); }}
         />
-      </RulesContainer>
+      </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <RulesContainer>
+      <div>
         <Text>Please authenticate to manage privacy rules.</Text>
-      </RulesContainer>
+      </div>
     );
   }
-  
+
   return (
-    <RulesContainer>
-      <Header>
+    <div>
+      <div className="flex items-center justify-between mb-6">
         <Text as="h1">Privacy Rules</Text>
-        <SearchContainer>
-          <Input 
-            placeholder="Search rules..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-2 w-80">
+          <Input placeholder="Search rules..." value={searchTerm} onChange={(e: any) => setSearchTerm(e.target.value)} />
           <Button onClick={() => setShowForm(true)}>Create New Rule</Button>
-        </SearchContainer>
-      </Header>
-      
+        </div>
+      </div>
+
       {error && (
-        <Card style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', backgroundColor: '#ffebee' }}>
-          <Text color="error">{error}</Text>
+        <Card className="mb-4">
+          <p className="text-red-500">{error}</p>
         </Card>
       )}
 
       <Card>
         {rulesLoading ? (
-          <LoadingContainer>
+          <div className="flex items-center justify-center p-8">
             <Text>Loading rules...</Text>
-          </LoadingContainer>
+          </div>
         ) : (
-          <RuleTable
-            rules={filteredRules}
-            onEdit={handleEditRule}
-            onDelete={handleDeleteRule}
-            onToggle={handleToggleRule}
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-neutral-900/60">
+                <tr>
+                  <th className="text-left p-3 font-mono font-medium">Name</th>
+                  <th className="text-left p-3 font-mono font-medium">Description</th>
+                  <th className="text-left p-3 font-mono font-medium">Conditions</th>
+                  <th className="text-left p-3 font-mono font-medium">Actions</th>
+                  <th className="text-left p-3 font-mono font-medium">Priority</th>
+                  <th className="text-left p-3 font-mono font-medium">Status</th>
+                  <th className="text-left p-3 font-mono font-medium">Created</th>
+                  <th className="p-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRules.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center p-8 text-neutral-400">No rules created yet. Create your first privacy rule to get started.</td>
+                  </tr>
+                ) : (
+                  filteredRules.map(rule => (
+                    <tr key={rule.id} className="border-b border-neutral-800 hover:bg-neutral-900">
+                      <td className="p-3">{rule.name}</td>
+                      <td className="p-3">{rule.description || '-'}</td>
+                      <td className="p-3">{rule.conditions.length}</td>
+                      <td className="p-3">{rule.actions.length}</td>
+                      <td className="p-3">{rule.priority}</td>
+                      <td className="p-3"><StatusBadge active={rule.isActive} /></td>
+                      <td className="p-3">{new Date(Number(rule.createdAt) / 1000000).toLocaleDateString()}</td>
+                      <td className="p-3">
+                        <div className="flex gap-2 justify-end">
+                          <button title="Edit" onClick={() => handleEditRule(rule)} className="px-2 py-1 rounded hover:bg-neutral-900">✎</button>
+                          <button title="Delete" onClick={() => handleDeleteRule(rule.id)} className="px-2 py-1 rounded hover:bg-neutral-900">⨯</button>
+                          <button title={rule.isActive ? 'Disable' : 'Enable'} onClick={() => handleToggleRule(rule.id, !rule.isActive)} className="px-2 py-1 rounded hover:bg-neutral-900">
+                            {rule.isActive ? '⏻' : '⭘'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
-    </RulesContainer>
+    </div>
   );
 };
 
