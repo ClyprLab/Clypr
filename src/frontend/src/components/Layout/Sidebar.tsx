@@ -9,38 +9,9 @@ interface SidebarProps {
 
 const Sidebar = ({ collapsed }: SidebarProps) => {
   const { principal } = useAuth();
-  const clypr = useClypr();
-  // Access possible internal actor leniently to avoid TS issues; guard at runtime
-  const actor = (clypr as any)?.actor;
+  const { myUsername, aliasChecked } = useClypr();
   const location = useLocation();
   const path = location.pathname;
-
-  const [username, setUsername] = React.useState<string | null>(null);
-  const [loadingUsername, setLoadingUsername] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchUsername = async () => {
-      if (actor && principal && typeof actor.getMyUsername === 'function') {
-        setLoadingUsername(true);
-        try {
-          const result = await actor.getMyUsername();
-          if ('ok' in result) {
-            setUsername(result.ok);
-          } else {
-            setUsername(null);
-          }
-        } catch (error) {
-          console.error('Failed to fetch username:', error);
-          setUsername(null);
-        } finally {
-          setLoadingUsername(false);
-        }
-      } else {
-        setLoadingUsername(false);
-      }
-    };
-    fetchUsername();
-  }, [actor, principal]);
 
   const isDashboard = path.startsWith('/app/dashboard');
   const isRules = path.startsWith('/app/rules');
@@ -48,16 +19,16 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
   const isChannels = path.startsWith('/app/channels');
   const isSettings = path.startsWith('/app/settings');
 
-  const getProfileName = () => {
-    if (loadingUsername) return 'Loading...';
-    if (username) return username;
+  const profileTitle = () => {
+    if (!aliasChecked) return 'Loading...';
+    if (myUsername) return `@${myUsername}`;
     if (principal) return `${principal.toString().substring(0, 6)}...`;
     return 'Guest User';
   };
 
-  const getProfileSubtext = () => {
-    if (loadingUsername) return 'Fetching details...';
-    if (username) return `Clypr_${username}`;
+  const profileSub = () => {
+    if (!aliasChecked) return 'Fetching alias…';
+    if (myUsername) return 'Clypr alias';
     return 'Privacy Agent';
   };
 
@@ -127,11 +98,11 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
       <div className={`${collapsed ? 'px-2' : 'px-6'} border-t border-neutral-800 flex items-center py-3`}>
         <div className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-900 flex items-center justify-center font-semibold mr-3">
-          {principal ? principal.toString().substring(0, 1).toUpperCase() : 'G'}
+          {(myUsername && myUsername[0]?.toUpperCase()) || (principal ? principal.toString().substring(0, 1).toUpperCase() : 'G')}
         </div>
         <div className={`${collapsed ? 'opacity-0' : 'opacity-100'} overflow-hidden`}>
-          <div className="text-sm font-medium truncate">{getProfileName()}</div>
-          <div className="text-xs text-neutral-400">{getProfileSubtext()}</div>
+          <div className="text-sm font-medium truncate">{profileTitle()}</div>
+          <div className="text-xs text-neutral-400">{profileSub()}</div>
         </div>
       </div>
     </aside>

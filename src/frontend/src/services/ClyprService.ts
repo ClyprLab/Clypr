@@ -85,8 +85,7 @@ interface BackendRule {
   id: number;
   name: string;
   description: string[];  // Empty array for None, [string] for Some - Candid opt format
-  // Note: dappPrincipal is not currently supported in the Candid interface
-  // dappPrincipal: Principal[]; // Empty array for None, [Principal] for Some
+  dappPrincipal: Principal[]; // Empty array for None, [Principal] for Some
   conditions: BackendCondition[];
   actions: BackendAction[];
   priority: number;
@@ -140,8 +139,7 @@ export function toBackendRule(rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>
   return {
     name: rule.name,
     description: rule.description && rule.description.trim() !== '' ? [rule.description.trim()] : [],
-    // Note: dappPrincipal is not currently supported in the Candid interface
-    // dappPrincipal: rule.dappPrincipal ? [rule.dappPrincipal] : [],
+    dappPrincipal: rule.dappPrincipal ? [rule.dappPrincipal] : [],
     conditions: rule.conditions.map(cond => ({
       field: cond.field,
       operator: createOperatorVariant(cond.operator),
@@ -149,7 +147,6 @@ export function toBackendRule(rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>
     })),
     actions: rule.actions.map(action => ({
       actionType: createActionTypeVariant(action.actionType),
-      // Optional ChannelId: [] for None, [bigint] for Some
       channelId: action.channelId !== undefined && action.channelId !== null
         ? [BigInt(action.channelId)]
         : [],
@@ -177,8 +174,7 @@ export function fromBackendRule(rule: BackendRule): Rule {
     id: rule.id,
     name: rule.name,
     description: rule.description.length > 0 ? rule.description[0] : undefined,
-    // Note: dappPrincipal is not currently supported in the Candid interface
-    dappPrincipal: undefined, // rule.dappPrincipal[0],
+    dappPrincipal: rule.dappPrincipal && rule.dappPrincipal.length > 0 ? rule.dappPrincipal[0] : undefined,
     conditions: rule.conditions.map(cond => ({
       field: cond.field,
       operator: operatorToString(cond.operator),
@@ -445,6 +441,59 @@ export class ClyprService {
     }
   }
   
+  // Alias APIs
+  public async getMyUsername(): Promise<string | null> {
+    try {
+      const result = await this.actor.getMyUsername();
+      if ('ok' in result) return result.ok as string;
+      if ('err' in result) {
+        // NotFound -> no alias yet
+        if (result.err && typeof result.err === 'object' && 'NotFound' in result.err) {
+          return null;
+        }
+        console.error('getMyUsername error:', result.err);
+        return null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error in getMyUsername:', error);
+      return null;
+    }
+  }
+
+  public async registerUsername(username: string): Promise<boolean> {
+    try {
+      const result = await this.actor.registerUsername(username);
+      if ('ok' in result) return true;
+      if ('err' in result) {
+        console.error('registerUsername error:', result.err);
+        return false;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error in registerUsername:', error);
+      return false;
+    }
+  }
+
+  public async resolveUsername(username: string): Promise<Principal | null> {
+    try {
+      const result = await this.actor.resolveUsername(username);
+      if ('ok' in result) return result.ok as Principal;
+      if ('err' in result) {
+        if (result.err && typeof result.err === 'object' && 'NotFound' in result.err) {
+          return null;
+        }
+        console.error('resolveUsername error:', result.err);
+        return null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error in resolveUsername:', error);
+      return null;
+    }
+  }
+
   async setOwner(principal: Principal): Promise<boolean> {
     try {
       console.log('Setting owner to:', principal.toText());
@@ -568,11 +617,11 @@ export class ClyprService {
 
   async updateRule(ruleId: number, rule: Rule): Promise<boolean> {
     // Convert the frontend rule to the backend format for the updateRule call
-    // Note: updateRule expects a full Rule object, not individual parameters
     const backendRule: BackendRule = {
       id: ruleId,
       name: rule.name,
       description: rule.description && rule.description.trim() !== '' ? [rule.description.trim()] : [],
+      dappPrincipal: rule.dappPrincipal ? [rule.dappPrincipal] : [],
       conditions: rule.conditions.map(cond => ({
         field: cond.field,
         operator: createOperatorVariant(cond.operator),

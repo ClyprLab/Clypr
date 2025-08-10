@@ -40,6 +40,45 @@ export function useClypr() {
     setService(new ClyprService()); // Re-initialize with anonymous identity
   };
 
+  // Alias helpers
+  const [myUsername, setMyUsername] = useState<string | null>(null);
+  const [aliasChecked, setAliasChecked] = useState<boolean>(false);
+  const hasAlias = !!myUsername;
+
+  const checkMyAlias = async () => {
+    if (!service || !isAuthenticated) return null;
+    try {
+      const username = await service.getMyUsername();
+      setMyUsername(username);
+      setAliasChecked(true);
+      return username;
+    } catch (e) {
+      setAliasChecked(true);
+      return null;
+    }
+  };
+
+  const registerUsername = async (username: string): Promise<boolean> => {
+    if (!service || !isAuthenticated) return false;
+    const ok = await service.registerUsername(username);
+    if (ok) setMyUsername(username);
+    return ok;
+  };
+
+  const resolveUsername = async (username: string) => {
+    if (!service) return null;
+    return await service.resolveUsername(username);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && service) {
+      checkMyAlias();
+    } else {
+      setMyUsername(null);
+      setAliasChecked(false);
+    }
+  }, [isAuthenticated, service]);
+
   // Rule-related functions
   const [rules, setRules] = useState<Rule[]>([]);
   const [rulesLoading, setRulesLoading] = useState<boolean>(false);
@@ -270,22 +309,33 @@ export function useClypr() {
     logout,
     ping,
     service,
+    // alias
+    myUsername,
+    hasAlias,
+    aliasChecked,
+    checkMyAlias,
+    registerUsername,
+    resolveUsername,
+    // rules
     rules,
     rulesLoading,
     loadRules,
     createRule,
     updateRule,
     deleteRule,
+    // channels
     channels,
     channelsLoading,
     loadChannels,
     createChannel,
     updateChannel,
     deleteChannel,
+    // messages
     messages,
     messagesLoading,
     loadMessages,
     sendMessage,
+    // stats
     stats,
     statsLoading,
     loadStats,

@@ -3,16 +3,28 @@ import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useClypr } from '../hooks/useClypr';
 
 const Login = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { aliasChecked, hasAlias, checkMyAlias } = useClypr();
   
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/app/dashboard');
+      // ensure alias status is checked
+      checkMyAlias();
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !aliasChecked) return;
+    if (hasAlias) {
+      navigate('/app/dashboard');
+    } else {
+      navigate('/claim-alias');
+    }
+  }, [isAuthenticated, aliasChecked, hasAlias, navigate]);
   
   const handleLogin = async () => {
     await login();
@@ -33,7 +45,7 @@ const Login = () => {
           </p>
           
           <Button fullWidth onClick={handleLogin}>
-            Login with Local Internet Identity
+            Login with Internet Identity
           </Button>
           
           <p className="text-center mt-6 text-sm text-neutral-400">

@@ -8,52 +8,24 @@ import { useAuth } from '../hooks/useAuth';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = (React as any).useState('general');
-  const { actor } = useClypr() as any;
+  const { myUsername, registerUsername } = useClypr() as any;
   const { principal } = useAuth() as any;
-  const [username, setUsername] = (React as any).useState('');
   const [newUsername, setNewUsername] = (React as any).useState('');
-  const [loading, setLoading] = (React as any).useState(true);
+  const [submitting, setSubmitting] = (React as any).useState(false);
   const [error, setError] = (React as any).useState(null);
 
-  (React as any).useEffect(() => {
-    const fetchUsername = async () => {
-      if (actor) {
-        try {
-          const result = await actor.getMyUsername();
-          if ('ok' in result) {
-            setUsername(result.ok);
-          } else if ('err' in result && 'NotFound' in result.err) {
-            setUsername('');
-          } else {
-            setError('Failed to fetch username.');
-          }
-        } catch (e) {
-          setError('An error occurred while fetching your username.');
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchUsername();
-  }, [actor]);
-
   const handleRegisterUsername = async () => {
-    if (actor && newUsername) {
-      try {
-        const result = await actor.registerUsername(newUsername);
-        if ('ok' in result) {
-          setUsername(newUsername);
-          setNewUsername('');
-          setError(null);
-        } else if ('err' in result) {
-          const errKey = Object.keys(result.err)[0];
-          const errValue = (result.err as any)[errKey];
-          setError(`${errKey}: ${errValue || 'An unknown error occurred.'}`);
-        }
-      } catch (e) {
-        setError('An error occurred during registration.');
-      }
+    if (!newUsername) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const ok = await registerUsername(newUsername);
+      if (!ok) setError('Failed to register alias. Try a different one.');
+      else setNewUsername('');
+    } catch (e) {
+      setError('An error occurred during registration.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -82,24 +54,22 @@ const Settings = () => {
 
             <div className="mb-4">
               <label htmlFor="username" className="block mb-2 font-medium">Clypr Username</label>
-              {loading ? (
-                <p>Loading username...</p>
-              ) : username ? (
-                <Input id="username" value={username} readOnly />
+              {myUsername ? (
+                <Input id="username" value={myUsername} readOnly />
               ) : (
-                <div>
+                <div className="flex gap-2">
                   <Input id="new-username" placeholder="Choose a username" value={newUsername} onChange={(e: any) => setNewUsername(e.target.value)} />
-                  <Button onClick={handleRegisterUsername} style={{ marginTop: 8 }}>Register Username</Button>
+                  <Button onClick={handleRegisterUsername} disabled={submitting || !newUsername}>{submitting ? 'Saving…' : 'Register'}</Button>
                 </div>
               )}
               {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-              <p className="mt-1 text-xs text-neutral-400">Your unique Clypr username. This can be used by dApps to send you messages.</p>
+              <p className="mt-1 text-xs text-neutral-400">Share this alias with dApps to receive messages via Clypr.</p>
             </div>
 
             <div className="mb-4">
               <label htmlFor="principal" className="block mb-2 font-medium">Internet Identity Principal</label>
-              <Input id="principal" value={principal?.toText() || 'Loading...'} readOnly />
-              <p className="mt-1 text-xs text-neutral-400">Your unique Internet Identity principal (read-only)</p>
+              <Input id="principal" value={principal?.toText() || ''} readOnly />
+              <p className="mt-1 text-xs text-neutral-400">Read-only identifier from Internet Identity.</p>
             </div>
           </div>
 

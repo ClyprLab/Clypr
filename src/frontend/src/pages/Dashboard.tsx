@@ -16,7 +16,12 @@ const Dashboard = () => {
     loadStats,
     loadRules,
     error,
-    clearError
+    clearError,
+    myUsername,
+    channels,
+    channelsLoading,
+    messages,
+    messagesLoading
   } = useClypr();
 
   React.useEffect(() => {
@@ -61,6 +66,19 @@ const Dashboard = () => {
     return (
       <div>
         <Text as="h1">Dashboard</Text>
+        {/* Alias card placeholder while loading */}
+        {myUsername && (
+          <div className="mt-2 mb-4">
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-neutral-400">Your Clypr alias</div>
+                  <div className="text-xl font-mono font-semibold">@{myUsername}</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[0,1,2].map(i => (
             <Card key={i}>
@@ -77,6 +95,19 @@ const Dashboard = () => {
     return (
       <div>
         <Text as="h1">Dashboard</Text>
+        {myUsername && (
+          <div className="mt-2 mb-4">
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-neutral-400">Your Clypr alias</div>
+                  <div className="text-xl font-mono font-semibold">@{myUsername}</div>
+                </div>
+                <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(myUsername)}>Copy</Button>
+              </div>
+            </Card>
+          </div>
+        )}
         <Card>
           <Text color="red">{error}</Text>
           <div className="mt-4">
@@ -95,9 +126,50 @@ const Dashboard = () => {
     })
     .slice(0, 4);
 
+  // Simple 7-day delivered vs blocked chart data from messages
+  const nsToMs = (ns: bigint) => Number(ns / 1_000_000n);
+  const startOfDay = (ms: number) => new Date(new Date(ms).setHours(0, 0, 0, 0)).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const todayStart = startOfDay(Date.now());
+  const buckets = Array.from({ length: 7 }, (_, i) => todayStart - (6 - i) * dayMs);
+  type DayPoint = { day: number; delivered: number; blocked: number };
+  const series: DayPoint[] = buckets.map(day => ({ day, delivered: 0, blocked: 0 }));
+  (messages || []).forEach(msg => {
+    const t = nsToMs(msg.timestamp);
+    const d = startOfDay(t);
+    const idx = buckets.indexOf(d);
+    if (idx >= 0) {
+      if (msg.status === 'delivered') series[idx].delivered += 1;
+      if (msg.status === 'blocked') series[idx].blocked += 1;
+    }
+  });
+  const maxVal = Math.max(1, ...series.map(p => p.delivered + p.blocked));
+
+  // Chart dimensions
+  const chartH = 160;
+  const barW = 16;
+  const gap = 12;
+  const pad = 10;
+  const chartW = pad * 2 + series.length * barW + (series.length - 1) * gap;
+
   return (
     <div>
       <Text as="h1">Dashboard</Text>
+
+      {/* Alias banner */}
+      {myUsername && (
+        <div className="mt-2 mb-6">
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-neutral-400">Your Clypr alias</div>
+                <div className="text-xl font-mono font-semibold">@{myUsername}</div>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(myUsername)}>Copy</Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <Card>
@@ -109,7 +181,7 @@ const Dashboard = () => {
           <div className="text-sm text-neutral-400">Active Rules</div>
         </Card>
         <Card>
-          <div className="text-3xl font-bold font-mono mb-2">{stats?.channelsCount || 0}</div>
+          <div className="text-3xl font-bold font-mono mb-2">{channels?.length || 0}</div>
           <div className="text-sm text-neutral-400">Connected Channels</div>
         </Card>
       </div>
@@ -117,18 +189,52 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 min-h-[320px]">
           <h3 className="mb-4 font-mono">Message Activity</h3>
-          {stats ? (
+          {(messagesLoading) ? (
             <div>
-              <p>
-                <strong>Delivered:</strong> {stats.deliveredCount || 0} |{' '}
-                <strong>Blocked:</strong> {stats.blockedCount || 0}
-              </p>
-              <p className="mt-2 text-sm text-neutral-400">Chart visualization coming soon</p>
+              <p className="text-sm text-neutral-400">Loading messages...</p>
+            </div>
+          ) : (messages && messages.length > 0) ? (
+            <div>
+              <svg className="w-full h-40" viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none">
+                {series.map((p, i) => {
+                  const total = p.delivered + p.blocked;
+                  const hTotal = Math.max(2, Math.round((total / maxVal) * (chartH - 20)));
+                  const hDelivered = total > 0 ? Math.round((p.delivered / total) * hTotal) : 0;
+                  const hBlocked = hTotal - hDelivered;
+                  const x = pad + i * (barW + gap);
+                  const yTop = chartH - hTotal;
+                  const yBlocked = chartH - hBlocked;
+                  return (
+                    <g key={i}>
+                      {/* delivered (top segment) */}
+                      {hDelivered > 0 && (
+                        <rect x={x} y={yTop} width={barW} height={hDelivered} rx={2} fill="#22c55e" />
+                      )}
+                      {/* blocked (bottom segment) */}
+                      {hBlocked > 0 && (
+                        <rect x={x} y={yBlocked} width={barW} height={hBlocked} rx={2} fill="#ef4444" />
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+              <div className="mt-2 grid grid-cols-7 gap-2 text-xs text-neutral-500">
+                {series.map((p, i) => (
+                  <div key={i} className="text-center">
+                    {new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-sm">
+                <span className="inline-flex items-center mr-4"><span className="inline-block w-3 h-3 bg-green-500 rounded-sm mr-2" />Delivered</span>
+                <span className="inline-flex items-center"><span className="inline-block w-3 h-3 bg-red-500 rounded-sm mr-2" />Blocked</span>
+              </div>
             </div>
           ) : (
             <div>
               <p>
-                <strong>Delivered:</strong> 0 | <strong>Blocked:</strong> 0
+                <strong>Delivered:</strong> {stats?.deliveredCount || 0} |{' '}
+                <strong>Blocked:</strong> {stats?.blockedCount || 0}
               </p>
               <p className="mt-2 text-sm text-neutral-400">
                 No message data yet - stats will appear once you start processing messages
