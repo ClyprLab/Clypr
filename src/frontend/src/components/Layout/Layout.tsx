@@ -3,19 +3,33 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuth } from '@/hooks/useAuth';
+import { useClypr } from '@/hooks/useClypr';
 
 const Layout = () => {
   const isMobile = () => window.innerWidth <= 768;
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile());
   const { isAuthenticated } = useAuth();
+  const { aliasChecked, hasAlias, checkMyAlias } = useClypr();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
+    // Once authenticated, ensure alias is checked
+    checkMyAlias();
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!aliasChecked) return;
+    // Prevent redirect loop if already on claim page
+    if (!hasAlias && location.pathname !== '/claim-alias') {
+      navigate('/claim-alias');
+    }
+  }, [aliasChecked, hasAlias, isAuthenticated, location.pathname, navigate]);
 
   useEffect(() => {
     const handleResize = () => {

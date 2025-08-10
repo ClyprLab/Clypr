@@ -55,6 +55,7 @@ const ChannelGrid = ({ channels, onEdit, onDelete, onToggle, onAddNew }: { chann
               {channel.name}
             </h3>
             <div className="text-xs text-neutral-400">{getChannelTypeName(channel.channelType)}</div>
+            <div className="text-xs text-neutral-500 font-mono mt-1">ID: {channel.id}</div>
           </div>
 
           <div className="p-4 flex-1">
