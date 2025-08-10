@@ -1,4 +1,4 @@
-# Clypr User Guide
+# Clypr User Guide (MVP)
 
 This guide will help you get started with Clypr, your personal privacy agent for Web3 communications.
 
@@ -33,11 +33,17 @@ Clypr is a decentralized communication privacy relay that puts you in control of
 3. Click "Create Privacy Agent" to deploy your personal canister
 4. Complete your profile setup with a display name (optional)
 
+### Claiming an Alias
+
+- Your alias is how dApps address you (e.g., "alice")
+- Go to Settings → General → Claim Alias
+- If the name is available, it will be registered to your principal
+
 ### Adding Communication Channels
 
 1. Go to the "Channels" section in your dashboard
 2. Click "Add New Channel"
-3. Select the channel type (Email or SMS)
+3. Select the channel type (Email, SMS, or Webhook)
 4. Enter your contact information
 5. Verify the channel by following the verification process
    - For email: Click the verification link sent to your inbox
@@ -133,6 +139,11 @@ When a dApp sends a message to your privacy agent:
 3. **Action Application**: First matching rule's action is executed
 4. **Delivery**: If approved, message is forwarded to designated channels
 5. **Recording**: Message and its processing are recorded in history
+
+### How dApps Contact You
+
+- dApps call the public method `processMessage(alias, messageType, content)` on the Clypr canister
+- Anyone can resolve an alias via `resolveUsername(alias)`
 
 ### Viewing Message History
 
@@ -267,3 +278,8 @@ Your agent will stop processing new messages until cycles are replenished. You'l
 
 #### How secure are my contact details?
 Your contact information is stored encrypted in your privacy agent canister. The webhook service has temporary access only when delivering messages.
+
+## Tips
+
+- Start with a simple Block rule for common spam phrases
+- Prefer specific dApp rules for fine-grained control
