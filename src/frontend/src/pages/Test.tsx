@@ -3,8 +3,7 @@ import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
-import { AuthClient } from '@dfinity/auth-client';
-import { ClyprService } from '../services/ClyprService';
+import Input from '../components/UI/Input';
 import { useClypr } from '../hooks/useClypr';
 
 const TestContainer = styled.div`
@@ -18,16 +17,21 @@ const TestContainer = styled.div`
 
 const TestSection = styled(Card)`
   padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 `;
 
 const TestResult = styled.div<{ success?: boolean }>`
   padding: var(--space-3);
   border-radius: var(--radius-sm);
-  background-color: ${props => props.success ? '#E8F5E9' : '#FFEBEE'};
-  color: ${props => props.success ? '#388E3C' : '#D32F2F'};
+  background-color: ${props => props.success ? 'var(--color-success-light)' : 'var(--color-error-light)'};
+  color: ${props => props.success ? 'var(--color-success-dark)' : 'var(--color-error-dark)'};
   margin-top: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
 `;
 
 const ResultsList = styled.div`
@@ -55,10 +59,10 @@ const DebugInfo = styled.pre`
 const ButtonGroup = styled.div`
   display: flex;
   gap: var(--space-3);
-  margin: var(--space-4) 0;
+  flex-wrap: wrap;
 `;
 
-interface TestResult {
+interface TestResultData {
   message: string;
   success: boolean;
   details?: string;
@@ -66,45 +70,37 @@ interface TestResult {
 }
 
 const Test: React.FC = () => {
-  const [results, setResults] = useState<TestResult[]>([]);
+  const [results, setResults] = useState<TestResultData[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [service, setService] = useState<ClyprService | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
-  const { isAuthenticated, principal, loading, error } = useClypr();
+  const { service, isAuthenticated, principal, loading, error } = useClypr();
 
-  const addResult = (message: string, success: boolean = true, details?: string) => {
+  const [username, setUsername] = useState<string>('test-user');
+  const [dappPrincipal, setDappPrincipal] = useState<string>('');
+
+  const addResult = (message: string, success: boolean = true, details?: any) => {
+    const detailString = details ? (typeof details === 'string' ? details : JSON.stringify(details, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value, 2)) : undefined;
+
     setResults(prev => [...prev, {
       message,
       success,
-      details,
+      details: detailString,
       timestamp: Date.now()
     }]);
   };
 
-  useEffect(() => {
-    updateDebugInfo();
-  }, [isAuthenticated, principal, loading, error]);
-
   const updateDebugInfo = () => {
     const info = {
       environment: {
-        window: {
-          location: window.location.href,
-          hostname: window.location.hostname,
-          port: window.location.port,
-          canisterIds: (window as any).canisterIds,
-        },
-        build: {
-          CLYPR_CANISTER_ID: process.env.CLYPR_CANISTER_ID,
-          DFX_NETWORK: process.env.DFX_NETWORK,
-          NODE_ENV: process.env.NODE_ENV,
-        }
+        CLYPR_CANISTER_ID: process.env.CLYPR_CANISTER_ID,
+        DFX_NETWORK: process.env.DFX_NETWORK,
       },
       authentication: {
         isAuthenticated,
         principal: principal?.toText(),
         loading,
-        error
+        error: error?.message,
       },
       service: {
         initialized: !!service,
@@ -114,153 +110,170 @@ const Test: React.FC = () => {
     setDebugInfo(JSON.stringify(info, null, 2));
   };
 
-  const clearResults = () => {
-    setResults([]);
-  };
+  useEffect(() => {
+    if (principal && !dappPrincipal) {
+      setDappPrincipal(principal.toText());
+    }
+    updateDebugInfo();
+  }, [isAuthenticated, principal, loading, error, service]);
 
-  const runDirectServiceTest = async () => {
+  const clearResults = () => setResults([]);
+
+  const testRegisterUsername = async () => {
+    if (!service) return addResult('Service not ready', false);
     setIsRunning(true);
-    addResult('Starting direct service test...');
+    addResult(`Registering username: "${username}"...`);
     try {
-      addResult('Creating service without authentication...');
-      const testService = new ClyprService();
-      setService(testService);
-      addResult('Service created successfully.');
-
-      addResult('Pinging service...');
-      const pingResult = await testService.ping();
-      addResult(`Ping successful: ${pingResult}`, true);
-
+      const result = await service.registerUsername(username);
+      if ('ok' in result) {
+        addResult(`Username "${username}" registered successfully.`, true);
+      } else {
+        const errorKey = Object.keys(result.err)[0];
+        const errorDetails = (result.err as any)[errorKey]?.[0] || '';
+        addResult(`Failed to register username: ${errorKey}`, false, errorDetails);
+      }
     } catch (e: any) {
-      addResult(`Test failed: ${e.message}`, false, e.stack);
-      console.error(e);
-    } finally {
-      setIsRunning(false);
+      addResult(`Error registering username: ${e.message}`, false, e.stack);
     }
+    setIsRunning(false);
   };
 
-  const runAuthenticatedTests = async (service: ClyprService) => {
-    // Test 4: Authenticated ping
-    addResult('Testing ping with authentication...');
-    const pingResult = await service.ping();
-    addResult(`Authenticated ping: ${pingResult}`);
-
-    // Test 5: Rule creation
-    addResult('Testing rule creation...');
+  const testCreateDappRule = async () => {
+    if (!service) return addResult('Service not ready', false);
+    if (!dappPrincipal) return addResult('DApp Principal cannot be empty', false);
+    setIsRunning(true);
+    addResult(`Creating rule for dApp principal: ${dappPrincipal}...`);
     try {
-      const ruleId = await service.createRule({
-        name: 'Direct Service Test Rule',
-        description: 'A test rule created by direct service test',
-        conditions: [{
-          field: 'content.title',
-          operator: 'contains',
-          value: 'test'
-        }],
-        actions: [{
-          actionType: 'allow',
-          parameters: []
-        }],
-        priority: 5
+      const result = await service.createRule({
+        name: `Test Rule for ${dappPrincipal.substring(0, 10)}...`,
+        dappPrincipal: dappPrincipal,
+        description: 'Allow messages from this specific dApp',
+        conditions: [],
+        actions: [{ actionType: { allow: null }, parameters: [] }],
+        priority: 1,
       });
-      addResult(`Rule created with ID: ${ruleId}`);
-    } catch (error) {
-      addResult(`Rule creation failed: ${error}`, false);
+      if ('ok' in result) {
+        addResult(`Rule created with ID: ${result.ok}`, true);
+      } else {
+        const errorKey = Object.keys(result.err)[0];
+        addResult(`Failed to create rule: ${errorKey}`, false);
+      }
+    } catch (e: any) {
+      addResult(`Error creating rule: ${e.message}`, false, e.stack);
     }
-
-    // Test 6: Rule retrieval
-    addResult('Testing rule retrieval...');
-    try {
-      const rules = await service.getAllRules();
-      addResult(`Retrieved ${rules?.length || 0} rules`);
-    } catch (error) {
-      addResult(`Rule retrieval failed: ${error}`, false);
-    }
-
-    // Test 7: Message sending
-    addResult('Testing message sending...');
-    try {
-      const receipt = await service.sendMessage('test', {
-        title: 'Test Message',
-        body: 'This is a test message',
-        priority: 5,
-        metadata: [['source', 'test']]
-      });
-      addResult(`Message sent with ID: ${receipt?.messageId}`);
-    } catch (error) {
-      addResult(`Message sending failed: ${error}`, false);
-    }
+    setIsRunning(false);
   };
 
-  const testActorCreation = async () => {
-    addResult('Testing actor creation...');
+  const testProcessMessage = async () => {
+    if (!service) return addResult('Service not ready', false);
+    if (!username) return addResult('Username cannot be empty', false);
+    setIsRunning(true);
+    addResult(`Simulating dApp sending message to user "${username}"...`);
+    addResult(`(Note: The sender principal is your own: ${principal?.toText()})`);
     try {
-      const { Actor } = await import('@dfinity/agent');
-      const { idlFactory } = await import('../../../declarations/backend/backend.did.js');
-      
-      const canisterId = process.env.CLYPR_CANISTER_ID || (window as any).canisterIds?.backend;
-      addResult(`Using canister ID: ${canisterId}`);
-      
-      if (!canisterId) {
-        throw new Error('No canister ID found');
-      }
-      
-      const { HttpAgent } = await import('@dfinity/agent');
-      const agent = new HttpAgent({ host: 'http://localhost:4943' });
-      
-      if (process.env.DFX_NETWORK !== 'ic') {
-        addResult('Local network detected, fetching root key...');
-        await agent.fetchRootKey();
-      }
-      
-      const actor = Actor.createActor(idlFactory, {
-        agent,
-        canisterId,
+      const result = await service.processMessage(username, 'dapp_test', {
+        title: 'Hello from Simulated dApp',
+        body: 'This message is sent via the processMessage endpoint.',
+        priority: 1,
+        metadata: [['client', 'clypr-test-page']],
       });
-      
-      addResult('Actor created successfully');
-      const pingResult = await actor.ping();
-      addResult(`Actor ping result: ${pingResult}`);
-    } catch (error) {
-      addResult(`Actor creation failed: ${error}`, false);
+
+      if ('ok' in result) {
+        addResult('processMessage call successful!', true, result.ok);
+      } else {
+        const errorKey = Object.keys(result.err)[0];
+        const errorDetails = (result.err as any)[errorKey]?.[0] || '';
+        addResult(`processMessage call failed: ${errorKey}`, false, errorDetails);
+      }
+    } catch (e: any) {
+      addResult(`Error in processMessage call: ${e.message}`, false, e.stack);
     }
+    setIsRunning(false);
+  };
+
+  const testGetAllRules = async () => {
+    if (!service) return addResult('Service not ready', false);
+    setIsRunning(true);
+    addResult('Fetching all rules...');
+    try {
+      const result = await service.getAllRules();
+      if ('ok' in result) {
+        addResult(`Found ${result.ok.length} rules.`, true, result.ok);
+      } else {
+        addResult('Failed to fetch rules.', false);
+      }
+    } catch (e: any) {
+      addResult(`Error fetching rules: ${e.message}`, false, e.stack);
+    }
+    setIsRunning(false);
   };
 
   return (
     <TestContainer>
       <TestSection>
         <Text variant="h2">Clypr Test Dashboard</Text>
-        <Text>Run various tests and view debug information</Text>
+        <Text>Use these tests to verify backend functionality end-to-end.</Text>
+      </TestSection>
 
+      <TestSection>
+        <Text variant="h3">1. User Alias System</Text>
+        <Input
+          label="Username to Register"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="e.g., your-name"
+        />
+        <Button onClick={testRegisterUsername} disabled={isRunning || !isAuthenticated} loading={isRunning}>
+          Test Register Username
+        </Button>
+      </TestSection>
+
+      <TestSection>
+        <Text variant="h3">2. dApp-Specific Rules</Text>
+        <Input
+          label="dApp Principal for Rule (defaults to your principal)"
+          value={dappPrincipal}
+          onChange={(e) => setDappPrincipal(e.target.value)}
+          placeholder="Enter a principal ID"
+        />
         <ButtonGroup>
-          <Button
-            onClick={runDirectServiceTest}
-            disabled={isRunning}
-            loading={isRunning}
-          >
-            Run Service Test
+          <Button onClick={testCreateDappRule} disabled={isRunning || !isAuthenticated} loading={isRunning}>
+            Test Create dApp Rule
           </Button>
-          <Button
-            onClick={testActorCreation}
-            disabled={isRunning}
-          >
-            Test Actor Creation
-          </Button>
-          <Button
-            onClick={clearResults}
-            variant="secondary"
-          >
-            Clear Results
+          <Button onClick={testGetAllRules} disabled={isRunning || !isAuthenticated} variant="secondary" loading={isRunning}>
+            View All Rules
           </Button>
         </ButtonGroup>
+      </TestSection>
 
+      <TestSection>
+        <Text variant="h3">3. Smart Endpoint</Text>
+        <Input
+          label="Send Message to Username"
+          value={username}
+          readOnly
+          // onChange={(e) => setUsername(e.target.value)}
+          placeholder="The user to receive the message"
+        />
+        <Button onClick={testProcessMessage} disabled={isRunning || !isAuthenticated} loading={isRunning}>
+          Test Process Message
+        </Button>
+      </TestSection>
+
+      <TestSection>
+        <Text variant="h2">Test Results</Text>
+        <Button onClick={clearResults} variant="secondary">Clear Results</Button>
         <ResultsList>
           {results.map((result, index) => (
             <TestResult key={index} success={result.success}>
-              [{new Date(result.timestamp).toLocaleTimeString()}] {result.message}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>{result.message}</span>
+                <span style={{ opacity: 0.7 }}>{new Date(result.timestamp).toLocaleTimeString()}</span>
+              </div>
               {result.details && (
-                <div style={{ marginTop: '4px', color: 'inherit' }}>
+                <DebugInfo style={{ marginTop: '8px' }}>
                   {result.details}
-                </div>
+                </DebugInfo>
               )}
             </TestResult>
           ))}

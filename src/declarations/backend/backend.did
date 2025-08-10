@@ -4,6 +4,7 @@ type Rule =
    actions: vec Action;
    conditions: vec Condition;
    createdAt: int;
+   dappPrincipal: opt principal;
    description: opt text;
    id: RuleId;
    isActive: bool;
@@ -14,39 +15,34 @@ type Rule =
 type Result_9 = 
  variant {
    err: Error;
-   ok: RuleId;
+   ok: vec Message;
  };
 type Result_8 = 
  variant {
    err: Error;
-   ok: vec Channel;
+   ok: vec Rule;
  };
 type Result_7 = 
  variant {
    err: Error;
-   ok: vec Message;
+   ok: Channel;
  };
 type Result_6 = 
  variant {
    err: Error;
-   ok: vec Rule;
+   ok: Message;
  };
 type Result_5 = 
  variant {
    err: Error;
-   ok: Channel;
+   ok: text;
  };
 type Result_4 = 
  variant {
    err: Error;
-   ok: Message;
- };
-type Result_3 = 
- variant {
-   err: Error;
    ok: Rule;
  };
-type Result_2 = 
+type Result_3 = 
  variant {
    err: Error;
    ok:
@@ -58,10 +54,25 @@ type Result_2 =
       rulesCount: nat;
     };
  };
-type Result_10 = 
+type Result_2 = 
+ variant {
+   err: Error;
+   ok: principal;
+ };
+type Result_12 = 
  variant {
    err: Error;
    ok: ChannelId;
+ };
+type Result_11 = 
+ variant {
+   err: Error;
+   ok: RuleId;
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: vec Channel;
  };
 type Result_1 = 
  variant {
@@ -111,9 +122,9 @@ type Message =
  };
 type Error = 
  variant {
-   AlreadyExists;
+   AlreadyExists: opt text;
    InternalError;
-   InvalidInput;
+   InvalidInput: opt text;
    NotAuthorized;
    NotFound;
    Other: text;
@@ -181,20 +192,26 @@ service : {
    ChannelType, config: vec record {
                               text;
                               text;
-                            }) -> (Result_10);
-  createRule: (name: text, description: opt text, conditions: vec Condition,
-   actions: vec Action, priority: nat8) -> (Result_9);
+                            }) -> (Result_12);
+  createRule: (name: text, description: opt text, dappPrincipal:
+   opt principal, conditions: vec Condition, actions: vec Action, priority:
+   nat8) -> (Result_11);
   deleteChannel: (channelId: ChannelId) -> (Result);
   deleteRule: (ruleId: RuleId) -> (Result);
-  getAllChannels: () -> (Result_8) query;
-  getAllMessages: () -> (Result_7) query;
-  getAllRules: () -> (Result_6) query;
-  getChannel: (channelId: ChannelId) -> (Result_5) query;
-  getMessage: (messageId: MessageId) -> (Result_4) query;
-  getRule: (ruleId: RuleId) -> (Result_3) query;
-  getStats: () -> (Result_2) query;
+  getAllChannels: () -> (Result_10) query;
+  getAllMessages: () -> (Result_9) query;
+  getAllRules: () -> (Result_8) query;
+  getChannel: (channelId: ChannelId) -> (Result_7) query;
+  getMessage: (messageId: MessageId) -> (Result_6) query;
+  getMyUsername: () -> (Result_5) query;
+  getRule: (ruleId: RuleId) -> (Result_4) query;
+  getStats: () -> (Result_3) query;
   init: () -> ();
   ping: () -> (text) query;
+  processMessage: (recipientUsername: text, messageType: text, content:
+   MessageContent) -> (Result_1);
+  registerUsername: (username: text) -> (Result);
+  resolveUsername: (username: text) -> (Result_2) query;
   sendMessage: (messageType: text, content: MessageContent) -> (Result_1);
   updateChannel: (channelId: ChannelId, updatedChannel: Channel) -> (Result);
   updateRule: (ruleId: RuleId, updatedRule: Rule) -> (Result);

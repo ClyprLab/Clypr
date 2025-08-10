@@ -41,10 +41,10 @@ export type ConditionOperator = { 'contains' : null } |
   { 'exists' : null } |
   { 'equals' : null } |
   { 'lessThan' : null };
-export type Error = { 'InvalidInput' : null } |
+export type Error = { 'InvalidInput' : [] | [string] } |
   { 'NotFound' : null } |
   { 'NotAuthorized' : null } |
-  { 'AlreadyExists' : null } |
+  { 'AlreadyExists' : [] | [string] } |
   { 'RateLimitExceeded' : null } |
   { 'Other' : string } |
   { 'InternalError' : null };
@@ -79,9 +79,15 @@ export type Result = { 'ok' : null } |
   { 'err' : Error };
 export type Result_1 = { 'ok' : MessageReceipt } |
   { 'err' : Error };
-export type Result_10 = { 'ok' : ChannelId } |
+export type Result_10 = { 'ok' : Array<Channel> } |
   { 'err' : Error };
-export type Result_2 = {
+export type Result_11 = { 'ok' : RuleId } |
+  { 'err' : Error };
+export type Result_12 = { 'ok' : ChannelId } |
+  { 'err' : Error };
+export type Result_2 = { 'ok' : Principal } |
+  { 'err' : Error };
+export type Result_3 = {
     'ok' : {
       'messagesCount' : bigint,
       'rulesCount' : bigint,
@@ -91,24 +97,23 @@ export type Result_2 = {
     }
   } |
   { 'err' : Error };
-export type Result_3 = { 'ok' : Rule } |
+export type Result_4 = { 'ok' : Rule } |
   { 'err' : Error };
-export type Result_4 = { 'ok' : Message } |
+export type Result_5 = { 'ok' : string } |
   { 'err' : Error };
-export type Result_5 = { 'ok' : Channel } |
+export type Result_6 = { 'ok' : Message } |
   { 'err' : Error };
-export type Result_6 = { 'ok' : Array<Rule> } |
+export type Result_7 = { 'ok' : Channel } |
   { 'err' : Error };
-export type Result_7 = { 'ok' : Array<Message> } |
+export type Result_8 = { 'ok' : Array<Rule> } |
   { 'err' : Error };
-export type Result_8 = { 'ok' : Array<Channel> } |
-  { 'err' : Error };
-export type Result_9 = { 'ok' : RuleId } |
+export type Result_9 = { 'ok' : Array<Message> } |
   { 'err' : Error };
 export interface Rule {
   'id' : RuleId,
   'name' : string,
   'createdAt' : bigint,
+  'dappPrincipal' : [] | [Principal],
   'description' : [] | [string],
   'actions' : Array<Action>,
   'isActive' : boolean,
@@ -120,23 +125,34 @@ export type RuleId = bigint;
 export interface _SERVICE {
   'createChannel' : ActorMethod<
     [string, [] | [string], ChannelType, Array<[string, string]>],
-    Result_10
+    Result_12
   >,
   'createRule' : ActorMethod<
-    [string, [] | [string], Array<Condition>, Array<Action>, number],
-    Result_9
+    [
+      string,
+      [] | [string],
+      [] | [Principal],
+      Array<Condition>,
+      Array<Action>,
+      number,
+    ],
+    Result_11
   >,
   'deleteChannel' : ActorMethod<[ChannelId], Result>,
   'deleteRule' : ActorMethod<[RuleId], Result>,
-  'getAllChannels' : ActorMethod<[], Result_8>,
-  'getAllMessages' : ActorMethod<[], Result_7>,
-  'getAllRules' : ActorMethod<[], Result_6>,
-  'getChannel' : ActorMethod<[ChannelId], Result_5>,
-  'getMessage' : ActorMethod<[MessageId], Result_4>,
-  'getRule' : ActorMethod<[RuleId], Result_3>,
-  'getStats' : ActorMethod<[], Result_2>,
+  'getAllChannels' : ActorMethod<[], Result_10>,
+  'getAllMessages' : ActorMethod<[], Result_9>,
+  'getAllRules' : ActorMethod<[], Result_8>,
+  'getChannel' : ActorMethod<[ChannelId], Result_7>,
+  'getMessage' : ActorMethod<[MessageId], Result_6>,
+  'getMyUsername' : ActorMethod<[], Result_5>,
+  'getRule' : ActorMethod<[RuleId], Result_4>,
+  'getStats' : ActorMethod<[], Result_3>,
   'init' : ActorMethod<[], undefined>,
   'ping' : ActorMethod<[], string>,
+  'processMessage' : ActorMethod<[string, string, MessageContent], Result_1>,
+  'registerUsername' : ActorMethod<[string], Result>,
+  'resolveUsername' : ActorMethod<[string], Result_2>,
   'sendMessage' : ActorMethod<[string, MessageContent], Result_1>,
   'updateChannel' : ActorMethod<[ChannelId, Channel], Result>,
   'updateRule' : ActorMethod<[RuleId, Rule], Result>,

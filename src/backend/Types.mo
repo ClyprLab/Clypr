@@ -1,6 +1,7 @@
 // Types.mo - Common types used throughout the Clypr backend
 
 module {
+
   // Basic types
   public type UserId = Principal;
   public type MessageId = Text;
@@ -26,6 +27,12 @@ module {
     status : MessageStatus;
   };
 
+  public type IncomingMessage = {
+    id: MessageId;
+    content: Text;
+    sender: Principal;
+    timestamp: Int;
+  };
   public type MessageStatus = {
     #received;
     #processing;

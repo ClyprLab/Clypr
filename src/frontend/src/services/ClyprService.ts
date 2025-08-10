@@ -1,7 +1,8 @@
 import { Actor, HttpAgent, HttpAgentOptions, Identity } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import { AuthClient } from '@dfinity/auth-client';
-import { idlFactory } from './clypr.did.js';
+// Use generated Candid from backend canister (matches dappPrincipal + opt types)
+import { idlFactory } from '../../../declarations/backend/backend.did.js';
 
 // Types that match the Motoko backend
 // Type definitions for the frontend
@@ -9,6 +10,7 @@ export interface Rule {
   id: number;
   name: string;
   description?: string;
+  dappPrincipal?: Principal;
   conditions: Condition[];
   actions: Action[];
   priority: number;
@@ -26,8 +28,8 @@ export interface Condition {
 
 export interface Action {
   actionType: ActionTypeString;  // Using string type for frontend
-  channelId?: number;
-  parameters: [string, string][];
+  channelId?: number;  // Optional for frontend, will be converted to null in backend format
+  parameters: [string, string][];  // Array of string tuples for parameters
 }
 
 // Backend types (what we send to Candid)
@@ -56,7 +58,8 @@ interface BackendCondition {
 
 interface BackendAction {
   actionType: ActionType;
-  channelId: number[];  // Empty array for None, [number] for Some
+  // Candid opt ChannelId (Nat) => [] for None, [bigint] for Some
+  channelId: bigint[];
   parameters: [string, string][];
 }
 
@@ -81,7 +84,9 @@ type ActionTypeString =
 interface BackendRule {
   id: number;
   name: string;
-  description: string[];  // Empty array for None, [string] for Some
+  description: string[];  // Empty array for None, [string] for Some - Candid opt format
+  // Note: dappPrincipal is not currently supported in the Candid interface
+  // dappPrincipal: Principal[]; // Empty array for None, [Principal] for Some
   conditions: BackendCondition[];
   actions: BackendAction[];
   priority: number;
@@ -92,21 +97,51 @@ interface BackendRule {
 
 // Helper functions for converting between frontend and backend formats
 export function createOperatorVariant(op: ConditionOperatorString): ConditionOperator {
-  const variant = {} as Record<string, null>;
-  variant[op] = null;
-  return variant as ConditionOperator;
+  switch (op) {
+    case 'contains':
+      return { contains: null };
+    case 'equals':
+      return { equals: null };
+    case 'exists':
+      return { exists: null };
+    case 'greaterThan':
+      return { greaterThan: null };
+    case 'lessThan':
+      return { lessThan: null };
+    case 'notContains':
+      return { notContains: null };
+    case 'notEquals':
+      return { notEquals: null };
+    case 'notExists':
+      return { notExists: null };
+    default:
+      throw new Error(`Invalid operator: ${op}`);
+  }
 }
 
 export function createActionTypeVariant(type: ActionTypeString): ActionType {
-  const variant = {} as Record<string, null>;
-  variant[type] = null;
-  return variant as ActionType;
+  switch (type) {
+    case 'allow':
+      return { allow: null };
+    case 'block':
+      return { block: null };
+    case 'prioritize':
+      return { prioritize: null };
+    case 'route':
+      return { route: null };
+    case 'transform':
+      return { transform: null };
+    default:
+      throw new Error(`Invalid action type: ${type}`);
+  }
 }
 
 export function toBackendRule(rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>): Omit<BackendRule, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     name: rule.name,
-    description: rule.description ? [rule.description] : [],
+    description: rule.description && rule.description.trim() !== '' ? [rule.description.trim()] : [],
+    // Note: dappPrincipal is not currently supported in the Candid interface
+    // dappPrincipal: rule.dappPrincipal ? [rule.dappPrincipal] : [],
     conditions: rule.conditions.map(cond => ({
       field: cond.field,
       operator: createOperatorVariant(cond.operator),
@@ -114,8 +149,11 @@ export function toBackendRule(rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>
     })),
     actions: rule.actions.map(action => ({
       actionType: createActionTypeVariant(action.actionType),
-      channelId: action.channelId ? [action.channelId] : [],
-      parameters: action.parameters
+      // Optional ChannelId: [] for None, [bigint] for Some
+      channelId: action.channelId !== undefined && action.channelId !== null
+        ? [BigInt(action.channelId)]
+        : [],
+      parameters: action.parameters || []
     })),
     priority: rule.priority,
     isActive: rule.isActive
@@ -138,7 +176,9 @@ export function fromBackendRule(rule: BackendRule): Rule {
   return {
     id: rule.id,
     name: rule.name,
-    description: rule.description[0],
+    description: rule.description.length > 0 ? rule.description[0] : undefined,
+    // Note: dappPrincipal is not currently supported in the Candid interface
+    dappPrincipal: undefined, // rule.dappPrincipal[0],
     conditions: rule.conditions.map(cond => ({
       field: cond.field,
       operator: operatorToString(cond.operator),
@@ -146,7 +186,7 @@ export function fromBackendRule(rule: BackendRule): Rule {
     })),
     actions: rule.actions.map(action => ({
       actionType: actionTypeToString(action.actionType),
-      channelId: action.channelId[0],
+      channelId: action.channelId && action.channelId.length > 0 ? Number(action.channelId[0]) : undefined,
       parameters: action.parameters
     })),
     priority: rule.priority,
@@ -442,6 +482,7 @@ export class ClyprService {
   async createRule(ruleInput: {
     name: string;
     description?: string;
+    dappPrincipal?: string;
     conditions?: Condition[];
     actions?: Action[];
     priority?: number;
@@ -455,44 +496,35 @@ export class ClyprService {
       const rule = {
         name: ruleInput.name,
         description: ruleInput.description || '',
+        dappPrincipal: ruleInput.dappPrincipal ? Principal.fromText(ruleInput.dappPrincipal) : undefined,
         conditions: ruleInput.conditions || [],
         actions: ruleInput.actions || [],
-        priority: ruleInput.priority ?? 5 // Default priority
+        priority: ruleInput.priority ?? 5, // Default priority
+        isActive: true
       };
       
       // Log incoming data
       console.log('Creating rule with normalized data:', JSON.stringify(rule, null, 2));
       
-      // Convert conditions to backend format with proper variant structure
-      const backendConditions: BackendCondition[] = rule.conditions.map(cond => ({
-        field: cond.field || '',
-        operator: createOperatorVariant(cond.operator || 'exists'),
-        value: cond.value || ''
-      }));
-
-      // Convert actions to backend format with proper variant structure
-      const backendActions: BackendAction[] = rule.actions.map(action => ({
-        actionType: createActionTypeVariant(action.actionType || 'allow'),
-        channelId: action.channelId ? [action.channelId] : [],
-        parameters: action.parameters || []
-      }));
-
-      // Log converted formats
-      console.log('Backend format:', {
-        name: rule.name,
-        description: rule.description ? [rule.description] : [],
-        conditions: backendConditions,
-        actions: backendActions,
-        priority: rule.priority
-      });
+      // Use the toBackendRule helper function to ensure proper data structure conversion
+      const backendRule = toBackendRule(rule);
       
-      // Call createRule with the exact parameters the Candid interface expects
+      // Log converted formats
+      console.log('Backend format:', backendRule);
+      
+      // Log individual conditions and actions for debugging
+      console.log('Conditions being sent:', JSON.stringify(backendRule.conditions, null, 2));
+      console.log('Actions being sent:', JSON.stringify(backendRule.actions, null, 2));
+      
+      // Call createRule with the exact parameters the backend expects
+      // Note: The backend function signature includes dappPrincipal parameter
       const result = await this.actor.createRule(
-        rule.name,
-        rule.description ? [rule.description] : [],
-        backendConditions,
-        backendActions,
-        rule.priority
+        backendRule.name,
+        backendRule.description, // Array format for opt text
+        rule.dappPrincipal ? [rule.dappPrincipal] : [], // Array format for opt principal
+        backendRule.conditions,
+        backendRule.actions,
+        backendRule.priority
       );
       
       console.log('Create rule result:', result);
@@ -512,8 +544,6 @@ export class ClyprService {
       
       return undefined;
       
-      console.log('Create rule result:', result);
-      return this.handleResult(result);
     } catch (error) {
       console.error('Error in createRule:', error);
       throw error;
@@ -537,8 +567,29 @@ export class ClyprService {
   }
 
   async updateRule(ruleId: number, rule: Rule): Promise<boolean> {
-    const ruleData = toBackendRule(rule);
-    const result = await this.actor.updateRule(ruleId, ruleData);
+    // Convert the frontend rule to the backend format for the updateRule call
+    // Note: updateRule expects a full Rule object, not individual parameters
+    const backendRule: BackendRule = {
+      id: ruleId,
+      name: rule.name,
+      description: rule.description && rule.description.trim() !== '' ? [rule.description.trim()] : [],
+      conditions: rule.conditions.map(cond => ({
+        field: cond.field,
+        operator: createOperatorVariant(cond.operator),
+        value: cond.value
+      })),
+      actions: rule.actions.map(action => ({
+        actionType: createActionTypeVariant(action.actionType),
+        channelId: action.channelId !== undefined && action.channelId !== null ? [BigInt(action.channelId)] : [],
+        parameters: action.parameters || []
+      })),
+      priority: rule.priority,
+      isActive: rule.isActive,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt
+    };
+    
+    const result = await this.actor.updateRule(ruleId, backendRule);
     return this.handleResult(result) !== undefined;
   }
   

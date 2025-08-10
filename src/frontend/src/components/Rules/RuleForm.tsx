@@ -140,16 +140,18 @@ const RuleForm: React.FC<RuleFormProps> = ({
     initialRule?.conditions || [{ field: 'content.title', operator: 'contains', value: '' }]
   );
   const [actions, setActions] = useState<Action[]>(
-    initialRule?.actions || [{ actionType: 'allow', channelId: undefined, parameters: [] }]
+    initialRule?.actions || [{ actionType: 'allow', channelId: undefined, parameters: [] as [string, string][] }]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // The onSubmit prop expects the data in the frontend format.
+    // The ClyprService is responsible for converting it to the backend format.
     onSubmit({
       name,
       description: description || undefined,
-      dappPrincipal: dappPrincipal ? { toText: () => dappPrincipal } : undefined,
+      dappPrincipal: (dappPrincipal as any) || undefined,
       conditions,
       actions,
       priority,
@@ -172,7 +174,11 @@ const RuleForm: React.FC<RuleFormProps> = ({
   };
 
   const addAction = () => {
-    setActions([...actions, { actionType: 'allow', channelId: undefined, parameters: [] }]);
+    setActions([...actions, { 
+      actionType: 'allow', 
+      channelId: undefined, 
+      parameters: [] as [string, string][] 
+    }]);
   };
 
   const removeAction = (index: number) => {
@@ -181,20 +187,20 @@ const RuleForm: React.FC<RuleFormProps> = ({
 
   const updateAction = (index: number, field: keyof Action, value: any) => {
     const updated = [...actions];
-    
-    // Special handling for actionType to ensure it's valid
-    if (field === 'actionType' && typeof value === 'string') {
-      const actionType = value as Action['actionType'];
-      updated[index] = { 
-        ...updated[index], 
-        actionType,
-        // Reset channelId when switching away from 'route' action
-        channelId: actionType === 'route' ? updated[index].channelId : undefined
-      };
+    const currentAction = { ...updated[index] };
+
+    if (field === 'actionType') {
+      const newActionType = value as Action['actionType'];
+      currentAction.actionType = newActionType;
+      // When type changes, reset channelId unless the new type is 'route'
+      if (newActionType !== 'route') {
+        currentAction.channelId = undefined;
+      }
     } else {
-      updated[index] = { ...updated[index], [field]: value };
+      (currentAction as any)[field] = value;
     }
     
+    updated[index] = currentAction;
     setActions(updated);
   };
 
