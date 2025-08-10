@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import styled from 'styled-components';
 import Layout from './components/Layout/Layout';
@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Landing from './pages/Landing';
 import NotFound from './pages/NotFound';
 import Test from './pages/Test';
+import Demo from './pages/Demo';
 import { AuthProvider } from './hooks/useAuth';
 
 const AppContainer = styled.div`
@@ -18,14 +19,13 @@ const AppContainer = styled.div`
 `;
 
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
   return (
     <AuthProvider>
       <AppContainer>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/demo" element={<Demo />} />
           
           <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />

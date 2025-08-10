@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Tailwind v4 enabled via PostCSS. Add utilities directly in components. */
+
+/* Base dark theme tokens to complement styled-components while migrating */
+:root {
+  --bg: #0A0A0F;
+  --panel: #0F1016;
+  --border: #1C1C25;
+  --text: #FFFFFF;
+  --text-secondary: #B3B3C3;
+}
+
+html, body, #root { height: 100%; }
+
+body { background: var(--bg); color: var(--text); }
