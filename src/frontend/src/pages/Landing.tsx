@@ -1,769 +1,454 @@
 import React from 'react';
-import FlowchartImg from '../assets/Clypr Web3 Privacy Flowchart.png';
-import styled from 'styled-components';
-
-// Styled image with hover shadow, border radius, and transition
-const StyledFlowchartImg = styled.img`
-  max-width: 100%;
-  height: auto;
-  border-radius: 5px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  transition: box-shadow 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1);
-
-  &:hover {
-    box-shadow: 0 8px 48px rgba(0,0,0,0.38);
-    transform: scale(1.03);
-    cursor: pointer;
-  }
-`;
+import styled, { createGlobalStyle } from 'styled-components';
 import { Link } from 'react-router-dom';
-import Button from '../components/UI/Button';
-import Text from '../components/UI/Text';
 
-const LandingContainer = styled.div`
-  min-height: 100vh;
-  background-color: var(--color-background);
-  color: var(--color-text);
-  position: relative;
-`;
+// Global styles for fonts and basic dark mode setup
+const GlobalStyle = createGlobalStyle`
+  :root {
+    --color-background: #0A0A0F;
+    --color-primary-accent: #6EE7FF;
+    --color-secondary-accent: #A855F7;
+    --color-text-primary: #FFFFFF;
+    --color-text-secondary: #B3B3C3;
 
-const MobileMenuOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 90;
-  opacity: ${props => (props as any).$isOpen ? 1 : 0};
-  visibility: ${props => (props as any).$isOpen ? 'visible' : 'hidden'};
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-  backdrop-filter: blur(2px);
-  
-  @media (min-width: 768px) {
-    display: none;
+    --font-satoshi: 'Satoshi', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
   }
-`;
 
-const NavBar = styled.nav`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-4) var(--space-4);
-  max-width: 1200px;
-  margin: 0 auto;
-  
-  @media (min-width: 768px) {
-    padding: var(--space-6) var(--space-10);
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-satoshi);
+    line-height: 1.6;
   }
-`;
 
-const Logo = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
-const LogoIcon = styled.div`
-  width: 36px;
-  height: 36px;
-  background-color: var(--color-text);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-md);
-  margin-right: var(--space-2);
-`;
-
-const LogoText = styled.h1`
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  margin: 0;
-`;
-
-const NavLinks = styled.div`
-  display: none;
-  gap: var(--space-6);
-  align-items: center;
-  
-  @media (min-width: 768px) {
-    display: flex;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-satoshi);
+    color: var(--color-text-primary);
   }
-`;
 
-const NavLink = styled.a`
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  text-decoration: none;
-  font-weight: 500;
-  
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const MobileMenuButton = styled.button`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 24px;
-  height: 20px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 10px;
-  margin: -10px;
-  z-index: 110;
-  position: relative;
-  
-  &:focus {
-    outline: none;
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
-  @media (min-width: 768px) {
-    display: none;
-  }
-`;
-
-const MenuLine = styled.span`
-  width: 100%;
-  height: 2px;
-  background-color: var(--color-text);
-  transition: all 0.3s ease;
-  transform-origin: center;
-  
-  &:first-child {
-    transform: ${props => (props as any).$isOpen ? 'rotate(45deg) translate(6px, 6px)' : 'rotate(0)'};
-  }
-  
-  &:nth-child(2) {
-    opacity: ${props => (props as any).$isOpen ? 0 : 1};
-  }
-  
-  &:last-child {
-    transform: ${props => (props as any).$isOpen ? 'rotate(-45deg) translate(6px, -6px)' : 'rotate(0)'};
-  }
-`;
-
-const MobileMenu = styled.div`
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 100vh;
-  background-color: var(--color-background);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  padding: 80px 24px 40px;
-  transform: ${props => (props as any).$isOpen ? 'translateX(0)' : 'translateX(100%)'};
-  transition: transform 0.3s ease-in-out;
-  box-shadow: ${props => (props as any).$isOpen ? '-5px 0 15px rgba(0, 0, 0, 0.1)' : 'none'};
-  
-  & > * {
-    opacity: ${props => (props as any).$isOpen ? 1 : 0};
-    transform: ${props => (props as any).$isOpen ? 'translateY(0)' : 'translateY(20px)'};
-    transition: opacity 0.4s ease, transform 0.4s ease;
-    transition-delay: ${props => (props as any).$isOpen ? '0.2s' : '0s'};
-  }
-  
-  @media (min-width: 768px) {
-    display: none;
-  }
-`;
-
-const MobileNavLinks = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  align-items: center;
-  margin-top: var(--space-8);
-`;
-
-const MobileNavLink = styled(NavLink)`
-  font-size: var(--font-size-lg);
-  padding: var(--space-3);
-  position: relative;
-  
-  &:after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 0;
-    height: 2px;
-    background-color: var(--color-text);
-    transition: width 0.3s ease, left 0.3s ease;
-  }
-  
-  &:hover:after {
-    width: 100%;
-    left: 0;
-  }
-`;
-
-const MobileLogo = styled.div`
-  position: absolute;
-  top: var(--space-6);
-  left: var(--space-6);
-  display: flex;
-  align-items: center;
-`;
-
-const Hero = styled.section`
-  padding: var(--space-12) var(--space-6) var(--space-16);
-  max-width: 1200px;
-  margin: 0 auto;
-  text-align: center;
-  
-  @media (min-width: 768px) {
-    display: flex;
-    text-align: left;
-    align-items: center;
-    gap: var(--space-10);
-    padding: var(--space-16) var(--space-10);
-  }
-`;
-
-const HeroContent = styled.div`
-  @media (min-width: 768px) {
-    flex: 1;
-  }
-`;
-
-const HeroImageContainer = styled.div`
-  margin-top: var(--space-8);
-  
-  @media (min-width: 768px) {
-    flex: 1;
-    margin-top: 0;
-  }
-`;
-
-const HeroImage = styled.div`
-  background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
-  border-radius: var(--radius-lg);
-  aspect-ratio: 16/9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: var(--font-size-xl);
-  font-family: var(--font-mono);
-`;
-
-const HeadlineLarge = styled.h2`
-  font-size: var(--font-size-4xl);
-  font-weight: 700;
-  margin-bottom: var(--space-4);
-  line-height: 1.2;
-  
-  @media (min-width: 768px) {
-    font-size: 3rem;
-  }
-  
-  span {
-    background: linear-gradient(90deg, #000000 0%, #333333 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    font-weight: 800;
-  }
-`;
-
-const SubHeadline = styled.p`
-  font-size: var(--font-size-lg);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-8);
-  line-height: 1.6;
-  max-width: 600px;
-  
-  @media (min-width: 768px) {
-    font-size: var(--font-size-xl);
-  }
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  justify-content: center;
-  
-  @media (min-width: 768px) {
-    justify-content: flex-start;
-  }
-`;
-
-const Features = styled.section`
-  background-color: #F8F9FA;
-  padding: var(--space-16) var(--space-6);
-`;
-
-const FeatureContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-`;
-
-const SectionTitle = styled.h3`
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: var(--space-12);
-`;
-
-const FeatureGrid = styled.div`
-  display: grid;
-  gap: var(--space-8);
-  
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  @media (min-width: 1024px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-`;
-
-const FeatureCard = styled.div`
-  background-color: white;
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
-  box-shadow: var(--shadow-sm);
-`;
-
-const FeatureIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  background-color: #E8F5E9;
-  color: #388E3C;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xl);
-  margin-bottom: var(--space-4);
-`;
-
-const FeatureTitle = styled.h4`
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  margin-bottom: var(--space-2);
-`;
-
-const FeatureDesc = styled.p`
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-`;
-
-const HowItWorks = styled.section`
-  padding: var(--space-16) var(--space-6);
-  max-width: 1200px;
-  margin: 0 auto;
-`;
-
-const StepsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  margin-top: var(--space-10);
-  
-  @media (min-width: 768px) {
-    flex-direction: row;
-  }
-`;
-
-const Step = styled.div`
-  flex: 1;
-  text-align: center;
-`;
-
-const StepNumber = styled.div`
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-text);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  margin: 0 auto var(--space-4);
-`;
-
-const StepTitle = styled.h4`
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-`;
-
-const StepDesc = styled.p`
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  max-width: 300px;
-  margin: 0 auto;
-`;
-
-const CTASection = styled.section`
-  background: linear-gradient(135deg, #000000 0%, #333333 100%);
-  color: white;
-  padding: var(--space-16) var(--space-6);
-  text-align: center;
-`;
-
-const CTAContainer = styled.div`
-  max-width: 800px;
-  margin: 0 auto;
-`;
-
-const CTATitle = styled.h3`
-  font-size: var(--font-size-3xl);
-  font-weight: 700;
-  margin-bottom: var(--space-6);
-`;
-
-const CTAText = styled.p`
-  font-size: var(--font-size-lg);
-  margin-bottom: var(--space-8);
-  opacity: 0.9;
-  line-height: 1.6;
-`;
-
-const Footer = styled.footer`
-  background-color: var(--color-background);
-  padding: var(--space-10) var(--space-6);
-  font-size: var(--font-size-sm);
-`;
-
-const FooterContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  
-  @media (min-width: 768px) {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-`;
-
-const FooterColumn = styled.div`
-  flex: 1;
-`;
-
-const FooterLogo = styled.div`
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--space-4);
-`;
-
-const FooterLogoIcon = styled.div`
-  width: 24px;
-  height: 24px;
-  background-color: var(--color-text);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  margin-right: var(--space-2);
-`;
-
-const FooterLogoText = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--font-size-md);
-  font-weight: 700;
-`;
-
-const FooterDesc = styled.p`
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin-bottom: var(--space-4);
-`;
-
-const FooterTitle = styled.h5`
-  font-weight: 600;
-  margin-bottom: var(--space-4);
-`;
-
-const FooterLinks = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-`;
-
-const FooterLink = styled.li`
-  margin-bottom: var(--space-2);
-  
-  a {
+  p {
     color: var(--color-text-secondary);
+  }
+
+  code {
+    font-family: var(--font-mono);
+  }
+
+  a {
+    color: var(--color-primary-accent);
     text-decoration: none;
-    
+
     &:hover {
       text-decoration: underline;
     }
   }
 `;
 
-const Copyright = styled.div`
-  text-align: center;
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  max-width: 1200px;
-  margin: var(--space-6) auto 0;
+const PageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  overflow-x: hidden;
 `;
 
-const Landing = () => {
-  // Use type assertion to workaround TypeScript errors
-  const [mobileMenuOpen, setMobileMenuOpen] = (React as any).useState(false);
+const Section = styled.section`
+  width: 100%;
+  max-width: 1200px;
+  padding: 80px 24px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
+  @media (min-width: 768px) {
+    padding: 120px 40px;
+  }
+`;
 
-  // Close mobile menu when clicking a link
-  const handleMobileNavLinkClick = () => {
-    setMobileMenuOpen(false);
-  };
-  
-  // Prevent body scroll when mobile menu is open
-  (React as any).useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [mobileMenuOpen]);
+const HeroSection = styled(Section)`
+  min-height: 80vh;
+  justify-content: center;
+`;
 
+const Headline = styled.h1`
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  line-height: 1.2;
+  max-width: 900px;
+
+  @media (min-width: 768px) {
+    font-size: 4.5rem;
+  }
+`;
+
+const GradientText = styled.span`
+  background: linear-gradient(90deg, var(--color-primary-accent), var(--color-secondary-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+`;
+
+const Subheadline = styled.p`
+  font-size: 1.2rem;
+  margin-bottom: 40px;
+  max-width: 700px;
+
+  @media (min-width: 768px) {
+    font-size: 1.5rem;
+  }
+`;
+
+const CTAButton = styled(Link)`
+  display: inline-block;
+  background: linear-gradient(90deg, var(--color-primary-accent), var(--color-secondary-accent));
+  color: var(--color-background);
+  padding: 16px 32px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 15px rgba(110, 231, 255, 0.3);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(110, 231, 255, 0.5);
+    text-decoration: none;
+  }
+`;
+
+const ProblemSection = styled(Section)`
+  background-color: #0D0D14; /* Slightly lighter dark */
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 60px;
+
+  @media (min-width: 768px) {
+    font-size: 3rem;
+  }
+`;
+
+const ProblemText = styled.p`
+  font-size: 1.1rem;
+  max-width: 800px;
+  margin-bottom: 30px;
+`;
+
+const SolutionSection = styled(Section)`
+  background-color: var(--color-background);
+`;
+
+const SolutionText = styled.p`
+  font-size: 1.1rem;
+  max-width: 800px;
+`;
+
+const HowItWorksSection = styled(Section)`
+  background-color: #0D0D14; /* Slightly lighter dark */
+`;
+
+const HowItWorksGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  margin-top: 40px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+`;
+
+const StepCard = styled.div`
+  background-color: var(--color-background);
+  padding: 30px;
+  border-radius: 10px;
+  border: 1px solid #1A1A25;
+  text-align: left;
+`;
+
+const StepNumber = styled.div`
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  color: var(--color-primary-accent);
+  margin-bottom: 15px;
+`;
+
+const StepTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+`;
+
+const StepDescription = styled.p`
+  font-size: 1rem;
+`;
+
+const CodeBlock = styled.pre`
+  background-color: #1A1A25;
+  color: #EAEAEA;
+  font-family: var(--font-mono);
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: left;
+  margin-top: 30px;
+  font-size: 0.9rem;
+  width: calc(100% - 40px);
+`;
+
+const BenefitsSection = styled(Section)`
+  background-color: var(--color-background);
+`;
+
+const BenefitsGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  margin-top: 40px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+`;
+
+const BenefitCard = styled.div`
+  background-color: #0D0D14;
+  padding: 30px;
+  border-radius: 10px;
+  border: 1px solid #1A1A25;
+  text-align: left;
+`;
+
+const BenefitTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+`;
+
+const BenefitDescription = styled.p`
+  font-size: 1rem;
+`;
+
+const UseCasesSection = styled(Section)`
+  background-color: #0D0D14; /* Slightly lighter dark */
+`;
+
+const UseCasesGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  margin-top: 40px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+`;
+
+const UseCaseCard = styled(BenefitCard)`
+  /* Inherits styling from BenefitCard */
+`;
+
+const VisionSection = styled(Section)`
+  background-color: var(--color-background);
+`;
+
+const VisionText = styled.p`
+  font-size: 1.1rem;
+  max-width: 800px;
+`;
+
+const FinalCTASection = styled(Section)`
+  background: linear-gradient(135deg, #0D0D14 0%, #0A0A0F 100%);
+  padding: 80px 24px 100px;
+`;
+
+const FinalCTATitle = styled.h2`
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 40px;
+
+  @media (min-width: 768px) {
+    font-size: 3.5rem;
+  }
+`;
+
+
+const Footer = styled.footer`
+  width: 100%;
+  padding: 40px 24px;
+  background-color: #0A0A0F;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  border-top: 1px solid #1A1A25;
+`;
+
+
+const Landing: React.FC = () => {
   return (
-    <LandingContainer>
-      <MobileMenuOverlay 
-        $isOpen={mobileMenuOpen} 
-        onClick={() => setMobileMenuOpen(false)} 
-      />
-      
-      <NavBar>
-        <Logo>
-          <LogoIcon>C</LogoIcon>
-          <LogoText>clypr</LogoText>
-        </Logo>
-        <NavLinks>
-          <NavLink href="#features">Features</NavLink>
-          <NavLink href="#how-it-works">How It Works</NavLink>
-          <NavLink href="#developers">Developers</NavLink>
-          <Link to="/login" style={{ textDecoration: 'none' }}>
-            <Button variant="primary">Sign In</Button>
-          </Link>
-        </NavLinks>
-        
-        <MobileMenuButton onClick={toggleMobileMenu} aria-label="Toggle mobile menu">
-          <MenuLine $isOpen={mobileMenuOpen} />
-          <MenuLine $isOpen={mobileMenuOpen} />
-          <MenuLine $isOpen={mobileMenuOpen} />
-        </MobileMenuButton>
-        
-        <MobileMenu $isOpen={mobileMenuOpen}>
-          <MobileLogo>
-            <LogoIcon>C</LogoIcon>
-            <LogoText>clypr</LogoText>
-          </MobileLogo>
-          <MobileNavLinks>
-            <MobileNavLink href="#features" onClick={handleMobileNavLinkClick}>Features</MobileNavLink>
-            <MobileNavLink href="#how-it-works" onClick={handleMobileNavLinkClick}>How It Works</MobileNavLink>
-            <MobileNavLink href="#developers" onClick={handleMobileNavLinkClick}>Developers</MobileNavLink>
-            <Link to="/login" style={{ textDecoration: 'none' }} onClick={handleMobileNavLinkClick}>
-              <Button variant="primary" size="lg">Sign In</Button>
-            </Link>
-          </MobileNavLinks>
-        </MobileMenu>
-      </NavBar>
-      
-      <Hero>
-        <HeroContent>
-          <HeadlineLarge>
-            Your <span>Private Communication</span> Gateway
-          </HeadlineLarge>
-          <SubHeadline>
-            Take control of your digital communications with intelligent filtering, automated routing, and complete privacy. Built on the Internet Computer for true decentralization.
-          </SubHeadline>
-          <ButtonGroup>
-            <Link to="/login" style={{ textDecoration: 'none' }}>
-              <Button variant="primary" size="lg">Get Started</Button>
-            </Link>
-            <Button variant="secondary" size="lg" as="a" href="#how-it-works">
-              Learn More
-            </Button>
-          </ButtonGroup>
-        </HeroContent>
-        <HeroImageContainer>
-          <HeroImage>
-            <StyledFlowchartImg src={FlowchartImg} alt="Clypr Web3 Privacy Flow Chart" />
-          </HeroImage>
-        </HeroImageContainer>
-      </Hero>
-      
-      <Features id="features">
-        <FeatureContainer>
-          <SectionTitle>Smart Privacy, Simplified</SectionTitle>
-          <FeatureGrid>
-            <FeatureCard>
-              <FeatureIcon>🔒</FeatureIcon>
-              <FeatureTitle>Complete Privacy Control</FeatureTitle>
-              <FeatureDesc>
-                Your data stays yours. Messages are encrypted and you decide exactly who can access what, when, and how.
-              </FeatureDesc>
-            </FeatureCard>
-            
-            <FeatureCard>
-              <FeatureIcon>⚙️</FeatureIcon>
-              <FeatureTitle>Intelligent Message Routing</FeatureTitle>
-              <FeatureDesc>
-                Set up smart rules that automatically sort, forward, or block messages based on content, sender, or priority.
-              </FeatureDesc>
-            </FeatureCard>
-            
-            <FeatureCard>
-              <FeatureIcon>🌐</FeatureIcon>
-              <FeatureTitle>True Decentralization</FeatureTitle>
-              <FeatureDesc>
-                Built on the Internet Computer Protocol for unmatched security, reliability, and zero single points of failure.
-              </FeatureDesc>
-            </FeatureCard>
-            
-            <FeatureCard>
-              <FeatureIcon>🔌</FeatureIcon>
-              <FeatureTitle>Easy Integration</FeatureTitle>
-              <FeatureDesc>
-                Connect seamlessly with your existing apps through our simple API and webhook system.
-              </FeatureDesc>
-            </FeatureCard>
-            
-            <FeatureCard>
-              <FeatureIcon>📊</FeatureIcon>
-              <FeatureTitle>Privacy-First Analytics</FeatureTitle>
-              <FeatureDesc>
-                Get insights into your message flow and patterns while keeping your data completely private.
-              </FeatureDesc>
-            </FeatureCard>
-            
-            <FeatureCard>
-              <FeatureIcon>🚀</FeatureIcon>
-              <FeatureTitle>Built to Scale</FeatureTitle>
-              <FeatureDesc>
-                Handle millions of messages with lightning-fast speed, ensuring your communications never slow down.
-              </FeatureDesc>
-            </FeatureCard>
-          </FeatureGrid>
-        </FeatureContainer>
-      </Features>
-      
-      <HowItWorks id="how-it-works">
-        <SectionTitle>How It Works</SectionTitle>
-        <StepsContainer>
-          <Step>
-            <StepNumber>1</StepNumber>
-            <StepTitle>Connect & Authenticate</StepTitle>
-            <StepDesc>
-              Sign in with Internet Identity and set up your personal communication gateway in seconds.
-            </StepDesc>
-          </Step>
-          
-          <Step>
-            <StepNumber>2</StepNumber>
-            <StepTitle>Set Your Rules</StepTitle>
-            <StepDesc>
-              Create smart filters and rules to automatically sort, forward, or block messages based on your preferences.
-            </StepDesc>
-          </Step>
-          
-          <Step>
-            <StepNumber>3</StepNumber>
-            <StepTitle>Take Control</StepTitle>
-            <StepDesc>
-              Your messages flow through your private gateway with complete transparency and control over every interaction.
-            </StepDesc>
-          </Step>
-        </StepsContainer>
-      </HowItWorks>
-      
-      <CTASection id="developers">
-        <CTAContainer>
-          <CTATitle>Ready to Take Control?</CTATitle>
-          <CTAText>
-            Whether you're a developer building the next big Web3 app or just want better control over your digital communications, Clypr gives you the tools you need.
-          </CTAText>
-          <Link to="/login" style={{ textDecoration: 'none' }}>
-            <Button variant="primary" size="lg">Start Your Free Gateway</Button>
-          </Link>
-        </CTAContainer>
-      </CTASection>
-      
-      <Footer>
-        <FooterContainer>
-          <FooterColumn>
-            <FooterLogo>
-              <FooterLogoIcon>C</FooterLogoIcon>
-              <FooterLogoText>clypr</FooterLogoText>
-            </FooterLogo>
-            <FooterDesc>
-              Clypr is your personal privacy gateway for Web3 communications, built on the Internet Computer Protocol for true decentralization.
-            </FooterDesc>
-          </FooterColumn>
-          
-          <FooterColumn>
-            <FooterTitle>Product</FooterTitle>
-            <FooterLinks>
-              <FooterLink><a href="#features">Features</a></FooterLink>
-              <FooterLink><a href="#how-it-works">How It Works</a></FooterLink>
-              <FooterLink><a href="#">Use Cases</a></FooterLink>
-              <FooterLink><a href="#">Pricing</a></FooterLink>
-            </FooterLinks>
-          </FooterColumn>
-          
-          <FooterColumn>
-            <FooterTitle>Resources</FooterTitle>
-            <FooterLinks>
-              <FooterLink><a href="#">Documentation</a></FooterLink>
-              <FooterLink><a href="#">API Reference</a></FooterLink>
-              <FooterLink><a href="#">Tutorials</a></FooterLink>
-              <FooterLink><a href="#">GitHub</a></FooterLink>
-            </FooterLinks>
-          </FooterColumn>
-          
-          <FooterColumn>
-            <FooterTitle>Company</FooterTitle>
-            <FooterLinks>
-              <FooterLink><a href="#">About Us</a></FooterLink>
-              <FooterLink><a href="#">Blog</a></FooterLink>
-              <FooterLink><a href="#">Careers</a></FooterLink>
-              <FooterLink><a href="#">Contact</a></FooterLink>
-            </FooterLinks>
-          </FooterColumn>
-        </FooterContainer>
-        
-        <Copyright>
-          &copy; {new Date().getFullYear()} Clypr. All rights reserved.
-        </Copyright>
-      </Footer>
-    </LandingContainer>
+    <>
+      <GlobalStyle />
+      <PageContainer>
+        <HeroSection>
+          <Headline>
+            Your <GradientText>Private, Programmable</GradientText> Communication Layer for Web3
+          </Headline>
+          <Subheadline>
+            Enable secure, verifiable, and direct communication with your users, without compromising on privacy or control. Built for the decentralized future.
+          </Subheadline>
+          <CTAButton to="/login">Get Started with Clypr</CTAButton>
+        </HeroSection>
+
+        <ProblemSection>
+          <SectionTitle>The Challenge: Reaching Your Users in a Decentralized World</SectionTitle>
+          <ProblemText>
+            You've built a groundbreaking dApp, a vibrant community, or a critical protocol. Now, how do you reliably communicate with your users? Traditional methods like email are centralized and leak data. Relying solely on on-chain events is limiting. Building custom, secure messaging is a massive undertaking, prone to vulnerabilities and complex identity management.
+          </ProblemText>
+          <ProblemText>
+             The cost of ineffective communication isn't just missed updates. It's fragmented communities, frustrated users, and compromised security. Your users deserve direct contact, but they also demand privacy and control over their identity. How do you bridge this gap without becoming a central point of failure or a data liability?
+          </ProblemText>
+        </ProblemSection>
+
+        <SolutionSection>
+          <SectionTitle>Clypr: The Bridge Between Your dApp and Your Users</SectionTitle>
+          <SolutionText>
+            Clypr is a decentralized communication layer designed specifically for Web3. It’s not another inbox. It's a privacy-preserving gateway that allows your dApp to send structured, verifiable messages directly to a user's self-sovereign communication agent, bypassing centralized servers and complex identity systems. Think of it as a programmable post office box for the decentralized web.
+          </SolutionText>
+        </SolutionSection>
+
+        <HowItWorksSection>
+          <SectionTitle>How It Works: Simple Integration, Powerful Routing</SectionTitle>
+          <HowItWorksGrid>
+            <StepCard>
+              <StepNumber>1</StepNumber>
+              <StepTitle>Send a Single Payload</StepTitle>
+              <StepDescription>
+                Your dApp crafts a single, structured message payload using the Clypr API. No need to manage complex user addresses or network specifics.
+                <CodeBlock>
+{`clypr.sendMessage({
+    recipientUsername: "user_agent_username",
+    messageType: "notification.governance.proposal",
+    content: {
+        title: "New Proposal Available",
+        body: "A new governance proposal has been submitted. View details and vote now.",
+        priority: 5,
+        metadata: [["proposalId", "xyz123"], ["link", "dapp.com/proposal/xyz123"]]
+    }
+});`}
+                </CodeBlock>
+              </StepDescription>
+            </StepCard>
+            <StepCard>
+              <StepNumber>2</StepNumber>
+              <StepTitle>Clypr Routes Securely</StepTitle>
+              <StepDescription>
+                Clypr's decentralized network encrypts the payload end-to-end and routes it to the user's Clypr Agent based on their unique, privacy-preserving username. The dApp never sees the user's wallet address or other personal data.
+              </StepDescription>
+            </StepCard>
+            <StepCard>
+              <StepNumber>3</StepNumber>
+              <StepTitle>User Rules Trigger Actions</StepTitle>
+              <StepDescription>
+                The user's Clypr Agent receives the encrypted message. Based on the user's pre-defined, programmable rules, the agent decides whether to accept, filter, forward, or block the message. This enables complete spam immunity and personalized delivery.
+              </StepDescription>
+            </StepCard>
+          </HowItWorksGrid>
+        </HowItWorksSection>
+
+        <BenefitsSection>
+          <SectionTitle>Outcomes, Not Just Features</SectionTitle>
+          <BenefitsGrid>
+            <BenefitCard>
+              <BenefitTitle>Enhanced User Trust</BenefitTitle>
+              <BenefitDescription>
+                Users communicate directly with your dApp without sharing sensitive data like email or wallet addresses, fostering a foundation of trust.
+              </BenefitDescription>
+            </BenefitCard>
+            <BenefitCard>
+              <BenefitTitle>Spam & Phishing Immunity</BenefitTitle>
+              <BenefitDescription>
+                Users define strict rules for who can contact them and under what conditions, effectively eliminating unwanted messages and reducing phishing vectors.
+              </BenefitDescription>
+            </BenefitCard>
+            <BenefitCard>
+              <BenefitTitle>Simplified Development</BenefitTitle>
+              <BenefitDescription>
+                Integrate secure, programmable communication with a minimal API. Focus on your core dApp logic, not complex messaging infrastructure.
+              </BenefitDescription>
+            </BenefitCard>
+            <BenefitCard>
+              <BenefitTitle>Persistent Identity</BenefitTitle>
+              <BenefitDescription>
+                Users can update their underlying contact methods (e.g., move wallets, change notification endpoints) without your dApp needing to update any records.
+              </BenefitDescription>
+            </BenefitCard>
+            <BenefitCard>
+              <BenefitTitle>Decentralization Native</BenefitTitle>
+              <BenefitDescription>
+                Built on the Internet Computer Protocol, Clypr offers inherent security, resilience, and censorship resistance without a central gatekeeper.
+              </BenefitDescription>
+            </BenefitCard>
+            <BenefitCard>
+              <BenefitTitle>Future-Proof Flexibility</BenefitTitle>
+              <BenefitDescription>
+                Designed API-first for easy integration and planned expansion to support two-way communication and multiple blockchains.
+              </BenefitDescription>
+            </BenefitCard>
+          </BenefitsGrid>
+        </BenefitsSection>
+
+        <UseCasesSection>
+            <SectionTitle>Where Clypr Transforms Communication</SectionTitle>
+            <UseCasesGrid>
+                <UseCaseCard>
+                    <BenefitTitle>Decentralized Governance Notifications</BenefitTitle>
+                    <BenefitDescription>Alert users instantly and securely about new proposals, voting deadlines, and proposal outcomes without revealing their identity.</BenefitDescription>
+                </UseCaseCard>
+                <UseCaseCard>
+                    <BenefitTitle>dApp Critical Alerts</BenefitTitle>
+                    <BenefitDescription>Send high-priority alerts about security events, platform upgrades, or critical account activity directly to the user's agent.</BenefitDescription>
+                </UseCaseCard>
+                <UseCaseCard>
+                    <BenefitTitle>NFT & Digital Asset Updates</BenefitTitle>
+                    <BenefitDescription>Notify collectors about drops, auctions, or changes related to their digital assets with privacy and verifiable origin.</BenefitDescription>
+                </UseCaseCard>
+                 <UseCaseCard>
+                    <BenefitTitle>Web3 Community Engagement</BenefitTitle>
+                    <BenefitDescription>Provide structured updates, event invitations, or personalized messages based on user roles or activity, controlled by user rules.</BenefitDescription>
+                </UseCaseCard>
+            </UseCasesGrid>
+        </UseCasesSection>
+
+        <VisionSection>
+            <SectionTitle>Why It Matters: Reclaiming Digital Connection</SectionTitle>
+            <VisionText>
+                We believe that in a truly decentralized web, users should own their identity and control who can reach them. Communication shouldn't require sacrificing privacy or being tied to centralized platforms. Clypr is our step towards this future – a persistent, private, chain-agnostic point of contact between you and the decentralized applications you interact with. We're building the infrastructure for trust and direct connection in Web3.
+            </VisionText>
+        </VisionSection>
+
+        <FinalCTASection>
+            <FinalCTATitle>Ready to Build Trust with Your Users?</FinalCTATitle>
+             <Subheadline style={{ marginBottom: '40px' }}>
+                 Explore how Clypr can simplify your dApp's communication and give your users the privacy and control they deserve.
+            </Subheadline>
+            <CTAButton to="/login">Start Building with Clypr</CTAButton>
+        </FinalCTASection>
+
+        <Footer>
+            © {new Date().getFullYear()} Clypr. All rights reserved.
+        </Footer>
+      </PageContainer>
+    </>
   );
 };
 
