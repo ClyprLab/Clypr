@@ -1,4 +1,5 @@
 import './polyfills';  // Must be first import
+import './index.css'; // Tailwind v4
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
