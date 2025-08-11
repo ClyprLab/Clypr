@@ -19,16 +19,22 @@ import {
   AlertTriangle,
   Code,
   Bell,
+  Twitter,
   UserCheck,
   Sparkles,
   BrainCircuit,
   Users,
   Github,
-  MessageSquare,
   Zap,
   Scale,
   Brain
 } from 'lucide-react';
+const XIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-twitter-x" viewBox="0 0 16 16">
+  <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"/>
+</svg>
+);
+import MessageFlowDemo from '@/components/MessageFlowDemo';
 
 import '../index.css';              <div className="rounded-xl border border-white/10 bg-white/5 transform transition-all duration-500 hover:border-fuchsia-500/30 hover:shadow-lg hover:shadow-fuchsia-500/10">
                 <div className="px-4 pt-4">
@@ -171,7 +177,7 @@ function FAQ({ question, answer }: { question: string; answer: string }) {
         <span className={`transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
       </button>
       <div 
-        className={`px-4 overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-4' : 'max-h-0'}`}
+        className={`px-4 overflow-hidden transition-all duration-300 ${isOpen ? 'mt-4 max-h-96 pb-4' : 'max-h-0'}`}
       >
         <p className="text-sm text-zinc-300">{answer}</p>
       </div>
@@ -220,8 +226,8 @@ const Landing = () => {
               <span className="text-sm uppercase tracking-[0.18em] text-zinc-300 group-hover:text-white transition-colors">clypr</span>
             </Link>
             <nav className="hidden items-center gap-8 md:flex">
-              <a href="#solution" className={`text-sm text-zinc-300 hover:text-white transition-colors ${activeSection === 'solution' ? 'text-white' : ''}`}>Solution</a>
-              <a href="#how" className={`text-sm text-zinc-300 hover:text-white transition-colors ${activeSection === 'how' ? 'text-white' : ''}`}>How It Works</a>
+              <a href="/pricing" className="text-sm text-zinc-300 hover:text-white transition-colors">Pricing</a>
+              <a href="/docs" className="text-sm text-zinc-300 hover:text-white transition-colors">Docs</a>
               <a href="#faq" className={`text-sm text-zinc-300 hover:text-white transition-colors ${activeSection === 'faq' ? 'text-white' : ''}`}>FAQ</a>
               <Link to="/login" className="ml-6">
                 <button className="inline-flex items-center rounded-md bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-4 py-2 text-sm font-medium text-[#0A0A0F] hover:opacity-90 transition-all hover:scale-105 duration-300">
@@ -242,8 +248,8 @@ const Landing = () => {
           </div>
           {navOpen && (
             <div className="grid gap-2 pb-4 md:hidden">
-              <a href="#solution" className="rounded px-2 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors">Solution</a>
-              <a href="#how" className="rounded px-2 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors">How It Works</a>
+              <a href="/pricing" className="rounded px-2 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors">Pricing</a>
+              <a href="/docs" className="rounded px-2 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors">Docs</a>
               <a href="#faq" className="rounded px-2 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors">FAQ</a>
               <Link to="/login" className="px-2 py-2">
                 <button className="w-full rounded-md bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 text-sm text-[#0A0A0F] hover:opacity-95 transition-colors">Launch App</button>
@@ -257,7 +263,7 @@ const Landing = () => {
         {/* Hero */}
         <section className="relative overflow-hidden">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_20%_-10%,rgba(56,189,248,0.18),rgba(10,10,15,0)),radial-gradient(800px_500px_at_90%_0%,rgba(217,70,239,0.18),rgba(10,10,15,0))]" />
-          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-24 sm:px-6 md:grid-cols-2 md:py-32 lg:py-40">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 pt-16 pb-24 sm:px-6 md:grid-cols-2 md:pt-15 md:pb-32 lg:pb-40">
             <div>
               <h1 className="mb-6 font-space text-5xl leading-[1.05] tracking-tight text-white sm:text-6xl animate-fade-in">
                 Own your <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">communications</span>, not the other way around.
@@ -273,69 +279,22 @@ const Landing = () => {
                   </button>
                 </Link>
                 <p className="mt-4 text-sm text-zinc-400 font-mono-ibm animate-fade-in animation-delay-600">
-                  No credit card required • Easy setup • Immediate control
+                   Connect your wallet • Easy setup • Immediate control over your messages
                 </p>
               </div>
             </div>
             <div className="animate-slide-up animation-delay-400">
-              {/* Interactive Demo */}
-              <div className="relative rounded-xl border border-white/10 bg-white/5 p-3 transition-all hover:border-white/20 hover:shadow-lg hover:shadow-blue-500/10 duration-500">
-                <div className="rounded-lg bg-[#0C0D14] p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs text-zinc-400">Your dApp Messages</p>
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:-translate-y-1 hover:border-cyan-500/30 duration-300">
-                      <div className="flex justify-between mb-1">
-                        <p className="text-xs text-fuchsia-400">EliteDAO</p>
-                        <span className="text-xs text-zinc-500">2m ago</span>
-                      </div>
-                      <p className="text-sm text-white">Vote on proposal #147 - Funding Allocation</p>
-                    </div>
-                    
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:-translate-y-1 hover:border-fuchsia-500/30 duration-300">
-                      <div className="flex justify-between mb-1">
-                        <p className="text-xs text-cyan-400">CryptoSwap</p>
-                        <span className="text-xs text-zinc-500">15m ago</span>
-                      </div>
-                      <p className="text-sm text-white">Your limit order has been executed</p>
-                    </div>
-                    
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:-translate-y-1 hover:border-cyan-500/30 duration-300">
-                      <div className="flex justify-between mb-1">
-                        <p className="text-xs text-fuchsia-400">NFT Marketplace</p>
-                        <span className="text-xs text-zinc-500">1h ago</span>
-                      </div>
-                      <p className="text-sm text-white">Your item sold for 1.2 ETH</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 px-1 flex justify-between items-center">
-                    <span className="text-xs text-zinc-400">Your channels:</span>
-                    <div className="flex space-x-2">
-                      <span className="text-xs bg-white/10 rounded px-2 py-1 text-white">Email</span>
-                      <span className="text-xs bg-white/10 rounded px-2 py-1 text-white">SMS</span>
-                      <span className="text-xs bg-white/10 rounded px-2 py-1 text-white">+2</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MessageFlowDemo />
             </div>
           </div>
           
           {/* Scroll down indicator */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce hidden md:flex flex-col items-center cursor-pointer" onClick={() => scrollToSection('solution')}>
+          {/* <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce hidden md:flex flex-col items-center cursor-pointer" onClick={() => scrollToSection('solution')}>
             <span className="text-xs text-zinc-400 mb-2">Discover how</span>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-zinc-400">
               <path d="M12 5v14m0 0l-6-6m6 6l6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div>
+          </div> */}
         </section>
 
         {/* Problem */}
@@ -420,14 +379,44 @@ content: {
                   </div>
                 </div>
                 <div className="px-4 pb-4">
-                  <ul className="list-inside list-disc space-y-2 text-sm text-zinc-300">
-                    <li>Speed — real‑time routing at Internet speed</li>
-                    <li>Scalability — millions of Agents</li>
-                    <li>Security & Privacy — canisters, no central server</li>
-                    <li>Integrate once — policy evolves, code doesn’t</li>
-                    <li>AI‑ready — structured, semantic payloads</li>
-                  </ul>
-                </div>
+                  <div className="mt-3 grid gap-3">
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:border-cyan-500/20 duration-300">
+                      <div className="flex items-center mb-1">
+                        <Zap className="h-4 w-4 text-cyan-400 mr-2" />
+                        <span className="text-sm font-medium text-white">Speed</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">Real‑time routing at Internet speed</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:border-fuchsia-500/20 duration-300">
+                      <div className="flex items-center mb-1">
+                        <Scale className="h-4 w-4 text-fuchsia-400 mr-2" />
+                        <span className="text-sm font-medium text-white">Scalability</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">Millions of Agents without bottlenecks</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:border-cyan-500/20 duration-300">
+                      <div className="flex items-center mb-1">
+                        <Lock className="h-4 w-4 text-cyan-400 mr-2" />
+                        <span className="text-sm font-medium text-white">Security & Privacy</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">Canisters, no central server</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:border-cyan-500/20 duration-300">
+                       <div className="flex items-center mb-1">
+                         <Layers className="h-4 w-4 text-cyan-400 mr-2" /> {/* Changed icon to Layers */}
+                         <span className="text-sm font-medium text-white">Integrate Once</span> {/* Updated title */}
+                       </div>
+                       <p className="text-xs text-zinc-300">Policy evolves, code doesn’t</p> {/* Updated text */}
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:border-fuchsia-500/20 duration-300">
+                      <div className="flex items-center mb-1">
+                        <Brain className="h-4 w-4 text-fuchsia-400 mr-2" />
+                        <span className="text-sm font-medium text-white">AI‑ready</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">Structured, semantic payloads</p>
+                    </div>
+                  </div>
+ </div>
               </div>
             </div>
           </div>
@@ -477,7 +466,7 @@ content: {
             
             <div className="relative">
               {/* Connection lines */}
-              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-cyan-400/20 via-fuchsia-500/20 to-cyan-400/20 transform -translate-y-1/2 hidden md:block"></div>
+              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-cyan-400/20 via-fuchsia-500/20 to-cyan-400/20 transform -translate-y-1/2 hidden md:block z-0"></div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
                 {/* Step 1: dApp */}
@@ -547,7 +536,7 @@ content: {
                   <h3 className="text-xl font-medium text-white mb-3">Multi-Channel Delivery</h3>
                   <p className="text-zinc-300 mb-4">Messages routed to your preferred channels without revealing your contact details</p>
                   
-                  <div className="grid grid-cols-2 gap-2 mt-4">
+                  <div className="grid grid-cols-2 gap-2 mt-13">
                     <div className="rounded-lg border border-white/10 bg-[#0C0D14] p-3 flex items-center">
                       <Mail className="h-4 w-4 text-cyan-400 mr-2" />
                       <span className="text-xs text-zinc-300">Email Delivered</span>
@@ -600,7 +589,7 @@ content: {
         {/* DX showcase */}
         <section className="border-t border-white/5">
           <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-            <div className="grid gap-8 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-white/5">
                 <div className="px-4 pt-4">
                   <div className="flex items-center gap-2 text-white">
@@ -608,7 +597,7 @@ content: {
                   </div>
                 </div>
                 <div className="px-4 pb-4">
-                  <div className="rounded-lg border border-white/10 bg-[#0C0D14] p-4">
+                  <div className="rounded-lg border border-white/10 bg-[#0C0D14] p-4 overflow-x-auto">
                     <pre className="font-mono-ibm text-sm text-zinc-200">{`await actor.processMessage("alice", "notification", {
   title: "Hello",
   body: "Welcome to Clypr",
@@ -653,8 +642,25 @@ content: {
           <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
             <h2 className="font-space text-3xl text-white sm:text-4xl">Beyond messages: a programmable identity bridge</h2>
             <p className="mt-2 max-w-3xl text-zinc-300">
-              Clypr isn’t a tool. It’s the communication layer Web3 has been waiting for. Near‑term: AI auto‑responses, on‑chain message reputation, DAO proposal summaries, encrypted voice drops. Long‑term: portable, programmable identity and communications across all apps and chains.
+              Clypr is more than just a messaging tool; it's the foundational communication layer essential for the evolution of Web3. We are building towards a future where identity and communication are truly portable and programmable across all decentralized applications and chains.
             </p>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <div>
+                <h3 className="font-semibold text-white">Long-Term Vision:</h3>
+                <p className="mt-2 text-sm text-zinc-300">
+                  Our long-term goal is to establish a portable, programmable identity and communication standard that seamlessly connects users across the entire Web3 landscape, enabling unprecedented interaction and control.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Near-Term Capabilities:</h3>
+                <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+                  <li>AI-powered auto-responses</li>
+                  <li>On-chain message reputation</li>
+                  <li>Automated DAO proposal summaries</li>
+                  <li>Encrypted voice drops</li>
+                </ul>
+              </div>
+          </div>
           </div>
         </section>
 
@@ -663,17 +669,16 @@ content: {
           <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
             <div className="grid gap-6 md:grid-cols-3">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Hackathon track</p>
-                <p className="mt-1 text-sm text-zinc-300">Building in the open. Explore the repo and API.</p>
-                <a href="https://github.com/abdushakurob/clypr" className="mt-3 inline-block text-xs text-cyan-300 hover:text-cyan-200">GitHub →</a>
+                <p className="text-sm font-semibold text-white">From Smart Contract to Real-World Channels</p>
+                <p className="mt-1 text-sm text-zinc-300">Clypr seamlessly translates on-chain actions and smart contract events into reliable, real-world communications across diverse channels.</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Developer‑first</p>
-                <p className="mt-1 text-sm text-zinc-300">“It took 15 minutes to integrate Clypr into our DAO app.” — early tester</p>
+                <p className="text-sm font-semibold text-white">Your Data, Your Control</p>
+                <p className="mt-1 text-sm text-zinc-300">Built on Web3 principles, Clypr ensures your communication data and routing rules remain entirely under your ownership and control, free from centralized gatekeepers.</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Scales with you</p>
-                <p className="mt-1 text-sm text-zinc-300">Designed for millions of Agents and real‑time routing.</p>
+                <p className="text-sm font-semibold text-white">Built to Grow with You</p>
+                <p className="mt-1 text-sm text-zinc-300">Leveraging a high-performance, decentralized architecture, Clypr is designed for infinite scalability, ensuring reliable message delivery as your needs and the network grow.</p>
               </div>
             </div>
           </div>
@@ -765,13 +770,10 @@ content: {
             
             <div className="flex gap-6 items-center">
               <a href="https://github.com/abdushakurob/clypr" className="text-zinc-400 hover:text-white transition-colors" aria-label="GitHub Repository" title="View GitHub Repository">
-                <Github size={18} />
+                <Github size={18} /> {/* Assuming Github icon is correct */}
               </a>
-              <a href="#twitter" className="text-zinc-400 hover:text-white transition-colors" aria-label="Twitter" title="Follow us on Twitter">
-                <MessageSquare size={18} />
-              </a>
-              <a href="#discord" className="text-zinc-400 hover:text-white transition-colors" aria-label="Discord" title="Join our Discord community">
-                <Users size={18} />
+              <a href="https://x.com/clypr_ic" className="text-zinc-400 hover:text-white transition-colors" aria-label="Twitter" title="Follow us on Twitter">
+                <XIcon size={18} /> {/* Using Twitter icon from lucide-react */}
               </a>
             </div>
             

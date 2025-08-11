@@ -38,7 +38,7 @@ const Login = () => {
             <div className="w-16 h-16 bg-neutral-100 text-neutral-900 rounded-md mx-auto mb-4 flex items-center justify-center font-mono font-bold text-xl">
               C
             </div>
-            <h1 className="font-mono text-2xl font-bold m-0">clypr</h1>
+           <span className="text-xl uppercase tracking-[0.18em] text-zinc-300 font-bold group-hover:text-white transition-colors">clypr</span>
           </div>
           <p className="text-center text-neutral-400 mb-6">
             Control your communications with intelligent privacy rules

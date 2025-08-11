@@ -43,7 +43,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
     >
       <div className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-6'} pb-6`}>
         <div className="w-8 h-8 bg-neutral-100 text-neutral-900 rounded-md flex items-center justify-center font-mono font-bold mr-3">C</div>
-        <h1 className={`font-mono font-bold transition-all ${collapsed ? 'text-[0]' : 'text-xl'}`}>clypr</h1>
+        <h1 className={`text-xl uppercase tracking-[0.18em] text-zinc-300 font-bold group-hover:text-white transition-colors ${collapsed ? 'text-[0]' : 'text-xl'}`}>clypr</h1>
       </div>
 
       <nav className="flex-1">
