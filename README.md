@@ -12,7 +12,7 @@ Clypr is a privacy gateway on the Internet Computer. Users configure rules and c
 
 ## What’s in this MVP
 - Alias system: claim a unique username; resolve username → Principal
-- Public dApp API: `processMessage(alias, messageType, content)`
+- Public dApp API: `notifyAlias(alias, messageType, content)` (and `notifyPrincipal`)
 - Rules: CRUD with conditions/actions/priorities, optional `dappPrincipal`
 - Channels: CRUD with type + config
 - Messages: storage + basic processing (allow/block) and receipts
@@ -22,7 +22,7 @@ Clypr is a privacy gateway on the Internet Computer. Users configure rules and c
 import { Actor, HttpAgent } from '@dfinity/agent';
 import { idlFactory } from './src/declarations/backend/backend.did.js';
 const actor = Actor.createActor(idlFactory, { agent: new HttpAgent({ host: 'https://ic0.app' }), canisterId: '5elod-ciaaa-aaaag-aufgq-cai' });
-await actor.processMessage('alice', 'notification', { title: 'Hi', body: 'Welcome', priority: 3, metadata: [['k','v']] });
+await actor.notifyAlias('alice', 'notification', { title: 'Hi', body: 'Welcome', priority: 3, metadata: [['k','v']] });
 ```
 
 ## Dev

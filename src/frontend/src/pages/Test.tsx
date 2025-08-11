@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
@@ -22,7 +22,7 @@ const TestSection = styled(Card)`
   gap: var(--space-4);
 `;
 
-const TestResult = styled.div<{ success?: boolean }>`
+const TestResult = styled('div')<{ success?: boolean }>`
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   background-color: ${props => props.success ? 'var(--color-success-light)' : 'var(--color-error-light)'};
@@ -45,7 +45,7 @@ const ResultsList = styled.div`
   border-radius: var(--radius-sm);
 `;
 
-const DebugInfo = styled.pre`
+const DebugInfo = styled('pre')`
   background: var(--color-bg-secondary);
   padding: var(--space-4);
   border-radius: var(--radius-sm);
@@ -56,10 +56,23 @@ const DebugInfo = styled.pre`
   overflow-x: auto;
 `;
 
-const ButtonGroup = styled.div`
+const ButtonGroup = styled('div')`
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+`;
+
+const TestResultHeader = styled('div')`
+  display: flex;
+  justify-content: space-between;
+`;
+
+const ResultTimestamp = styled('span')`
+  opacity: 0.7;
+`;
+
+const DetailsWrapper = styled('div')`
+  margin-top: 8px;
 `;
 
 interface TestResultData {
@@ -69,14 +82,14 @@ interface TestResultData {
   timestamp: number;
 }
 
-const Test: React.FC = () => {
-  const [results, setResults] = useState<TestResultData[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
+const Test = () => {
+  const [results, setResults] = React.useState<TestResultData[]>([]);
+  const [isRunning, setIsRunning] = React.useState(false);
+  const [debugInfo, setDebugInfo] = React.useState<string>('');
   const { service, isAuthenticated, principal, loading, error } = useClypr();
 
-  const [username, setUsername] = useState<string>('test-user');
-  const [dappPrincipal, setDappPrincipal] = useState<string>('');
+  const [username, setUsername] = React.useState<string>('test-user');
+  const [dappPrincipal, setDappPrincipal] = React.useState<string>('');
 
   const addResult = (message: string, success: boolean = true, details?: any) => {
     const detailString = details ? (typeof details === 'string' ? details : JSON.stringify(details, (key, value) =>
@@ -110,7 +123,7 @@ const Test: React.FC = () => {
     setDebugInfo(JSON.stringify(info, null, 2));
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (principal && !dappPrincipal) {
       setDappPrincipal(principal.toText());
     }
@@ -164,29 +177,27 @@ const Test: React.FC = () => {
     setIsRunning(false);
   };
 
-  const testProcessMessage = async () => {
+  const testNotifyAlias = async () => {
     if (!service) return addResult('Service not ready', false);
     if (!username) return addResult('Username cannot be empty', false);
     setIsRunning(true);
-    addResult(`Simulating dApp sending message to user "${username}"...`);
+    addResult(`Simulating dApp sending message to user "${username}" via notifyAlias...`);
     addResult(`(Note: The sender principal is your own: ${principal?.toText()})`);
     try {
-      const result = await service.processMessage(username, 'dapp_test', {
+      const receipt = await service.notifyAlias(username, 'dapp_test', {
         title: 'Hello from Simulated dApp',
-        body: 'This message is sent via the processMessage endpoint.',
+        body: 'This message is sent via the notifyAlias endpoint.',
         priority: 1,
         metadata: [['client', 'clypr-test-page']],
       });
 
-      if ('ok' in result) {
-        addResult('processMessage call successful!', true, result.ok);
+      if (receipt) {
+        addResult('notifyAlias call successful!', true, receipt);
       } else {
-        const errorKey = Object.keys(result.err)[0];
-        const errorDetails = (result.err as any)[errorKey]?.[0] || '';
-        addResult(`processMessage call failed: ${errorKey}`, false, errorDetails);
+        addResult('notifyAlias returned no receipt (check canister logs)', false);
       }
     } catch (e: any) {
-      addResult(`Error in processMessage call: ${e.message}`, false, e.stack);
+      addResult(`Error in notifyAlias call: ${e.message}`, false, e.stack);
     }
     setIsRunning(false);
   };
@@ -255,8 +266,8 @@ const Test: React.FC = () => {
           // onChange={(e) => setUsername(e.target.value)}
           placeholder="The user to receive the message"
         />
-        <Button onClick={testProcessMessage} disabled={isRunning || !isAuthenticated} loading={isRunning}>
-          Test Process Message
+        <Button onClick={testNotifyAlias} disabled={isRunning || !isAuthenticated} loading={isRunning}>
+          Test notifyAlias
         </Button>
       </TestSection>
 
@@ -266,14 +277,14 @@ const Test: React.FC = () => {
         <ResultsList>
           {results.map((result, index) => (
             <TestResult key={index} success={result.success}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <TestResultHeader>
                 <span>{result.message}</span>
-                <span style={{ opacity: 0.7 }}>{new Date(result.timestamp).toLocaleTimeString()}</span>
-              </div>
+                <ResultTimestamp>{new Date(result.timestamp).toLocaleTimeString()}</ResultTimestamp>
+              </TestResultHeader>
               {result.details && (
-                <DebugInfo style={{ marginTop: '8px' }}>
-                  {result.details}
-                </DebugInfo>
+                <DetailsWrapper>
+                  <DebugInfo>{result.details}</DebugInfo>
+                </DetailsWrapper>
               )}
             </TestResult>
           ))}

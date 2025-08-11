@@ -699,6 +699,35 @@ export class ClyprService {
     return this.handleResult(result);
   }
   
+  // New public dApp endpoints (preferred over deprecated processMessage)
+  async notifyAlias(
+    recipientAlias: string,
+    messageType: string,
+    content: {
+      title: string;
+      body: string;
+      priority: number;
+      metadata: [string, string][];
+    }
+  ): Promise<MessageReceipt | undefined> {
+    const result = await this.actor.notifyAlias(recipientAlias, messageType, content);
+    return this.handleResult(result);
+  }
+
+  async notifyPrincipal(
+    recipient: Principal,
+    messageType: string,
+    content: {
+      title: string;
+      body: string;
+      priority: number;
+      metadata: [string, string][];
+    }
+  ): Promise<MessageReceipt | undefined> {
+    const result = await this.actor.notifyPrincipal(recipient, messageType, content);
+    return this.handleResult(result);
+  }
+  
   async getMessage(messageId: string): Promise<Message | undefined> {
     const result = await this.actor.getMessage(messageId);
     return this.handleResult(result);

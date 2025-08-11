@@ -142,7 +142,7 @@ When a dApp sends a message to your privacy agent:
 
 ### How dApps Contact You
 
-- dApps call the public method `processMessage(alias, messageType, content)` on the Clypr canister
+- dApps call the public method `notifyAlias(alias, messageType, content)` on the Clypr canister
 - Anyone can resolve an alias via `resolveUsername(alias)`
 
 ### Viewing Message History

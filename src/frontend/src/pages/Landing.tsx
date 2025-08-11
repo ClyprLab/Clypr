@@ -289,12 +289,12 @@ const Landing = () => {
           </div>
           
           {/* Scroll down indicator */}
-          {/* <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce hidden md:flex flex-col items-center cursor-pointer" onClick={() => scrollToSection('solution')}>
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce flex flex-col items-center cursor-pointer" onClick={() => scrollToSection('solution')}>
             <span className="text-xs text-zinc-400 mb-2">Discover how</span>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-zinc-400">
               <path d="M12 5v14m0 0l-6-6m6 6l6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div> */}
+          </div>
         </section>
 
         {/* Problem */}
@@ -598,12 +598,12 @@ content: {
                 </div>
                 <div className="px-4 pb-4">
                   <div className="rounded-lg border border-white/10 bg-[#0C0D14] p-4 overflow-x-auto">
-                    <pre className="font-mono-ibm text-sm text-zinc-200">{`await actor.processMessage("alice", "notification", {
-  title: "Hello",
-  body: "Welcome to Clypr",
-  priority: 3,
-  metadata: [["k","v"]],
-})`}</pre>
+                    <pre className="font-mono-ibm text-sm text-zinc-200">{`await actor.notifyAlias("alice", "notification", {
+   title: "Hello",
+   body: "Welcome to Clypr",
+   priority: 3,
+   metadata: [["k","v"]],
+ })`}</pre>
                   </div>
                   <p className="mt-3 text-sm text-zinc-400">Build once. Deliver everywhere.</p>
                 </div>

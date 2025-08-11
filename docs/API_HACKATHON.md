@@ -2,7 +2,7 @@
 
 ## TL;DR
 - Resolve a username to a Principal: `resolveUsername(username)` (query)
-- Send a message to an alias: `processMessage(username, messageType, content)` (update)
+- Send a message to an alias: `notifyAlias(username, messageType, content)` (update)
 
 ## Minimal Examples (JS)
 ```ts
@@ -16,11 +16,11 @@ const who = await actor.resolveUsername('alice');
 if ('ok' in who) console.log('Principal:', who.ok.toText());
 
 // 2) Send message
-await actor.processMessage('alice', 'notification', {
+await actor.notifyAlias('alice', 'notification', {
   title: 'Hello',
-  body: 'Welcome to Clypr',
+  body: 'World',
   priority: 3,
-  metadata: [['k','v']]
+  metadata: [['k','v']],
 });
 ```
 
