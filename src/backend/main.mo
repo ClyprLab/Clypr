@@ -1,21 +1,16 @@
 // Clypr Backend Main Canister
 // A privacy gateway for Web3 communications
 
-import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import HashMap "mo:base/HashMap";
-import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
-import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 
 import MessageProcessor "./MessageProcessor";
-import RuleEngine "./RuleEngine";
 import Types "./Types";
 
 persistent actor ClyprCanister {
@@ -36,29 +31,38 @@ persistent actor ClyprCanister {
   
   type Channel = Types.Channel;
   type ChannelType = Types.ChannelType;
+  type DispatchJob = Types.DispatchJob;
+  type DispatchJobSpec = Types.DispatchJobSpec;
+  type DispatchStatus = Types.DispatchStatus;
   
   type Error = Types.Error;
   type Result<T, E> = Types.Result<T, E>;
   
   // Legacy state variables (for migration)
-  private stable var owner : Principal = Principal.fromText("2vxsx-fae"); // Default principal
-  private stable var owner_v2 : ?Principal = null; // New optional version
+  private var owner : Principal = Principal.fromText("2vxsx-fae"); // Default principal
+  private var owner_v2 : ?Principal = null; // New optional version
   
   // State storage - User-isolated data
-  private stable var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
-  private stable var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
-  private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
-  private stable var nextRuleId : RuleId = 0;
-  private stable var nextChannelId : ChannelId = 0;
+  private var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
+  private var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
+  private var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
+  // Dispatch queue storage
+  private var userDispatchJobsEntries : [(UserId, [(Nat, DispatchJob)])] = [];
+  private var jobOwnerEntries : [(Nat, UserId)] = [];
+  private var nextJobId : Nat = 0;
+  private var nextRuleId : RuleId = 0;
+  private var nextChannelId : ChannelId = 0;
 
   // User Alias System State
-  private stable var usernameRegistryEntries: [(Text, Principal)] = [];
-  private stable var principalToUsernameEntries: [(Principal, Text)] = [];
+  private var usernameRegistryEntries: [(Text, Principal)] = [];
+  private var principalToUsernameEntries: [(Principal, Text)] = [];
 
   // Runtime state - User-isolated data
   private transient var userRules = HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
   private transient var userChannels = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
   private transient var userMessages = HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+  private transient var userDispatchJobs = HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+  private transient var jobOwner = HashMap.HashMap<Nat, UserId>(100, Nat.equal, func (x) { Nat32.fromNat(x) });
 
   // Runtime state - Alias System
   private transient var usernameRegistry = HashMap.HashMap<Text, Principal>(10, Text.equal, Text.hash);
@@ -99,12 +103,25 @@ persistent actor ClyprCanister {
     };
   };
   
+  private func getUserDispatchJobs(userId : UserId) : HashMap.HashMap<Nat, DispatchJob> {
+    switch (userDispatchJobs.get(userId)) {
+      case null {
+        let m = HashMap.HashMap<Nat, DispatchJob>(50, Nat.equal, func (x) { Nat32.fromNat(x) });
+        userDispatchJobs.put(userId, m);
+        return m;
+      };
+      case (?m) { return m; };
+    };
+  };
+  
   // System Initialization
   public func init() : async () {
     // Initialize runtime state from stable variables
     userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
     userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
     userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+    userDispatchJobs := HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+    jobOwner := HashMap.HashMap<Nat, UserId>(100, Nat.equal, func (x) { Nat32.fromNat(x) });
     
     // Restore user data from stable storage
     for ((userId, rulesArray) in userRulesEntries.vals()) {
@@ -121,6 +138,12 @@ persistent actor ClyprCanister {
       let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
       userMessages.put(userId, messagesMap);
     };
+    
+    for ((userId, jobsArray) in userDispatchJobsEntries.vals()) {
+      let jobsMap = HashMap.fromIter<Nat, DispatchJob>(Iter.fromArray(jobsArray), 50, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userDispatchJobs.put(userId, jobsMap);
+    };
+    jobOwner := HashMap.fromIter<Nat, UserId>(Iter.fromArray(jobOwnerEntries), 100, Nat.equal, func (x) { Nat32.fromNat(x) });
 
     // Restore alias data
     usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
@@ -151,6 +174,14 @@ persistent actor ClyprCanister {
     };
     userMessagesEntries := Buffer.toArray(userMessagesBuffer);
 
+   // Store dispatch jobs and job-owner index
+     let dispatchBuffer = Buffer.Buffer<(UserId, [(Nat, DispatchJob)])>(userDispatchJobs.size());
+     for ((userId, jobsMap) in userDispatchJobs.entries()) {
+       dispatchBuffer.add((userId, Iter.toArray(jobsMap.entries())));
+     };
+     userDispatchJobsEntries := Buffer.toArray(dispatchBuffer);
+     jobOwnerEntries := Iter.toArray(jobOwner.entries());
+
     // Store alias maps as stable arrays
     usernameRegistryEntries := Iter.toArray(usernameRegistry.entries());
     principalToUsernameEntries := Iter.toArray(principalToUsername.entries());
@@ -165,6 +196,8 @@ persistent actor ClyprCanister {
     userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
     userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
     userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
+    userDispatchJobs := HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+    jobOwner := HashMap.HashMap<Nat, UserId>(100, Nat.equal, func (x) { Nat32.fromNat(x) });
     
     // Restore user data
     for ((userId, rulesArray) in userRulesEntries.vals()) {
@@ -181,6 +214,12 @@ persistent actor ClyprCanister {
       let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
       userMessages.put(userId, messagesMap);
     };
+    
+    for ((userId, jobsArray) in userDispatchJobsEntries.vals()) {
+      let jobsMap = HashMap.fromIter<Nat, DispatchJob>(Iter.fromArray(jobsArray), 50, Nat.equal, func (x) { Nat32.fromNat(x) });
+      userDispatchJobs.put(userId, jobsMap);
+    };
+    jobOwner := HashMap.fromIter<Nat, UserId>(Iter.fromArray(jobOwnerEntries), 100, Nat.equal, func (x) { Nat32.fromNat(x) });
 
     // Restore alias data
     usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
@@ -463,24 +502,51 @@ persistent actor ClyprCanister {
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
     let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
 
-    // 6. Process message against rules
-    switch (MessageProcessor.processMessage(newMessage, rulesArray, channelsArray)) {
-      case (#err(error)) {
-        return #err(error);
-      };
-      case (#ok(processedMessage)) {
-        // Update the message with processed state
-        userMessagesMap.put(processedMessage.messageId, processedMessage);
+    // 6. Plan dispatch jobs based on rules and channels
+    let plan = MessageProcessor.planDispatch(newMessage, rulesArray, channelsArray);
+    let updatedMessage : Message = {
+      messageId = newMessage.messageId;
+      senderId = newMessage.senderId;
+      recipientId = newMessage.recipientId;
+      messageType = newMessage.messageType;
+      content = newMessage.content;
+      timestamp = newMessage.timestamp;
+      isProcessed = true;
+      status = plan.status;
+    };
+    userMessagesMap.put(updatedMessage.messageId, updatedMessage);
 
-        // Create and return receipt
-        let receipt = MessageProcessor.createReceipt(processedMessage);
-        return #ok(receipt);
+    // Queue jobs if any
+    if (plan.status == #queued) {
+      let jobsMap = getUserDispatchJobs(recipientId);
+      let now = Time.now();
+      for (spec in plan.jobs.vals()) {
+        let jid = nextJobId; nextJobId += 1;
+        let job : DispatchJob = {
+          id = jid;
+          messageId = spec.messageId;
+          recipientId = spec.recipientId;
+          channelId = spec.channelId;
+          channelType = spec.channelType;
+          messageType = spec.messageType;
+          content = spec.content;
+          intents = spec.intents;
+          attempts = 0;
+          createdAt = now;
+          status = #pending;
+        };
+        jobsMap.put(jid, job);
+        jobOwner.put(jid, recipientId);
       };
     };
+
+    // Create and return receipt (reflects queued or blocked)
+    let receipt = MessageProcessor.createReceipt(updatedMessage);
+    return #ok(receipt);
   };
   
   // New: Clear DX endpoint for dApps addressing by alias
-  public shared(msg) func notifyAlias(
+  public shared(_) func notifyAlias(
     recipientAlias: Text,
     messageType: Text,
     content: MessageContent
@@ -517,17 +583,131 @@ persistent actor ClyprCanister {
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
     let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
 
-    // Process via RuleEngine/MessageProcessor
-    switch (MessageProcessor.processMessage(newMessage, rulesArray, channelsArray)) {
-      case (#err(error)) { return #err(error); };
-      case (#ok(processedMessage)) {
-        userMessagesMap.put(processedMessage.messageId, processedMessage);
-        let receipt = MessageProcessor.createReceipt(processedMessage);
-        return #ok(receipt);
+    // Plan dispatch and queue jobs
+    let plan = MessageProcessor.planDispatch(newMessage, rulesArray, channelsArray);
+    let updatedMessage : Message = {
+      messageId = newMessage.messageId;
+      senderId = newMessage.senderId;
+      recipientId = newMessage.recipientId;
+      messageType = newMessage.messageType;
+      content = newMessage.content;
+      timestamp = newMessage.timestamp;
+      isProcessed = true;
+      status = plan.status;
+    };
+    userMessagesMap.put(updatedMessage.messageId, updatedMessage);
+
+    if (plan.status == #queued) {
+      let jobsMap = getUserDispatchJobs(recipientId);
+      let now = Time.now();
+      for (spec in plan.jobs.vals()) {
+        let jid = nextJobId; nextJobId += 1;
+        let job : DispatchJob = {
+          id = jid;
+          messageId = spec.messageId;
+          recipientId = spec.recipientId;
+          channelId = spec.channelId;
+          channelType = spec.channelType;
+          messageType = spec.messageType;
+          content = spec.content;
+          intents = spec.intents;
+          attempts = 0;
+          createdAt = now;
+          status = #pending;
+        };
+        jobsMap.put(jid, job);
+        jobOwner.put(jid, recipientId);
       };
     };
-  };
 
+    let receipt = MessageProcessor.createReceipt(updatedMessage);
+    return #ok(receipt);
+  };
+ 
+   // Bridge API: fetch next pending dispatch jobs across users
+   public shared query func nextDispatchJobs(limit : Nat) : async Result<[DispatchJob], Error> {
+     var remaining = limit;
+     let buf = Buffer.Buffer<DispatchJob>(Nat.min(limit, 1000));
+     label scan for ((_, jobsMap) in userDispatchJobs.entries()) {
+       for ((_, job) in jobsMap.entries()) {
+         if (remaining == 0) { break scan; };
+         switch (job.status) { case (#pending) { buf.add(job); remaining -= 1; }; case (_) {} };
+       };
+     };
+     return #ok(Buffer.toArray(buf));
+   };
+ 
+   // Bridge API: acknowledge a dispatch job result and update message status
+   public shared func ackDispatch(jobId : Nat, status : DispatchStatus, _meta : [(Text, Text)]) : async Result<(), Error> {
+     switch (jobOwner.get(jobId)) {
+       case null { return #err(#NotFound); };
+       case (?uid) {
+         let jobsMap = getUserDispatchJobs(uid);
+         switch (jobsMap.get(jobId)) {
+           case null { return #err(#NotFound); };
+           case (?job) {
+             // Validate status (cannot ack with pending)
+             switch (status) {
+               case (#pending) { return #err(#InvalidInput(?"Invalid ack status")); };
+               case (_) {};
+             };
+
+             let updated : DispatchJob = {
+               id = job.id;
+               messageId = job.messageId;
+               recipientId = job.recipientId;
+               channelId = job.channelId;
+               channelType = job.channelType;
+               messageType = job.messageType;
+               content = job.content;
+               intents = job.intents;
+               attempts = job.attempts + 1;
+               createdAt = job.createdAt;
+               status = status;
+             };
+             jobsMap.put(jobId, updated);
+
+             // Aggregate message status across jobs for this message
+             let userMessagesMap = getUserMessages(uid);
+             switch (userMessagesMap.get(job.messageId)) {
+               case null { return #ok(()); };
+               case (?m) {
+                 var anyDelivered = false;
+                 var anyPending = false;
+                 for ((_, j) in jobsMap.entries()) {
+                   if (j.messageId == job.messageId) {
+                     switch (j.status) {
+                       case (#delivered) { anyDelivered := true };
+                       case (#pending) { anyPending := true };
+                       case (_) {};
+                     };
+                   };
+                 };
+                 let finalStatus : MessageStatus =
+                   if (anyDelivered) { #delivered }
+                   else if (anyPending) { #queued }
+                   else { #failed };
+
+                 let updatedMsg : Message = {
+                   messageId = m.messageId;
+                   senderId = m.senderId;
+                   recipientId = m.recipientId;
+                   messageType = m.messageType;
+                   content = m.content;
+                   timestamp = m.timestamp;
+                   isProcessed = true;
+                   status = finalStatus;
+                 };
+                 userMessagesMap.put(m.messageId, updatedMsg);
+                 return #ok(());
+               };
+             };
+           };
+         };
+       };
+     };
+   };
+  
   // Health check endpoint
   public query func ping() : async Text {
     return "Clypr Privacy Gateway - Running";

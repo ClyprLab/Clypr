@@ -27,6 +27,8 @@ module {
   type Channel = Types.Channel;
   type Result<T, E> = Types.Result<T, E>;
   type Error = Types.Error;
+  type ChannelType = Types.ChannelType;
+  type DispatchJobSpec = Types.DispatchJobSpec;
   
   // Helper function to extract substring
   private func textSubstring(t : Text, start : Nat, length : Nat) : Text {
@@ -133,6 +135,96 @@ module {
     };
     
     return #ok(processedMessage);
+  };
+  
+  // Decide if a message is blocked or allowed and compute dispatch job plan
+  public func planDispatch(
+    message : Message,
+    rules : [Rule],
+    channels : [Channel]
+  ) : {
+    status : MessageStatus; // #blocked or #queued
+    jobs : [DispatchJobSpec];
+  } {
+    let matchingRules = RuleEngine.evaluateMessage(message, rules);
+
+    // Default allow: if no rules matched and channels exist, queue to all active channels
+    if (Array.size(matchingRules) == 0) {
+      let active = Array.filter<Channel>(channels, func (c : Channel) : Bool { c.isActive });
+      let jobs = Array.map<Channel, DispatchJobSpec>(active, func (c : Channel) : DispatchJobSpec {
+        {
+          messageId = message.messageId;
+          recipientId = message.recipientId;
+          channelId = c.id;
+          channelType = c.channelType;
+          messageType = message.messageType;
+          content = message.content;
+          intents = message.content.metadata; // placeholder: reuse metadata until AI intents are defined
+        }
+      });
+      return {
+        status = if (Array.size(jobs) > 0) { #queued } else { #blocked };
+        jobs = jobs;
+      };
+    };
+    
+    let rule = matchingRules[0];
+
+    // If any action is block, message is blocked
+    let hasBlock = Array.find<Action>(rule.actions, func (a : Action) : Bool {
+      switch (a.actionType) { case (#block) true; case (_) false };
+    });
+    if (hasBlock != null) {
+      return { status = #blocked; jobs = [] };
+    };
+
+    // Determine target channels: route actions with channelId win; otherwise all active channels
+    let routeTargets : [Channel] = Array.filter<Channel>(channels, func (c : Channel) : Bool {
+      // active and referenced by any route action if present
+      if (not c.isActive) { return false };
+      let referenced = Array.find<Action>(rule.actions, func (a : Action) : Bool {
+        switch (a.actionType) {
+          case (#route) {
+            switch (a.channelId) { case (?cid) { cid == c.id }; case (null) false };
+          };
+          case (_) false;
+        }
+      });
+      switch (referenced) { case (null) false; case (_) true };
+    });
+
+    let targets = if (Array.size(routeTargets) > 0) {
+      routeTargets
+    } else {
+      Array.filter<Channel>(channels, func (c : Channel) : Bool { c.isActive })
+    };
+
+    let jobs = Array.map<Channel, DispatchJobSpec>(targets, func (c : Channel) : DispatchJobSpec {
+      {
+        messageId = message.messageId;
+        recipientId = message.recipientId;
+        channelId = c.id;
+        channelType = c.channelType;
+        messageType = message.messageType;
+        content = message.content;
+        intents = mergeIntents(rule.actions, message.content.metadata);
+      }
+    });
+
+    { status = if (Array.size(jobs) > 0) { #queued } else { #blocked }; jobs };
+  };
+  
+  // Merge AI intents from rule action parameters with message metadata (simple concat now)
+  private func mergeIntents(actions : [Action], metadata : [(Text, Text)]) : [(Text, Text)] {
+    let intentPairs = Array.mapFilter<Action, (Text, Text)>(actions, func (a : Action) : ?(Text, Text) {
+      // Convention: parameters with key "intent" or "ai" are intents; keep both for now
+      switch (Array.find<(Text, Text)>(a.parameters, func (p : (Text, Text)) : Bool { p.0 == "intent" or p.0 == "ai" })) {
+        case (?pair) ?pair;
+        case (null) null;
+      }
+    });
+    // Concatenate metadata and intents; will evolve into a structured type later
+    Array.append<(Text, Text)>(metadata, intentPairs)
   };
   
   // Create a receipt for a processed message
