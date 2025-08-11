@@ -36,6 +36,7 @@ module {
   public type MessageStatus = {
     #received;
     #processing;
+    #queued;
     #delivered;
     #blocked;
     #failed;
@@ -45,6 +46,39 @@ module {
     messageId : MessageId;
     received : Bool;
     timestamp : Int;
+  };
+
+  // Dispatch-related types
+  public type DispatchStatus = {
+    #pending;
+    #delivered;
+    #failed;
+  };
+
+  // Full persisted DispatchJob (created by main.mo with generated id)
+  public type DispatchJob = {
+    id : Nat;
+    messageId : MessageId;
+    recipientId : Principal;
+    channelId : ChannelId;
+    channelType : ChannelType;
+    messageType : Text;
+    content : MessageContent;
+    intents : [(Text, Text)];
+    attempts : Nat;
+    createdAt : Int;
+    status : DispatchStatus;
+  };
+
+  // Planning-only job spec (no id/attempts/status yet)
+  public type DispatchJobSpec = {
+    messageId : MessageId;
+    recipientId : Principal;
+    channelId : ChannelId;
+    channelType : ChannelType;
+    messageType : Text;
+    content : MessageContent;
+    intents : [(Text, Text)];
   };
 
   // Rule related types
