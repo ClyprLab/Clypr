@@ -8,11 +8,12 @@
 
 ## Overview
 The Clypr canister exposes:
-- Public dApp endpoints: resolveUsername (query), processMessage (update)
+- Public dApp endpoints: resolveUsername (query), notifyAlias (update), notifyPrincipal (update)
+- Deprecated: processMessage (update) — use notifyAlias instead
 - Authenticated admin endpoints: rules, channels, messages, stats, alias registration
 
 ## Auth Model
-- Public: resolveUsername, processMessage do not enforce auth (any principal)
+- Public: resolveUsername, notifyAlias, notifyPrincipal (any principal)
 - Auth required: registerUsername, rules/channels CRUD, get* queries for user data, sendMessage (self)
 
 ## Types (Candid)
@@ -43,23 +44,44 @@ if ('ok' in principalRes) {
 }
 ```
 
-### processMessage
-Submit a message for a recipient alias.
+### notifyAlias (preferred)
+Submit a message to a recipient alias.
 
 candid:
-processMessage: (recipientUsername: text, messageType: text, content: MessageContent) -> (Result MessageReceipt Error)
+notifyAlias: (recipientAlias: text, messageType: text, content: MessageContent) -> (Result MessageReceipt Error)
 
 Example (TS):
 ```ts
-const res = await actor.processMessage(
+const res = await actor.notifyAlias(
   'alice',
+  'notification',
+  { title: 'Hello', body: 'Welcome!', priority: 3, metadata: [['k','v']] }
+);
+if ('ok' in res) {
+  const receipt = res.ok; // { messageId, received, timestamp }
+}
+```
+
+### notifyPrincipal
+Submit a message directly to a recipient Principal (bypasses alias resolution).
+
+candid:
+notifyPrincipal: (recipient: principal, messageType: text, content: MessageContent) -> (Result MessageReceipt Error)
+
+Example (TS):
+```ts
+const res = await actor.notifyPrincipal(
+  somePrincipal,
   'notification',
   { title: 'Hello', body: 'Welcome!', priority: 3, metadata: [['k','v']] }
 );
 ```
 
-Notes:
-- Open to any caller; Clypr applies the recipient’s rules and returns a receipt.
+### processMessage (deprecated)
+Replaced by notifyAlias for clearer DX. Kept for compatibility.
+
+candid:
+processMessage: (recipientUsername: text, messageType: text, content: MessageContent) -> (Result MessageReceipt Error)
 
 ## Alias
 
@@ -133,6 +155,7 @@ const actor = Actor.createActor(idlFactory, { agent, canisterId: '<CANISTER_ID>'
 
 ## Changelog (Aug 2025)
 - Added alias system (registerUsername/getMyUsername/resolveUsername)
-- Added public processMessage endpoint
+- Added public notifyAlias and notifyPrincipal endpoints
+- Deprecated processMessage; kept as alias for compatibility
 - Extended Rule with dappPrincipal (opt principal)
 - Clarified Candid option encoding and nat BigInt usage

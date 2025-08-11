@@ -34,7 +34,8 @@ cd src/frontend && npm install && npm run dev
 - Modules: `Types.mo`, `RuleEngine.mo`, `MessageProcessor.mo`
 - Public endpoints (no auth):
   - resolveUsername(username: text) → Result<principal, Error> query
-  - processMessage(recipientUsername: text, messageType: text, content: MessageContent) → Result<MessageReceipt, Error>
+  - notifyAlias(recipientAlias: text, messageType: text, content: MessageContent) → Result<MessageReceipt, Error>
+  - notifyPrincipal(recipient: principal, messageType: text, content: MessageContent) → Result<MessageReceipt, Error>
 - Auth endpoints (caller must not be anonymous):
   - registerUsername(username: text) → Result<(), Error>
   - Rules: create/getAll/get/update/delete
@@ -57,7 +58,7 @@ import { Actor, HttpAgent } from '@dfinity/agent';
 import { idlFactory } from '../../src/declarations/backend/backend.did.js';
 const agent = new HttpAgent({ host: 'https://ic0.app' });
 const actor = Actor.createActor(idlFactory, { agent, canisterId: '<CANISTER_ID>' });
-await actor.processMessage('alice', 'notification', { title: 'Hi', body: 'Welcome', priority: 3, metadata: [['k','v']] });
+await actor.notifyAlias('alice', 'notification', { title: 'Hi', body: 'Welcome', priority: 3, metadata: [['k','v']] });
 ```
 
 ## Upgrades & State

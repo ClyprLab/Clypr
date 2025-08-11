@@ -11,7 +11,7 @@ Clypr is a privacy gateway built on the Internet Computer. It exposes a public m
 - Backend canister (Motoko)
   - persistent actor with stable storage
   - Modules: `Types.mo`, `RuleEngine.mo`, `MessageProcessor.mo`, `main.mo`
-  - Public dApp endpoints: `resolveUsername` (query), `processMessage` (update)
+  - Public dApp endpoints: `resolveUsername` (query), `notifyAlias` (update), `notifyPrincipal` (update) — `processMessage` deprecated
   - Authenticated admin endpoints: rules/channels/messages CRUD, stats, `registerUsername`
 - Frontend SPA (React + Vite + TS)
   - Internet Identity auth
@@ -24,7 +24,7 @@ Clypr is a privacy gateway built on the Internet Computer. It exposes a public m
   - IC HTTPS outcalls to deliver to Email/SMS/Webhooks in a later phase
 
 ## Data Flow
-1) dApp → Backend canister `processMessage(recipientUsername, messageType, content)`
+1) dApp → Backend canister `notifyAlias(recipientAlias, messageType, content)` (or `notifyPrincipal(recipient, ...)`)
 2) Backend resolves alias → Principal with `resolveUsername`
 3) Load recipient rules/channels → evaluate in `RuleEngine`
 4) `MessageProcessor` marks delivered/blocked, persists message, returns receipt

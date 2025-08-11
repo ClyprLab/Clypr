@@ -428,6 +428,7 @@ persistent actor ClyprCanister {
   };
 
   // Message Processing - Smart Endpoint for dApps
+  /// Deprecated: prefer `notifyAlias` for clearer DX. Kept for backward-compat.
   public shared(msg) func processMessage(
     recipientUsername: Text,
     messageType : Text,
@@ -478,65 +479,55 @@ persistent actor ClyprCanister {
     };
   };
   
-  // Message Processing - User-specific processing
-  public shared(msg) func sendMessage(
-    messageType : Text,
-    content : MessageContent
+  // New: Clear DX endpoint for dApps addressing by alias
+  public shared(msg) func notifyAlias(
+    recipientAlias: Text,
+    messageType: Text,
+    content: MessageContent
   ) : async Result<MessageReceipt, Error> {
+    // Delegate to existing logic for now
+    return await processMessage(recipientAlias, messageType, content);
+  };
+
+  // New: Direct principal addressing (bypasses alias resolution)
+  public shared(msg) func notifyPrincipal(
+    recipientId: Principal,
+    messageType: Text,
+    content: MessageContent
+  ) : async Result<MessageReceipt, Error> {
+    let senderId = msg.caller;
+
     // Create the message
     let newMessage = MessageProcessor.createMessage(
-      msg.caller,
-      msg.caller, // In user-isolated mode, recipient is the same as sender
+      senderId,
+      recipientId,
       messageType,
       content
     );
-    
-    // Get user's data
-    let userMessagesMap = getUserMessages(msg.caller);
-    let userRulesMap = getUserRules(msg.caller);
-    let userChannelsMap = getUserChannels(msg.caller);
-    
+
+    // Get recipient's data
+    let userMessagesMap = getUserMessages(recipientId);
+    let userRulesMap = getUserRules(recipientId);
+    let userChannelsMap = getUserChannels(recipientId);
+
     // Store the message
     userMessagesMap.put(newMessage.messageId, newMessage);
-    
-    // Get all rules and channels as arrays
+
+    // Arrays for processing
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
     let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
-    
-    // Process message against rules
+
+    // Process via RuleEngine/MessageProcessor
     switch (MessageProcessor.processMessage(newMessage, rulesArray, channelsArray)) {
-      case (#err(error)) {
-        return #err(error);
-      };
+      case (#err(error)) { return #err(error); };
       case (#ok(processedMessage)) {
-        // Update the message with processed state
         userMessagesMap.put(processedMessage.messageId, processedMessage);
-        
-        // Create and return receipt
         let receipt = MessageProcessor.createReceipt(processedMessage);
         return #ok(receipt);
       };
     };
   };
-  
-  public shared query(msg) func getMessage(messageId : MessageId) : async Result<Message, Error> {
-    if (not isAuthorized(msg.caller)) {
-      return #err(#NotAuthorized);
-    };
-    
-    let userMessagesMap = getUserMessages(msg.caller);
-    switch (userMessagesMap.get(messageId)) {
-      case null { #err(#NotFound) };
-      case (?message) { #ok(message) };
-    };
-  };
-  
-  public shared query(msg) func getAllMessages() : async Result<[Message], Error> {
-    let userMessagesMap = getUserMessages(msg.caller);
-    let messagesArray = Iter.toArray(Iter.map(userMessagesMap.vals(), func (m : Message) : Message { m }));
-    return #ok(messagesArray);
-  };
-  
+
   // Health check endpoint
   public query func ping() : async Text {
     return "Clypr Privacy Gateway - Running";

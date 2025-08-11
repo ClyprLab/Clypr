@@ -9,7 +9,7 @@
 ### Backend
 - ✅ Persistent actor with stable storage
 - ✅ Alias system: registerUsername/getMyUsername/resolveUsername
-- ✅ Public endpoints: processMessage and resolveUsername
+- ✅ Public endpoints: notifyAlias, notifyPrincipal, and resolveUsername (processMessage deprecated)
 - ✅ Rules: CRUD with dappPrincipal, priority, active flag
 - ✅ Channels: CRUD with types and config
 - ✅ Message processing: default allow, block support, receipts
@@ -35,5 +35,5 @@
 - Implement routing and content transform in MessageProcessor
 - Add webhook bridge via HTTPS outcalls
 - Add Settings UI: alias claim/availability check
-- Document processMessage for integrators; optional JS SDK
+- Document notifyAlias for integrators; optional JS SDK
 - Add quotas/billing and a Billing page

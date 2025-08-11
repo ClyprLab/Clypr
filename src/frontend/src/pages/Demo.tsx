@@ -15,7 +15,7 @@ const Demo = () => {
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-6">
           <h1 className="text-2xl font-semibold text-white">Interactive Demo</h1>
-          <p className="mt-2 text-zinc-300">This is a placeholder. We’ll wire a simple sender (actor.processMessage) and show receipts here.</p>
+          <p className="mt-2 text-zinc-300">This is a placeholder. We’ll wire a simple sender (actor.notifyAlias) and show receipts here.</p>
           <div className="mt-6 flex gap-3">
             <Link to="/app/dashboard">
               <button className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10">Go to App</button>
