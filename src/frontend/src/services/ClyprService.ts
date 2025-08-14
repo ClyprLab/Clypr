@@ -192,16 +192,78 @@ export function fromBackendRule(rule: BackendRule): Rule {
   };
 }
 
+export interface ValidationConfig {
+  contentLimits: {
+    maxTitleLength: number;
+    maxBodyLength: number;
+    maxMetadataCount: number;
+    allowedContentTypes: string[];
+  };
+  rateLimit: {
+    windowMs: number;
+    maxRequests: number;
+    perChannel: boolean;
+  };
+}
+
+export interface RetryConfig {
+  maxAttempts: number;
+  backoffMs: number;
+  timeoutMs: number;
+}
+
 export interface Channel {
   id: number;
   name: string;
   description?: string;
-  channelType: 'email' | 'sms' | 'webhook' | 'push' | { custom: string };
-  config: [string, string][];
+  channelType: { email: null } | { sms: null } | { webhook: null } | { push: null } | { custom: string };
+  config: ChannelConfig;
+  retryConfig: RetryConfig;
+  validationConfig: ValidationConfig;
   isActive: boolean;
   createdAt: bigint;
   updatedAt: bigint;
 }
+
+export type ChannelConfig = {
+  email?: {
+    provider: string;
+    apiKey?: string;
+    fromAddress: string;
+    replyTo?: string;
+    smtp?: {
+      host: string;
+      port: number;
+      username: string;
+      password: string;
+      useTLS: boolean;
+    };
+  };
+  sms?: {
+    provider: string;
+    apiKey: string;
+    fromNumber: string;
+    webhookUrl?: string;
+  };
+  webhook?: {
+    url: string;
+    method: string;
+    headers: [string, string][];
+    authType: {
+      none?: null;
+      basic?: { username: string; password: string };
+      bearer?: string;
+    };
+    retryCount: number;
+  };
+  push?: {
+    provider: string;
+    apiKey: string;
+    appId: string;
+    platform: 'fcm' | 'apn' | 'webpush';
+  };
+  custom?: [string, string][];
+};
 
 export interface Message {
   messageId: string;
@@ -652,13 +714,33 @@ export class ClyprService {
     name: string,
     description: string | undefined,
     channelType: Channel['channelType'],
-    config: [string, string][]
+    config: ChannelConfig,
+    retryConfig: RetryConfig = {
+      maxAttempts: 3,
+      backoffMs: 1000,
+      timeoutMs: 5000
+    },
+    validationConfig: ValidationConfig = {
+      contentLimits: {
+        maxTitleLength: 200,
+        maxBodyLength: 5000,
+        maxMetadataCount: 10,
+        allowedContentTypes: ['text/plain', 'text/html']
+      },
+      rateLimit: {
+        windowMs: 60000, // 1 minute
+        maxRequests: 100,
+        perChannel: true
+      }
+    }
   ): Promise<number | undefined> {
     const result = await this.actor.createChannel(
       name,
       description ? [description] : [],
       channelType,
-      config
+      config,
+      retryConfig,
+      validationConfig
     );
     return this.handleResult(result);
   }
