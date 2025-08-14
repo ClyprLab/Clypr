@@ -103,6 +103,8 @@ module {
     recipientId: Principal;
     channelId: ChannelId;
     channelType: ChannelType;
+    channelName: Text;
+    channelConfig: ChannelConfig;
     messageType: Text;
     content: MessageContent;
     intents: [(Text, Text)];
@@ -120,6 +122,8 @@ module {
     recipientId : Principal;
     channelId : ChannelId;
     channelType : ChannelType;
+    channelName: Text;
+    channelConfig: ChannelConfig;
     messageType : Text;
     content : MessageContent;
     intents : [(Text, Text)];

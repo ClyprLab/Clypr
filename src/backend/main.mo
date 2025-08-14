@@ -42,6 +42,7 @@ persistent actor ClyprCanister {
   type ChannelConfig = Types.ChannelConfig;
   type ChannelValidation = Types.ChannelValidation;
   type RetryConfig = Types.RetryConfig;
+  type ValidationConfig = Types.ValidationConfig;
   type ChannelTestResult = Types.ChannelTestResult;
   
   type Error = Types.Error;
@@ -64,6 +65,9 @@ persistent actor ClyprCanister {
   private stable var nextChannelId : ChannelId = 0;
   private stable var nextJobId : Nat = 0;
 
+  // Bridge allowlist (stable)
+  private stable var authorizedCallersEntries : [Principal] = [];
+
   // User Alias System State
   private stable var usernameRegistryEntries: [(Text, Principal)] = [];
   private stable var principalToUsernameEntries: [(Principal, Text)] = [];
@@ -73,6 +77,9 @@ persistent actor ClyprCanister {
   private transient var userChannels = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
   private transient var userMessages = HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
   private transient var userDispatchJobs = HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+
+  // Bridge allowlist (runtime)
+  private transient var authorizedCallers = HashMap.HashMap<Principal, ()>(10, Principal.equal, Principal.hash);
   
   // Rate limiting state
   private stable var rateLimitEntriesV2 : [(UserId, [(ChannelId, Types.RateLimitStatus)])] = [];
@@ -184,6 +191,12 @@ persistent actor ClyprCanister {
       userRateLimits.put(userId, rateLimitMap);
     };
 
+    // Restore authorized callers allowlist
+    authorizedCallers := HashMap.HashMap<Principal, ()>(10, Principal.equal, Principal.hash);
+    for (p in Iter.fromArray(authorizedCallersEntries)) {
+      authorizedCallers.put(p, ());
+    };
+
     // Initialize scheduled jobs
     scheduledJobs := HashMap.fromIter<Nat, Types.JobSchedule>(
       Iter.fromArray(scheduledJobEntriesV2),
@@ -248,6 +261,9 @@ persistent actor ClyprCanister {
 
     // Save scheduled jobs
     scheduledJobEntriesV2 := Iter.toArray(scheduledJobs.entries());
+
+    // Save authorized callers
+    authorizedCallersEntries := Iter.toArray(Iter.map<(Principal, ()), Principal>(authorizedCallers.entries(), func ((p, _)) { p }));
   };
   
   system func postupgrade() {
@@ -293,6 +309,35 @@ persistent actor ClyprCanister {
     // Each authenticated user can only access their own data
     // Anonymous principals are not allowed for data operations
     return not Principal.isAnonymous(caller);
+  };
+
+  // Bridge access control: only allow explicitly authorized principals
+  func isAuthorizedBridge(caller : Principal) : Bool {
+    switch (authorizedCallers.get(caller)) {
+      case (null) { false };
+      case (_) { true };
+    }
+  };
+
+  // Allowlist management (local/dev convenience):
+  // Self-service: a caller can add or remove ONLY their own principal.
+  // For production, restrict this to an admin/owner.
+  public shared(msg) func addAuthorizedSelf() : async Result<(), Error> {
+    let p = msg.caller;
+    if (Principal.isAnonymous(p)) { return #err(#NotAuthorized); };
+    ignore authorizedCallers.put(p, ());
+    return #ok();
+  };
+
+  public shared(msg) func removeAuthorizedSelf() : async Result<(), Error> {
+    let p = msg.caller;
+    ignore authorizedCallers.remove(p);
+    return #ok();
+  };
+
+  public shared query(msg) func listAuthorized() : async Result<[Principal], Error> {
+    if (Principal.isAnonymous(msg.caller)) { return #err(#NotAuthorized); };
+    return #ok(Iter.toArray(Iter.map<(Principal, ()), Principal>(authorizedCallers.entries(), func ((p, _)) { p })));
   };
   
   // User Profile Management
@@ -546,7 +591,8 @@ persistent actor ClyprCanister {
     description : ?Text,
     channelType : ChannelType,
     config : ChannelConfig,
-    retryConfig : ?RetryConfig
+    retryConfig : ?RetryConfig,
+    validationConfig : ?ValidationConfig
   ) : async Result<ChannelId, Error> {
     if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
@@ -590,7 +636,7 @@ persistent actor ClyprCanister {
       channelType = channelType;
       config = config;
       retryConfig = Option.get(retryConfig, defaultRetry);
-      validationConfig = defaultValidationConfig; // TODO: Allow this to be customized
+      validationConfig = Option.get(validationConfig, defaultValidationConfig);
       isActive = true;
       createdAt = now;
       updatedAt = now;
@@ -726,6 +772,8 @@ persistent actor ClyprCanister {
           recipientId = msg.caller;
           channelId = channelId;
           channelType = channel.channelType;
+          channelName = channel.name;
+          channelConfig = channel.config;
           messageType = "test";
           content = testContent;
           intents = [];
@@ -741,6 +789,8 @@ persistent actor ClyprCanister {
           recipientId = jobSpec.recipientId;
           channelId = jobSpec.channelId;
           channelType = jobSpec.channelType;
+          channelName = jobSpec.channelName;
+          channelConfig = jobSpec.channelConfig;
           messageType = jobSpec.messageType;
           content = jobSpec.content;
           intents = jobSpec.intents;
@@ -896,6 +946,8 @@ persistent actor ClyprCanister {
           recipientId = jobSpec.recipientId;
           channelId = jobSpec.channelId;
           channelType = jobSpec.channelType;
+          channelName = jobSpec.channelName;
+          channelConfig = jobSpec.channelConfig;
           messageType = jobSpec.messageType;
           content = jobSpec.content;
           intents = jobSpec.intents;
@@ -987,6 +1039,8 @@ persistent actor ClyprCanister {
           recipientId = jobSpec.recipientId; 
           channelId = jobSpec.channelId;
           channelType = jobSpec.channelType;
+          channelName = jobSpec.channelName;
+          channelConfig = jobSpec.channelConfig;
           messageType = jobSpec.messageType;
           content = jobSpec.content;
           intents = jobSpec.intents;
@@ -1093,7 +1147,7 @@ persistent actor ClyprCanister {
   // Stats and Analytics - User-specific data
   // Bridge API: Get next pending dispatch jobs
   public shared(msg) func nextDispatchJobs(limit : Nat) : async Result<[DispatchJob], Error> {
-    if (not isAuthorized(msg.caller)) {
+    if (not isAuthorizedBridge(msg.caller)) {
       return #err(#NotAuthorized);
     };
     
@@ -1190,7 +1244,7 @@ persistent actor ClyprCanister {
 
   // Bridge API: Acknowledge job delivery status
   public shared(msg) func acknowledgeJobDelivery(jobId : Nat, status : Types.DispatchStatus) : async Result<(), Error> {
-    if (not isAuthorized(msg.caller)) {
+    if (not isAuthorizedBridge(msg.caller)) {
       return #err(#NotAuthorized);
     };
 
@@ -1205,6 +1259,8 @@ persistent actor ClyprCanister {
             recipientId = job.recipientId;
             channelId = job.channelId;
             channelType = job.channelType;
+            channelName = job.channelName;
+            channelConfig = job.channelConfig;
             messageType = job.messageType;
             content = job.content;
             intents = job.intents;

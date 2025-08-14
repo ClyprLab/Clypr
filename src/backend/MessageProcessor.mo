@@ -228,6 +228,8 @@ module {
           recipientId = message.recipientId;
           channelId = c.id;
           channelType = c.channelType;
+          channelName = c.name;
+          channelConfig = c.config;
           messageType = message.messageType;
           content = message.content;
           intents = message.content.metadata; // placeholder: reuse metadata until AI intents are defined
@@ -276,6 +278,8 @@ module {
         recipientId = message.recipientId;
         channelId = c.id;
         channelType = c.channelType;
+        channelName = c.name;
+        channelConfig = c.config;
         messageType = message.messageType;
         content = message.content;
         intents = mergeIntents(rule.actions, message.content.metadata);

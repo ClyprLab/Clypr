@@ -157,7 +157,7 @@ const Test = () => {
     setIsRunning(true);
     addResult(`Creating rule for dApp principal: ${dappPrincipal}...`);
     try {
-      const result = await service.createRule({
+      const id = await service.createRule({
         name: `Test Rule for ${dappPrincipal.substring(0, 10)}...`,
         dappPrincipal: dappPrincipal,
         description: 'Allow messages from this specific dApp',
@@ -165,11 +165,10 @@ const Test = () => {
         actions: [{ actionType: { allow: null }, parameters: [] }],
         priority: 1,
       });
-      if ('ok' in result) {
-        addResult(`Rule created with ID: ${result.ok}`, true);
+      if (id !== undefined) {
+        addResult(`Rule created with ID: ${id}`, true);
       } else {
-        const errorKey = Object.keys(result.err)[0];
-        addResult(`Failed to create rule: ${errorKey}`, false);
+        addResult('Failed to create rule', false);
       }
     } catch (e: any) {
       addResult(`Error creating rule: ${e.message}`, false, e.stack);
@@ -207,12 +206,8 @@ const Test = () => {
     setIsRunning(true);
     addResult('Fetching all rules...');
     try {
-      const result = await service.getAllRules();
-      if ('ok' in result) {
-        addResult(`Found ${result.ok.length} rules.`, true, result.ok);
-      } else {
-        addResult('Failed to fetch rules.', false);
-      }
+      const rules = await service.getAllRules();
+      addResult(`Found ${rules.length} rules.`, true, rules);
     } catch (e: any) {
       addResult(`Error fetching rules: ${e.message}`, false, e.stack);
     }
