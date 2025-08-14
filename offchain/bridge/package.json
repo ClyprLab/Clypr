@@ -1,0 +1,18 @@
+{
+  "name": "clypr-offchain-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "NODE_OPTIONS=--trace-warnings node src/index.js"
+  },
+  "dependencies": {
+    "@dfinity/agent": "^3.2.1",
+    "@dfinity/identity": "^3.2.1",
+    "@dfinity/identity-secp256k1": "^3.2.1",
+    "dotenv": "^16.6.1",
+    "tweetnacl": "^1.0.3"
+  }
+}

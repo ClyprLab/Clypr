@@ -173,20 +173,15 @@ export function useClypr() {
   const createChannel = async (
     channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<number | undefined> => {
-    if (!service || !isAuthenticated) return undefined;
-    
+    if (!service || !isAuthenticated) {
+      setError("Not authenticated or service not available.");
+      return undefined;
+    }
     try {
-      const channelId = await service.createChannel(
-        channelData.name,
-        channelData.description,
-        channelData.channelType,
-        channelData.config
-      );
-      
+      const channelId = await service.createChannel(channelData);
       if (channelId !== undefined) {
         await loadChannels();
       }
-      
       return channelId;
     } catch (err) {
       console.error("Failed to create channel:", err);
@@ -196,8 +191,10 @@ export function useClypr() {
   };
 
   const updateChannel = async (channelId: number, channel: Channel): Promise<boolean> => {
-    if (!service || !isAuthenticated) return false;
-    
+    if (!service || !isAuthenticated) {
+      setError("Not authenticated or service not available.");
+      return false;
+    }
     try {
       const success = await service.updateChannel(channelId, channel);
       if (success) {

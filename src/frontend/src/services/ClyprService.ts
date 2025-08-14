@@ -94,6 +94,98 @@ interface BackendRule {
   updatedAt: bigint;
 }
 
+// Helper to recursively flatten a config object into [string, string][]
+function flattenConfig(obj: any, parentKey = ''): [string, string][] {
+  let result: [string, string][] = [];
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const propName = parentKey ? `${parentKey}.${key}` : key;
+      const value = obj[key];
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        result = result.concat(flattenConfig(value, propName));
+      } else if (Array.isArray(value)) {
+        result.push([propName, JSON.stringify(value)]);
+      } else {
+        result.push([propName, String(value)]);
+      }
+    }
+  }
+  return result;
+}
+
+export function toBackendChannel(channel: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>): {
+  name: string;
+  description: string[];
+  channelType: any;
+  config: any;
+  retryConfig: { maxAttempts: number; backoffMs: number; timeoutMs: number }[];
+  validationConfig: {
+    contentLimits: {
+      maxTitleLength: number;
+      maxBodyLength: number;
+      maxMetadataCount: number;
+      allowedContentTypes: string[];
+    };
+    rateLimit: {
+      windowMs: number;
+      maxRequests: number;
+      perChannel: boolean;
+    };
+  }[];
+} {
+  // Convert JS object variant to Candid variant format for ChannelType
+  let candidChannelType: any = null;
+  if (typeof channel.channelType === 'object') {
+    const keys = Object.keys(channel.channelType);
+    if (keys.length === 1) {
+      const key = keys[0];
+      const value = (channel.channelType as any)[key];
+      // For custom, value is a string; for others, value is null
+      candidChannelType = value !== null ? { [key]: value } : { [key]: null };
+    }
+  }
+  // Fallback for string type (shouldn't happen)
+  if (!candidChannelType && typeof (channel as any).channelType === 'string') {
+    candidChannelType = { [(channel as any).channelType]: null };
+  }
+
+  // retryConfig is optional at call-site in canister: represent opt as [] | [obj]
+  const candidRetryConfig = channel.retryConfig
+    ? [{
+        maxAttempts: channel.retryConfig.maxAttempts,
+        backoffMs: channel.retryConfig.backoffMs,
+        timeoutMs: channel.retryConfig.timeoutMs,
+      }]
+    : [];
+
+  // validationConfig is optional on create: represent opt as [] | [obj]
+  const candidValidationConfig = channel.validationConfig
+    ? [{
+        contentLimits: {
+          maxTitleLength: channel.validationConfig.contentLimits.maxTitleLength,
+          maxBodyLength: channel.validationConfig.contentLimits.maxBodyLength,
+          maxMetadataCount: channel.validationConfig.contentLimits.maxMetadataCount,
+          allowedContentTypes: channel.validationConfig.contentLimits.allowedContentTypes,
+        },
+        rateLimit: {
+          windowMs: channel.validationConfig.rateLimit.windowMs,
+          maxRequests: channel.validationConfig.rateLimit.maxRequests,
+          perChannel: channel.validationConfig.rateLimit.perChannel,
+        },
+      }]
+    : [];
+
+  return {
+    name: channel.name,
+    description: channel.description ? [channel.description] : [],
+    channelType: candidChannelType,
+    // Backend expects ChannelConfig variant, not flattened kv pairs
+    config: channel.config as any,
+    retryConfig: candidRetryConfig,
+    validationConfig: candidValidationConfig,
+  };
+}
+
 // Helper functions for converting between frontend and backend formats
 export function createOperatorVariant(op: ConditionOperatorString): ConditionOperator {
   switch (op) {
@@ -711,38 +803,24 @@ export class ClyprService {
   
   // Channels
   async createChannel(
-    name: string,
-    description: string | undefined,
-    channelType: Channel['channelType'],
-    config: ChannelConfig,
-    retryConfig: RetryConfig = {
-      maxAttempts: 3,
-      backoffMs: 1000,
-      timeoutMs: 5000
-    },
-    validationConfig: ValidationConfig = {
-      contentLimits: {
-        maxTitleLength: 200,
-        maxBodyLength: 5000,
-        maxMetadataCount: 10,
-        allowedContentTypes: ['text/plain', 'text/html']
-      },
-      rateLimit: {
-        windowMs: 60000, // 1 minute
-        maxRequests: 100,
-        perChannel: true
-      }
-    }
+    channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<number | undefined> {
+    if (!this.actor) throw new Error('Actor not initialized');
+    const backendChannel = toBackendChannel(channelData);
     const result = await this.actor.createChannel(
-      name,
-      description ? [description] : [],
-      channelType,
-      config,
-      retryConfig,
-      validationConfig
+      backendChannel.name,
+      backendChannel.description,
+      backendChannel.channelType,
+      backendChannel.config,
+      backendChannel.retryConfig,
+      backendChannel.validationConfig
     );
-    return this.handleResult(result);
+    if ('ok' in result) {
+      return Number(result.ok);
+    } else {
+      console.error('Error creating channel:', result.err);
+      throw new Error(Object.keys(result.err)[0]);
+    }
   }
   
   async getChannel(channelId: number): Promise<Channel | undefined> {
@@ -756,8 +834,33 @@ export class ClyprService {
   }
   
   async updateChannel(channelId: number, channel: Channel): Promise<boolean> {
-    const result = await this.actor.updateChannel(channelId, channel);
-    return this.handleResult(result) !== undefined;
+    if (!this.actor) throw new Error('Actor not initialized');
+    // The backend updateChannel function expects a full Channel record.
+    // Construct the full record matching Types.Channel in Motoko
+    const backendChannelRecord = {
+      id: channel.id,
+      name: channel.name,
+      description: channel.description ? [channel.description] : [],
+      channelType: channel.channelType,
+      // Send proper ChannelConfig variant
+      config: channel.config as any,
+      retryConfig: channel.retryConfig,
+      validationConfig: channel.validationConfig,
+      isActive: channel.isActive,
+      createdAt: channel.createdAt,
+      updatedAt: BigInt(Date.now()), // Set updated time to now
+    };
+
+    const result = await this.actor.updateChannel(
+      channelId,
+      backendChannelRecord
+    );
+    if ('ok' in result) {
+      return result.ok;
+    } else {
+      console.error('Error updating channel:', result.err);
+      throw new Error(Object.keys(result.err)[0]);
+    }
   }
 
   // Root key initialization is handled at construction time

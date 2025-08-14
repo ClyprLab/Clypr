@@ -1,3 +1,42 @@
+type WebhookConfig = 
+ record {
+   authType:
+    variant {
+      basic: record {
+               password: text;
+               username: text;
+             };
+      bearer: text;
+      none;
+    };
+   headers: vec record {
+                  text;
+                  text;
+                };
+   method: text;
+   retryCount: nat8;
+   url: text;
+ };
+type ValidationConfig = 
+ record {
+   contentLimits: ContentLimits;
+   rateLimit: RateLimit;
+ };
+type SMTPSettings = 
+ record {
+   host: text;
+   password: text;
+   port: nat16;
+   useTLS: bool;
+   username: text;
+ };
+type SMSConfig = 
+ record {
+   apiKey: text;
+   fromNumber: text;
+   provider: text;
+   webhookUrl: opt text;
+ };
 type RuleId = nat;
 type Rule = 
  record {
@@ -12,37 +51,23 @@ type Rule =
    priority: nat8;
    updatedAt: int;
  };
+type RetryConfig = 
+ record {
+   backoffMs: nat32;
+   maxAttempts: nat8;
+   timeoutMs: nat32;
+ };
 type Result_9 = 
- variant {
-   err: Error;
-   ok: vec Message;
- };
-type Result_8 = 
- variant {
-   err: Error;
-   ok: vec Rule;
- };
-type Result_7 = 
- variant {
-   err: Error;
-   ok: Channel;
- };
-type Result_6 = 
- variant {
-   err: Error;
-   ok: Message;
- };
-type Result_5 = 
  variant {
    err: Error;
    ok: text;
  };
-type Result_4 = 
+type Result_8 = 
  variant {
    err: Error;
    ok: Rule;
  };
-type Result_3 = 
+type Result_7 = 
  variant {
    err: Error;
    ok:
@@ -54,35 +79,92 @@ type Result_3 =
       rulesCount: nat;
     };
  };
+type Result_6 = 
+ variant {
+   err: Error;
+   ok: vec principal;
+ };
+type Result_5 = 
+ variant {
+   err: Error;
+   ok: vec DispatchJob;
+ };
+type Result_4 = 
+ variant {
+   err: Error;
+   ok: MessageReceipt;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: nat;
+ };
 type Result_2 = 
  variant {
    err: Error;
    ok: principal;
  };
-type Result_12 = 
+type Result_16 = 
  variant {
    err: Error;
    ok: ChannelId;
  };
-type Result_11 = 
+type Result_15 = 
  variant {
    err: Error;
    ok: RuleId;
  };
-type Result_10 = 
+type Result_14 = 
  variant {
    err: Error;
    ok: vec Channel;
  };
+type Result_13 = 
+ variant {
+   err: Error;
+   ok: vec Message;
+ };
+type Result_12 = 
+ variant {
+   err: Error;
+   ok: vec Rule;
+ };
+type Result_11 = 
+ variant {
+   err: Error;
+   ok: Channel;
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: Message;
+ };
 type Result_1 = 
  variant {
    err: Error;
-   ok: MessageReceipt;
+   ok: ChannelTestResult;
  };
 type Result = 
  variant {
    err: Error;
    ok;
+ };
+type RateLimit = 
+ record {
+   maxRequests: nat32;
+   perChannel: bool;
+   windowMs: nat32;
+ };
+type PushConfig = 
+ record {
+   apiKey: text;
+   appId: text;
+   platform: variant {
+               apn;
+               fcm;
+               webpush;
+             };
+   provider: text;
  };
 type MessageStatus = 
  variant {
@@ -90,6 +172,7 @@ type MessageStatus =
    delivered;
    failed;
    processing;
+   queued;
    received;
  };
 type MessageReceipt = 
@@ -102,6 +185,7 @@ type MessageId = text;
 type MessageContent = 
  record {
    body: text;
+   contentType: text;
    metadata: vec record {
                    text;
                    text;
@@ -120,15 +204,86 @@ type Message =
    status: MessageStatus;
    timestamp: int;
  };
+type JobSchedule = 
+ variant {
+   delayed: int;
+   immediate;
+   recurring: record {
+                interval: nat32;
+                nextRun: int;
+              };
+ };
 type Error = 
  variant {
    AlreadyExists: opt text;
+   ChannelError: ChannelTestResult;
    InternalError;
+   InvalidConfig: vec text;
    InvalidInput: opt text;
    NotAuthorized;
    NotFound;
    Other: text;
    RateLimitExceeded;
+ };
+type EmailConfig = 
+ record {
+   apiKey: opt text;
+   fromAddress: text;
+   provider: text;
+   replyTo: opt text;
+   smtp: opt SMTPSettings;
+ };
+type DispatchStatus = 
+ variant {
+   delivered;
+   failed;
+   pending;
+ };
+type DispatchMetadata = 
+ record {
+   attempts: vec AttemptRecord;
+   deliveryReport: opt DeliveryReport;
+   lastError: opt text;
+ };
+type DispatchJob = 
+ record {
+   attempts: nat;
+   channelConfig: ChannelConfig;
+   channelId: ChannelId;
+   channelName: text;
+   channelType: ChannelType;
+   content: MessageContent;
+   createdAt: int;
+   expiresAt: int;
+   id: nat;
+   intents: vec record {
+                  text;
+                  text;
+                };
+   messageId: MessageId;
+   messageType: text;
+   metadata: opt DispatchMetadata;
+   recipientId: principal;
+   retryConfig: RetryConfig;
+   status: DispatchStatus;
+ };
+type DeliveryReport = 
+ record {
+   channelId: ChannelId;
+   metadata: vec record {
+                   text;
+                   text;
+                 };
+   providerId: text;
+   status: text;
+   timestamp: int;
+ };
+type ContentLimits = 
+ record {
+   allowedContentTypes: vec text;
+   maxBodyLength: nat32;
+   maxMetadataCount: nat32;
+   maxTitleLength: nat32;
  };
 type ConditionOperator = 
  variant {
@@ -155,20 +310,51 @@ type ChannelType =
    sms;
    webhook;
  };
-type ChannelId = nat;
-type Channel = 
+type ChannelTestResult = 
  record {
-   channelType: ChannelType;
-   config: vec record {
+   error: opt text;
+   latencyMs: nat32;
+   metadata: vec record {
+                   text;
+                   text;
+                 };
+   success: bool;
+   timestamp: int;
+ };
+type ChannelId = nat;
+type ChannelConfig = 
+ variant {
+   custom: vec record {
                  text;
                  text;
                };
+   email: EmailConfig;
+   push: PushConfig;
+   sms: SMSConfig;
+   webhook: WebhookConfig;
+ };
+type Channel = 
+ record {
+   channelType: ChannelType;
+   config: ChannelConfig;
    createdAt: int;
    description: opt text;
    id: ChannelId;
    isActive: bool;
    name: text;
+   retryConfig: RetryConfig;
    updatedAt: int;
+   validationConfig: ValidationConfig;
+ };
+type AttemptRecord = 
+ record {
+   error: opt text;
+   metadata: vec record {
+                   text;
+                   text;
+                 };
+   status: DispatchStatus;
+   timestamp: int;
  };
 type ActionType = 
  variant {
@@ -188,31 +374,53 @@ type Action =
                    };
  };
 service : {
+  acknowledgeJobDelivery: (jobId: nat, status: DispatchStatus) -> (Result);
+  addAuthorizedSelf: () -> (Result);
+  cleanupExpiredJobs: () -> (Result_3);
   createChannel: (name: text, description: opt text, channelType:
-   ChannelType, config: vec record {
-                              text;
-                              text;
-                            }) -> (Result_12);
+   ChannelType, config: ChannelConfig, retryConfig: opt RetryConfig,
+   validationConfig: opt ValidationConfig) -> (Result_16);
   createRule: (name: text, description: opt text, dappPrincipal:
    opt principal, conditions: vec Condition, actions: vec Action, priority:
-   nat8) -> (Result_11);
+   nat8) -> (Result_15);
   deleteChannel: (channelId: ChannelId) -> (Result);
   deleteRule: (ruleId: RuleId) -> (Result);
-  getAllChannels: () -> (Result_10) query;
-  getAllMessages: () -> (Result_9) query;
-  getAllRules: () -> (Result_8) query;
-  getChannel: (channelId: ChannelId) -> (Result_7) query;
-  getMessage: (messageId: MessageId) -> (Result_6) query;
-  getMyUsername: () -> (Result_5) query;
-  getRule: (ruleId: RuleId) -> (Result_4) query;
-  getStats: () -> (Result_3) query;
+  getAllChannels: () -> (Result_14) query;
+  getAllMessages: () -> (Result_13) query;
+  getAllRules: () -> (Result_12) query;
+  getChannel: (channelId: ChannelId) -> (Result_11) query;
+  getMessage: (messageId: MessageId) -> (Result_10) query;
+  getMyUsername: () -> (Result_9) query;
+  getRule: (ruleId: RuleId) -> (Result_8) query;
+  getStats: () -> (Result_7) query;
+  getSystemHealth: () ->
+   (record {
+      activeChannelsCount: nat;
+      activeRulesCount: nat;
+      pendingJobsCount: nat;
+      totalJobsCompleted: nat;
+      totalJobsFailed: nat;
+      totalJobsScheduled: nat;
+      totalMessagesProcessed: nat;
+      uptime: int;
+    }) query;
   init: () -> ();
+  listAuthorized: () -> (Result_6) query;
+  nextDispatchJobs: (limit: nat) -> (Result_5);
+  notifyAlias: (recipientAlias: text, messageType: text, content:
+   MessageContent) -> (Result_4);
+  notifyPrincipal: (recipientId: principal, messageType: text, content:
+   MessageContent) -> (Result_4);
   ping: () -> (text) query;
+  /// Deprecated: prefer `notifyAlias` for clearer DX. Kept for backward-compat.
   processMessage: (recipientUsername: text, messageType: text, content:
-   MessageContent) -> (Result_1);
+   MessageContent) -> (Result_4);
+  processScheduledJobs: () -> (Result_3);
   registerUsername: (username: text) -> (Result);
+  removeAuthorizedSelf: () -> (Result);
   resolveUsername: (username: text) -> (Result_2) query;
-  sendMessage: (messageType: text, content: MessageContent) -> (Result_1);
+  scheduleJob: (jobId: nat, schedule: JobSchedule) -> (Result);
+  testChannel: (channelId: ChannelId) -> (Result_1);
   updateChannel: (channelId: ChannelId, updatedChannel: Channel) -> (Result);
   updateRule: (ruleId: RuleId, updatedRule: Rule) -> (Result);
 }

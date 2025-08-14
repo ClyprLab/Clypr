@@ -21,8 +21,8 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       : ''
   );
   const [isActive, setIsActive] = (React as any).useState(initialChannel?.isActive ?? true);
-  const [config, setConfig] = (React as any).useState(
-    initialChannel?.config || {
+  const [config, setConfig] = (React as any).useState(() => {
+    const base = initialChannel?.config || {
       email: {
         provider: '',
         fromAddress: '',
@@ -34,8 +34,19 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
           useTLS: true
         }
       }
+    };
+    // If smtp is coming as an opt array from backend, unwrap it
+    if (base?.email?.smtp && Array.isArray(base.email.smtp)) {
+      base.email.smtp = base.email.smtp[0] || {
+        host: '',
+        port: 587,
+        username: '',
+        password: '',
+        useTLS: true
+      };
     }
-  );
+    return base;
+  });
 
   const [retryConfig, setRetryConfig] = (React as any).useState({
     maxAttempts: 3,
@@ -63,27 +74,36 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       ? { custom: customType }
       : { [channelType]: null };
 
-        // Create channel-specific config based on type
+        // Normalize optionals and variants to avoid double-wrapping
+    const smtpRaw = config.email?.smtp;
+    // Convert smtp object back to opt array for backend
+    const smtpOpt = smtpRaw && !Array.isArray(smtpRaw) ? [smtpRaw] : (Array.isArray(smtpRaw) ? smtpRaw : []);
+    const apiKeyRaw = config.email?.apiKey;
+    const apiKeyOpt = Array.isArray(apiKeyRaw) ? apiKeyRaw : apiKeyRaw ? [apiKeyRaw] : [];
+    const replyToRaw = config.email?.replyTo;
+    const replyToOpt = Array.isArray(replyToRaw) ? replyToRaw : replyToRaw ? [replyToRaw] : [];
+    const webhookUrlRaw = config.sms?.webhookUrl;
+    const webhookUrlOpt = Array.isArray(webhookUrlRaw) ? webhookUrlRaw : webhookUrlRaw ? [webhookUrlRaw] : [];
+    const pushPlatformRaw = config.push?.platform as any;
+    const pushPlatform = (pushPlatformRaw && typeof pushPlatformRaw === 'object')
+      ? pushPlatformRaw
+      : { [(pushPlatformRaw || 'fcm') as string]: null } as any;
+
+    // Create channel-specific config based on type
     const processedConfig = channelType === 'email' ? {
       email: {
-        provider: 'smtp',
-        apiKey: [],
+        provider: config.email?.provider || 'smtp',
+        apiKey: apiKeyOpt,
         fromAddress: config.email?.fromAddress || '',
-        replyTo: config.email?.replyTo ? [config.email.replyTo] : [],
-        smtp: [config.email?.smtp || {
-          host: '',
-          port: 587,
-          username: '',
-          password: '',
-          useTLS: true
-        }]
+        replyTo: replyToOpt,
+        smtp: smtpOpt.length ? smtpOpt : []
       }
     } : channelType === 'sms' ? {
       sms: {
         provider: config.sms?.provider || '',
         apiKey: config.sms?.apiKey || '',
         fromNumber: config.sms?.fromNumber || '',
-        webhookUrl: config.sms?.webhookUrl ? [config.sms.webhookUrl] : []
+        webhookUrl: webhookUrlOpt
       }
     } : channelType === 'webhook' ? {
       webhook: {
@@ -98,7 +118,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
         provider: config.push?.provider || '',
         apiKey: config.push?.apiKey || '',
         appId: config.push?.appId || '',
-        platform: config.push?.platform || 'fcm'
+        platform: pushPlatform
       }
     } : {
       custom: config.custom || []
