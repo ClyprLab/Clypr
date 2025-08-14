@@ -29,6 +29,7 @@ module {
   type Error = Types.Error;
   type ChannelType = Types.ChannelType;
   type DispatchJobSpec = Types.DispatchJobSpec;
+  type RateLimitStatus = Types.RateLimitStatus;
   
   // Helper function to extract substring
   private func textSubstring(t : Text, start : Nat, length : Nat) : Text {
@@ -86,8 +87,78 @@ module {
     return result;
   };
   
+  // Validate message content against channel limits
+  public func validateMessageContent(content : MessageContent, channel : Channel) : Result<(), Error> {
+    let limits = channel.validationConfig.contentLimits;
+    
+    // Check content size limits
+    if (Text.size(content.title) > Nat32.toNat(limits.maxTitleLength)) {
+      return #err(#InvalidInput(?"Title exceeds maximum length"));
+    };
+    
+    if (Text.size(content.body) > Nat32.toNat(limits.maxBodyLength)) {
+      return #err(#InvalidInput(?"Body exceeds maximum length"));
+    };
+    
+    if (Array.size(content.metadata) > Nat32.toNat(limits.maxMetadataCount)) {
+      return #err(#InvalidInput(?"Too many metadata entries"));
+    };
+
+    // Check content type
+    let validContentType = Array.find<Text>(
+      limits.allowedContentTypes,
+      func(t) { Text.equal(t, content.contentType) }
+    );
+    
+    if (Option.isNull(validContentType)) {
+      return #err(#InvalidInput(?"Unsupported content type"));
+    };
+
+    #ok()
+  };
+
+  // Check rate limits for a channel
+  public func checkRateLimit(channel : Channel, rateLimitStatus : ?RateLimitStatus) : Result<RateLimitStatus, Error> {
+    let now = Time.now();
+    let rateLimit = channel.validationConfig.rateLimit;
+    
+    let status = switch (rateLimitStatus) {
+      case (null) {
+        // New rate limit window
+        {
+          windowStartTime = now;
+          requestCount = 1 : Nat32;
+          isLimited = false;
+        }
+      };
+      case (?status) {
+        if (now - status.windowStartTime > Int32.toInt(Int32.fromNat32(rateLimit.windowMs))) {
+          // Window expired, start new window
+          {
+            windowStartTime = now;
+            requestCount = 1 : Nat32;
+            isLimited = false;
+          }
+        } else {
+          // Within window
+          {
+            windowStartTime = status.windowStartTime;
+            requestCount = status.requestCount + 1 : Nat32;
+            isLimited = status.requestCount >= rateLimit.maxRequests;
+          }
+        }
+      };
+    };
+    
+    if (status.isLimited) {
+      #err(#RateLimitExceeded)
+    } else {
+      #ok(status)
+    }
+  };
+
   // Process a message against rules and return actions
-  public func processMessage(message : Message, rules : [Rule], _channels : [Channel]) : Result<Message, Error> {
+  public func processMessage(message : Message, rules : [Rule], channels : [Channel]) : Result<Message, Error> {
     // Evaluate message against rules to find matches
     let matchingRules = RuleEngine.evaluateMessage(message, rules);
     

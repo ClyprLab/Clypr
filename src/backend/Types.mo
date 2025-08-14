@@ -9,11 +9,31 @@ module {
   public type ChannelId = Nat;
 
   // Message related types
+  // Content validation types
+  public type ContentLimits = {
+    maxTitleLength: Nat32;
+    maxBodyLength: Nat32;
+    maxMetadataCount: Nat32;
+    allowedContentTypes: [Text];
+  };
+
+  public type RateLimit = {
+    windowMs: Nat32;
+    maxRequests: Nat32;
+    perChannel: Bool;
+  };
+
+  public type ValidationConfig = {
+    contentLimits: ContentLimits;
+    rateLimit: RateLimit;
+  };
+
   public type MessageContent = {
     title : Text;
     body : Text;
     priority : Nat8;
     metadata : [(Text, Text)];
+    contentType : Text; // e.g., "text/plain", "text/html", etc.
   };
 
   public type Message = {
@@ -56,18 +76,42 @@ module {
   };
 
   // Full persisted DispatchJob (created by main.mo with generated id)
+  public type AttemptRecord = {
+    timestamp: Int;
+    status: DispatchStatus;
+    error: ?Text;
+    metadata: [(Text, Text)];
+  };
+
+  public type DeliveryReport = {
+    channelId: ChannelId;
+    providerId: Text;
+    timestamp: Int;
+    status: Text;
+    metadata: [(Text, Text)];
+  };
+
+  public type DispatchMetadata = {
+    attempts: [AttemptRecord];
+    lastError: ?Text;
+    deliveryReport: ?DeliveryReport;
+  };
+
   public type DispatchJob = {
-    id : Nat;
-    messageId : MessageId;
-    recipientId : Principal;
-    channelId : ChannelId;
-    channelType : ChannelType;
-    messageType : Text;
-    content : MessageContent;
-    intents : [(Text, Text)];
-    attempts : Nat;
-    createdAt : Int;
-    status : DispatchStatus;
+    id: Nat;
+    messageId: MessageId;
+    recipientId: Principal;
+    channelId: ChannelId;
+    channelType: ChannelType;
+    messageType: Text;
+    content: MessageContent;
+    intents: [(Text, Text)];
+    attempts: Nat;
+    retryConfig: RetryConfig;
+    metadata: ?DispatchMetadata;
+    createdAt: Int;
+    expiresAt: Int;
+    status: DispatchStatus;
   };
 
   // Planning-only job spec (no id/attempts/status yet)
@@ -127,34 +171,130 @@ module {
   };
 
   // Channel related types
+  // Channel configuration types
+  public type SMTPSettings = {
+    host: Text;
+    port: Nat16;
+    username: Text;
+    password: Text;
+    useTLS: Bool;
+  };
+
+  public type EmailConfig = {
+    provider: Text;
+    apiKey: ?Text;
+    fromAddress: Text;
+    replyTo: ?Text;
+    smtp: ?SMTPSettings;
+  };
+
+  public type SMSConfig = {
+    provider: Text;
+    apiKey: Text;
+    fromNumber: Text;
+    webhookUrl: ?Text;
+  };
+
+  public type WebhookConfig = {
+    url: Text;
+    method: Text;
+    headers: [(Text, Text)];
+    authType: {
+      #none;
+      #basic: { username: Text; password: Text };
+      #bearer: Text;
+    };
+    retryCount: Nat8;
+  };
+
+  public type PushConfig = {
+    provider: Text;
+    apiKey: Text;
+    appId: Text;
+    platform: {
+      #fcm;
+      #apn;
+      #webpush;
+    };
+  };
+
+  public type ChannelConfig = {
+    #email: EmailConfig;
+    #sms: SMSConfig;
+    #webhook: WebhookConfig;
+    #push: PushConfig;
+    #custom: [(Text, Text)];
+  };
+
+  public type RetryConfig = {
+    maxAttempts: Nat8;
+    backoffMs: Nat32;
+    timeoutMs: Nat32;
+  };
+
   public type ChannelType = {
     #email;
     #sms;
     #webhook;
     #push;
-    #custom : Text;
+    #custom: Text;
   };
 
   public type Channel = {
-    id : ChannelId;
-    name : Text;
-    description : ?Text;
-    channelType : ChannelType;
-    config : [(Text, Text)];
-    isActive : Bool;
-    createdAt : Int;
-    updatedAt : Int;
+    id: ChannelId;
+    name: Text;
+    description: ?Text;
+    channelType: ChannelType;
+    config: ChannelConfig;
+    retryConfig: RetryConfig;
+    validationConfig: ValidationConfig;
+    isActive: Bool;
+    createdAt: Int;
+    updatedAt: Int;
+  };
+
+  // Rate limiting types
+  public type RateLimitStatus = {
+    windowStartTime: Int;
+    requestCount: Nat32;
+    isLimited: Bool;
+  };
+
+  public type JobSchedule = {
+    #immediate;
+    #delayed: Int; // Timestamp for delayed execution
+    #recurring: {
+      interval: Nat32;  // Interval in milliseconds
+      nextRun: Int;     // Next execution timestamp
+    };
   };
 
   // Error types
+  public type ChannelTestResult = {
+    success: Bool;
+    timestamp: Int;
+    error: ?Text;
+    latencyMs: Nat32;
+    metadata: [(Text, Text)];
+  };
+
+  public type ChannelValidation = {
+    configValid: Bool;
+    authValid: Bool;
+    testResult: ?ChannelTestResult;
+    errors: [Text];
+  };
+
   public type Error = {
     #NotFound;
-    #AlreadyExists : ?Text;
+    #AlreadyExists: ?Text;
     #NotAuthorized;
-    #InvalidInput : ?Text;
+    #InvalidInput: ?Text;
+    #InvalidConfig: [Text];
+    #ChannelError: ChannelTestResult;
     #InternalError;
     #RateLimitExceeded;
-    #Other : Text;
+    #Other: Text;
   };
 
   public type Result<T, E> = {
