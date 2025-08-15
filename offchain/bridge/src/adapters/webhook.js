@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import dns from 'node:dns/promises';
 
 function sanitizeValue(v) {
   if (typeof v === 'bigint') return v.toString();
@@ -38,6 +39,52 @@ function sanitizeJob(job) {
   return sanitized;
 }
 
+const DEFAULT_TIMEOUT = 30000; // ms
+const DEFAULT_RETRIES = 2;
+const DEFAULT_BACKOFF = 1000; // ms
+
+async function fetchWithRetries(url, fetchOptions = {}, timeoutMs = DEFAULT_TIMEOUT, retries = DEFAULT_RETRIES, backoffMs = DEFAULT_BACKOFF) {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname;
+
+  // Try to resolve DNS first for logging
+  try {
+    const addrs = await dns.lookup(hostname, { all: true });
+    const ips = addrs.map(a => a.address).join(',');
+    console.info(`[webhook] resolved ${hostname} -> ${ips}`);
+  } catch (dnsErr) {
+    console.warn('[webhook] DNS lookup failed for', hostname, dnsErr && dnsErr.code ? dnsErr.code : dnsErr);
+    // continue — fetch will surface the error
+  }
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, { ...fetchOptions, signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      // If aborted due to timeout, normalize the error
+      const code = err && err.code ? err.code : (err.name === 'AbortError' ? 'ETIMEDOUT' : null);
+      console.warn(`[webhook] attempt ${attempt + 1} failed for ${url}:`, err && err.message ? err.message : err, 'code:', code || err.name);
+
+      const isRetryable = code === 'ETIMEDOUT' || code === 'ECONNRESET' || code === 'EAI_AGAIN' || code === 'ENOTFOUND' || code === 'ECONNREFUSED' || !code;
+      if (attempt < retries && isRetryable) {
+        const wait = backoffMs * Math.pow(2, attempt);
+        console.info(`[webhook] retrying in ${wait}ms (attempt ${attempt + 2}/${retries + 1})`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+
+      throw err;
+    }
+  }
+}
+
 export async function sendWebhook(job) {
   try {
     const cfg = job.channelConfig?.webhook || null;
@@ -67,15 +114,17 @@ export async function sendWebhook(job) {
 
     // Build sanitized payload
     const payload = sanitizeJob(job);
+    const body = JSON.stringify(payload);
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: JSON.stringify(payload),
-      timeout: cfg?.timeoutMs || 30000,
-    });
+    const timeoutMs = (cfg?.timeoutMs) || DEFAULT_TIMEOUT;
+    const retries = (cfg?.retryCount ?? DEFAULT_RETRIES);
+    const backoffMs = DEFAULT_BACKOFF;
 
-    const ok = res.status >= 200 && res.status < 300;
+    const res = await fetchWithRetries(url, { method, headers, body }, timeoutMs, retries, backoffMs);
+    const ok = res && res.status >= 200 && res.status < 300;
+    if (!ok) {
+      console.warn('[webhook] non-2xx response', res && res.status);
+    }
     return ok;
   } catch (e) {
     console.error('[webhook] error', e);
