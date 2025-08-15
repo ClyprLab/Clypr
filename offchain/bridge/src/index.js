@@ -101,21 +101,22 @@ async function run() {
 
     for (const job of jobs) {
       log.info(`Job ${job.id} -> ${job.messageType} via ${Object.keys(job.channelType)} (${job.channelName})`);
+      console.log('Job content:', job);
       log.debug('Job content:', { content: job.content, intents: job.intents });
 
       const delivered = await deliverJob(job);
 
-      try {
-        const status = delivered ? { delivered: null } : { failed: null };
-        const ack = await actor.acknowledgeJobDelivery(job.id, status);
-        if ('err' in ack) {
-          log.warn('acknowledgeJobDelivery err:', ack.err);
-        } else {
-          log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
-        }
-      } catch (e) {
-        log.error('acknowledgeJobDelivery threw:', e);
-      }
+      // try {
+      //   const status = delivered ? { delivered: null } : { failed: null };
+      //   const ack = await actor.acknowledgeJobDelivery(job.id, status);
+      //   if ('err' in ack) {
+      //     log.warn('acknowledgeJobDelivery err:', ack.err);
+      //   } else {
+      //     log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
+      //   }
+      // } catch (e) {
+      //   log.error('acknowledgeJobDelivery threw:', e);
+      // }
     }
   }
 }

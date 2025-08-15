@@ -922,18 +922,20 @@ persistent actor ClyprCanister {
 
     // 8. Create dispatch jobs if message is queued
     if (dispatchPlan.status == #queued) {
+      Debug.print("Creating dispatch jobs for queued message: " # newMessage.messageId);
       let userJobsMap = getUserDispatchJobs(recipientId);
-      
+
       label jobLoop for (jobSpec in dispatchPlan.jobs.vals()) {
         // Validate message for this channel
         let channelOpt = Array.find<Channel>(channelsArray, func(c) { c.id == jobSpec.channelId });
         if (Option.isNull(channelOpt)) {
+          Debug.print("Channel not found for jobSpec.channelId: " # Nat.toText(jobSpec.channelId));
           continue jobLoop;
         };
         let channel = Option.get(channelOpt, channelsArray[0]); // Safe because checked above
 
         switch (validateAndCheckRateLimit(jobSpec.channelId, recipientId, jobSpec.content, channel)) {
-          case (#err(_)) { continue jobLoop; }; // Skip this channel if validation fails
+          case (#err(e)) { Debug.print("Rate limit or validation failed for channel " # Nat.toText(jobSpec.channelId)); continue jobLoop; }; // Skip this channel if validation fails
           case (#ok(_)) {};
         };
 
@@ -963,11 +965,15 @@ persistent actor ClyprCanister {
           status = #pending;
         };
         userJobsMap.put(jobId, job);
+        totalJobsScheduled += 1;
+        Debug.print("Queued job " # Nat.toText(jobId) # " for recipient " # Principal.toText(recipientId) # " on channel " # Nat.toText(job.channelId));
+        Debug.print("User jobs map size: " # Nat.toText(userJobsMap.size()));
       };
     };
 
     // 9. Create and return receipt
     let receipt = MessageProcessor.createReceipt(processedMessage);
+    totalMessagesProcessed += 1;
     return #ok(receipt);
   };
   
@@ -1010,7 +1016,11 @@ persistent actor ClyprCanister {
     let channelsArray = Iter.toArray(Iter.map(userChannelsMap.vals(), func (c : Channel) : Channel { c }));
 
     // Process via MessageProcessor dispatch planning
+    Debug.print("Planning dispatch for message from " # Principal.toText(senderId) # " to " # Principal.toText(recipientId));
+    Debug.print("Found " # Nat.toText(rulesArray.size()) # " rules and " # Nat.toText(channelsArray.size()) # " channels");
+    
     let dispatchPlan = MessageProcessor.planDispatch(newMessage, rulesArray, channelsArray);
+    Debug.print("Dispatch plan status: " # debug_show(dispatchPlan.status));
     
     // Update message status
     let processedMessage : Message = {
@@ -1153,18 +1163,23 @@ persistent actor ClyprCanister {
     
     var jobs : Buffer.Buffer<DispatchJob> = Buffer.Buffer(0);
     var count = 0;
+    var pendingFound = 0;
 
     // Poll each user's jobs until we hit the limit
-    label polling for ((userId, jobsMap) in userDispatchJobs.entries()) {
-      for ((_, job) in jobsMap.entries()) {
+    for ((userId, jobsMap) in userDispatchJobs.entries()) {
+      for ((jobId, job) in jobsMap.entries()) {
         if (job.status == #pending) {
+          pendingFound += 1;
           jobs.add(job);
           count += 1;
-          if (count >= limit) { break polling; };
+          if (count >= limit) { 
+            return #ok(Buffer.toArray(jobs));
+          };
         };
       };
     };
     
+    Debug.print("Found " # Nat.toText(pendingFound) # " pending jobs");
     return #ok(Buffer.toArray(jobs));
   };
 
@@ -1359,5 +1374,30 @@ persistent actor ClyprCanister {
       blockedCount = blockedCount;
       deliveredCount = deliveredCount;
     });
+  };
+  
+  // Debug: Dump all user dispatch jobs (temporary admin endpoint)
+  public shared query(msg) func debug_dumpAllDispatchJobs() : async Result<[ { user : Principal; jobs : [DispatchJob] } ], Error> {
+    // Restrict to owner or authorized bridge principals
+    if (not (Principal.equal(msg.caller, owner) or isAuthorizedBridge(msg.caller))) {
+      return #err(#NotAuthorized);
+    };
+
+    var out : Buffer.Buffer<{ user : Principal; jobs : [DispatchJob] }> = Buffer.Buffer(0);
+    for ((userId, jobsMap) in userDispatchJobs.entries()) {
+      let jobsArr = Iter.toArray(jobsMap.vals());
+      out.add({ user = userId; jobs = jobsArr });
+    };
+
+    return #ok(Buffer.toArray(out));
+  };
+
+  // Debug: Dump scheduled jobs (temporary admin endpoint)
+  public shared query(msg) func debug_dumpScheduledJobs() : async Result<[(Nat, Types.JobSchedule)], Error> {
+    if (not (Principal.equal(msg.caller, owner) or isAuthorizedBridge(msg.caller))) {
+      return #err(#NotAuthorized);
+    };
+
+    return #ok(Iter.toArray(scheduledJobs.entries()));
   };
 }
