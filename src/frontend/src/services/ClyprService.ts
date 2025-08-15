@@ -835,31 +835,70 @@ export class ClyprService {
   
   async updateChannel(channelId: number, channel: Channel): Promise<boolean> {
     if (!this.actor) throw new Error('Actor not initialized');
-    // The backend updateChannel function expects a full Channel record.
-    // Construct the full record matching Types.Channel in Motoko
-    const backendChannelRecord = {
-      id: channel.id,
+
+    // Ensure description is a plain string (in case caller passed backend-shaped opt array)
+    const normalizedDescription = Array.isArray((channel as any).description)
+      ? ((channel as any).description.length > 0 ? (channel as any).description[0] : undefined)
+      : channel.description;
+
+    // Reuse the same conversion used by createChannel to ensure canonical backend shapes
+    const backendChannel = toBackendChannel({
       name: channel.name,
-      description: channel.description ? [channel.description] : [],
-      channelType: channel.channelType,
-      // Send proper ChannelConfig variant
-      config: channel.config as any,
+      description: normalizedDescription,
+      channelType: channel.channelType as any,
+      config: channel.config,
       retryConfig: channel.retryConfig,
       validationConfig: channel.validationConfig,
       isActive: channel.isActive,
+      // omitted: id/createdAt/updatedAt are set below for the record
+    } as any);
+
+    // Unwrap optional arrays returned by toBackendChannel and provide sensible defaults
+    const unwrappedRetryConfig = (backendChannel.retryConfig && backendChannel.retryConfig.length > 0)
+      ? backendChannel.retryConfig[0]
+      : { maxAttempts: channel.retryConfig?.maxAttempts ?? 3, backoffMs: channel.retryConfig?.backoffMs ?? 1000, timeoutMs: channel.retryConfig?.timeoutMs ?? 5000 };
+
+    const unwrappedValidationConfig = (backendChannel.validationConfig && backendChannel.validationConfig.length > 0)
+      ? backendChannel.validationConfig[0]
+      : (channel.validationConfig || {
+          contentLimits: {
+            maxTitleLength: 200,
+            maxBodyLength: 5000,
+            maxMetadataCount: 10,
+            allowedContentTypes: ['text/plain', 'text/html', 'application/json']
+          },
+          rateLimit: {
+            windowMs: 60000,
+            maxRequests: 100,
+            perChannel: true
+          }
+        });
+
+    // Construct the full backend Channel record expected by the canister
+    const backendChannelRecord = {
+      id: channel.id,
+      name: backendChannel.name,
+      description: backendChannel.description,
+      channelType: backendChannel.channelType,
+      config: backendChannel.config,
+      retryConfig: unwrappedRetryConfig,
+      validationConfig: unwrappedValidationConfig,
+      isActive: channel.isActive,
       createdAt: channel.createdAt,
-      updatedAt: BigInt(Date.now()), // Set updated time to now
+      updatedAt: BigInt(Date.now()),
     };
 
-    const result = await this.actor.updateChannel(
-      channelId,
-      backendChannelRecord
-    );
-    if ('ok' in result) {
-      return result.ok;
-    } else {
-      console.error('Error updating channel:', result.err);
-      throw new Error(Object.keys(result.err)[0]);
+    try {
+      const result = await this.actor.updateChannel(channelId, backendChannelRecord);
+      if ('ok' in result) {
+        return result.ok;
+      } else {
+        console.error('Error updating channel:', result.err);
+        throw new Error(Object.keys(result.err)[0]);
+      }
+    } catch (err) {
+      console.error('Error calling updateChannel:', err);
+      throw err;
     }
   }
 
