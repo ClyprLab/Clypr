@@ -106,17 +106,17 @@ async function run() {
 
       const delivered = await deliverJob(job);
 
-      // try {
-      //   const status = delivered ? { delivered: null } : { failed: null };
-      //   const ack = await actor.acknowledgeJobDelivery(job.id, status);
-      //   if ('err' in ack) {
-      //     log.warn('acknowledgeJobDelivery err:', ack.err);
-      //   } else {
-      //     log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
-      //   }
-      // } catch (e) {
-      //   log.error('acknowledgeJobDelivery threw:', e);
-      // }
+      try {
+        const status = delivered ? { delivered: null } : { failed: null };
+        const ack = await actor.acknowledgeJobDelivery(job.id, status);
+        if ('err' in ack) {
+          log.warn('acknowledgeJobDelivery err:', ack.err);
+        } else {
+          log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
+        }
+      } catch (e) {
+        log.error('acknowledgeJobDelivery threw:', e);
+      }
     }
   }
 }
