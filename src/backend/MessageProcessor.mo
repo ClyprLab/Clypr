@@ -14,6 +14,7 @@ import Nat32 "mo:base/Nat32";
 import Int32 "mo:base/Int32";
 import RuleEngine "./RuleEngine";
 import Types "./Types";
+import Debug "mo:base/Debug";
 
 module {
   type Message = Types.Message;
@@ -90,27 +91,45 @@ module {
   // Validate message content against channel limits
   public func validateMessageContent(content : MessageContent, channel : Channel) : Result<(), Error> {
     let limits = channel.validationConfig.contentLimits;
-    
+
     // Check content size limits
     if (Text.size(content.title) > Nat32.toNat(limits.maxTitleLength)) {
       return #err(#InvalidInput(?"Title exceeds maximum length"));
     };
-    
+
     if (Text.size(content.body) > Nat32.toNat(limits.maxBodyLength)) {
       return #err(#InvalidInput(?"Body exceeds maximum length"));
     };
-    
+
     if (Array.size(content.metadata) > Nat32.toNat(limits.maxMetadataCount)) {
       return #err(#InvalidInput(?"Too many metadata entries"));
     };
 
-    // Check content type
+    // Check content type — be tolerant of MIME parameters like "; charset=..." by matching the base type as a prefix
+    let ct = content.contentType;
+
     let validContentType = Array.find<Text>(
       limits.allowedContentTypes,
-      func(t) { Text.equal(t, content.contentType) }
+      func(t) {
+        let tlen = Text.size(t);
+        if (Text.size(ct) < tlen) { false } else {
+          let prefix = textSubstring(ct, 0, tlen);
+          Text.equal(prefix, t)
+        }
+      }
     );
-    
+
     if (Option.isNull(validContentType)) {
+      // build a small comma-separated allowed list for debugging using an iterator
+      var allowedText = "";
+      for (a in Iter.fromArray(limits.allowedContentTypes)) {
+        if (Text.size(allowedText) == 0) {
+          allowedText := a;
+        } else {
+          allowedText := allowedText # ", " # a;
+        };
+      };
+      Debug.print("validateMessageContent: Unsupported content type: " # ct # " allowed: " # allowedText);
       return #err(#InvalidInput(?"Unsupported content type"));
     };
 
@@ -294,8 +313,8 @@ module {
     let intentPairs = Array.mapFilter<Action, (Text, Text)>(actions, func (a : Action) : ?(Text, Text) {
       // Convention: parameters with key "intent" or "ai" are intents; keep both for now
       switch (Array.find<(Text, Text)>(a.parameters, func (p : (Text, Text)) : Bool { p.0 == "intent" or p.0 == "ai" })) {
-        case (?pair) ?pair;
-        case (null) null;
+        case (?pair) { ?pair };
+        case (null) { null };
       }
     });
     // Concatenate metadata and intents; will evolve into a structured type later

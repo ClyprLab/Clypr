@@ -59,7 +59,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       maxTitleLength: 200,
       maxBodyLength: 5000,
       maxMetadataCount: 10,
-      allowedContentTypes: ['text/plain', 'text/html']
+      allowedContentTypes: ['text/plain', 'text/html', 'application/json']
     },
     rateLimit: {
       windowMs: 60000,
