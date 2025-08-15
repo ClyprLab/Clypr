@@ -924,6 +924,7 @@ persistent actor ClyprCanister {
     if (dispatchPlan.status == #queued) {
       Debug.print("Creating dispatch jobs for queued message: " # newMessage.messageId);
       let userJobsMap = getUserDispatchJobs(recipientId);
+      var createdJobs : Nat = 0;
 
       label jobLoop for (jobSpec in dispatchPlan.jobs.vals()) {
         // Validate message for this channel
@@ -965,9 +966,26 @@ persistent actor ClyprCanister {
           status = #pending;
         };
         userJobsMap.put(jobId, job);
+        createdJobs += 1;
         totalJobsScheduled += 1;
         Debug.print("Queued job " # Nat.toText(jobId) # " for recipient " # Principal.toText(recipientId) # " on channel " # Nat.toText(job.channelId));
         Debug.print("User jobs map size: " # Nat.toText(userJobsMap.size()));
+      };
+
+      // If no jobs were actually created (all were skipped), mark the message as blocked
+      if (createdJobs == 0) {
+        Debug.print("No dispatch jobs created after validation for message: " # newMessage.messageId # " - marking as blocked");
+        let blockedMessage : Message = {
+          messageId = processedMessage.messageId;
+          senderId = processedMessage.senderId;
+          recipientId = processedMessage.recipientId;
+          messageType = processedMessage.messageType;
+          content = processedMessage.content;
+          timestamp = processedMessage.timestamp;
+          isProcessed = processedMessage.isProcessed;
+          status = #blocked;
+        };
+        userMessagesMap.put(blockedMessage.messageId, blockedMessage);
       };
     };
 

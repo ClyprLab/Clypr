@@ -9,23 +9,33 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
   const [name, setName] = (React as any).useState(initialChannel?.name || '');
   const [description, setDescription] = (React as any).useState(initialChannel?.description || '');
   const [channelType, setChannelType] = (React as any).useState(
-    typeof initialChannel?.channelType === 'string' 
-      ? initialChannel.channelType 
-      : typeof initialChannel?.channelType === 'object' && initialChannel.channelType.custom
-      ? 'custom'
-      : 'email'
+    // Derive channel type robustly from backend variant (e.g. { email: null } or { custom: "x" })
+    (() => {
+      const ct = initialChannel?.channelType;
+      if (!ct) return 'email';
+      if (typeof ct === 'string') return ct;
+      if (typeof ct === 'object') {
+        const keys = Object.keys(ct);
+        if (keys.length > 0) return keys[0] === 'custom' ? 'custom' : keys[0];
+      }
+      return 'email';
+    })()
   );
   const [customType, setCustomType] = (React as any).useState(
-    typeof initialChannel?.channelType === 'object' && initialChannel.channelType.custom
-      ? initialChannel.channelType.custom
+    // If backend provided a custom variant like { custom: "mytype" }
+    (initialChannel && typeof initialChannel.channelType === 'object' && 'custom' in initialChannel.channelType)
+      ? (initialChannel.channelType as any).custom || ''
       : ''
   );
   const [isActive, setIsActive] = (React as any).useState(initialChannel?.isActive ?? true);
   const [config, setConfig] = (React as any).useState(() => {
+    // Expect backend to return a ChannelConfig variant (e.g. { email: {...} })
     const base = initialChannel?.config || {
       email: {
-        provider: '',
+        provider: 'smtp',
         fromAddress: '',
+        apiKey: [],
+        replyTo: [],
         smtp: {
           host: '',
           port: 587,
@@ -161,22 +171,32 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
   };
 
   const getDefaultConfig = (type: string) => {
+    // Return object-shaped ChannelConfig matching the runtime code above
     switch (type) {
       case 'email':
-        return [['host', ''], ['port', '587'], ['username', ''], ['password', ''], ['encryption', 'tls']];
+        return {
+          email: {
+            provider: 'smtp',
+            apiKey: [],
+            fromAddress: '',
+            replyTo: [],
+            smtp: { host: '', port: 587, username: '', password: '', useTLS: true }
+          }
+        };
       case 'sms':
-        return [['api_key', ''], ['phone_number', ''], ['service_url', '']];
+        return { sms: { provider: '', apiKey: '', fromNumber: '', webhookUrl: '' } };
       case 'webhook':
-        return [['url', ''], ['method', 'POST'], ['content_type', 'application/json']];
+        return { webhook: { url: '', method: 'POST', headers: [], authType: { none: null }, retryCount: 3 } };
       case 'push':
-        return [['api_key', ''], ['app_id', ''], ['service_url', '']];
+        return { push: { provider: '', apiKey: '', appId: '', platform: 'fcm' } };
       default:
-        return [['key', ''], ['value', '']];
+        return { custom: [] };
     }
   };
 
   const handleChannelTypeChange = (newType: string) => {
     setChannelType(newType);
+    // Only replace config when switching between concrete types; keep existing config for custom edits
     if (newType !== 'custom') setConfig(getDefaultConfig(newType));
   };
 
