@@ -13,8 +13,7 @@ This is a minimal Node.js bridge that communicates with the Clypr canister to:
 3. Send to a downstream bridge/channel (example: Webhook)
 4. Acknowledge delivery status back to the canister
 
-It is intended as a starter for teammates to implement full off-chain adapters and AI routing.
-
+It is intended as a starter for the off-chain bridge.
 Directory
 - `src/index.js` — main loop: poll -> AI stub -> deliver (webhook) -> ack
 - `src/adapters/webhook.js` — simple webhook sender using job.channelConfig
@@ -98,7 +97,7 @@ dfx canister call --network ic --identity bridge backend addAuthorizedSelf
 dfx canister call --network ic --identity bridge backend listAuthorized
 ```
 
-Security note: `addAuthorizedSelf` is convenient for onboarding but should be replaced with an admin-only onboarding flow for production.
+Security note: `addAuthorizedSelf` is convenient for onboarding temporarily, but will be updated to admin-only
 
 ### 5) Configuration (.env example)
 Create `offchain/bridge/.env` (do NOT commit PEM to repo):
