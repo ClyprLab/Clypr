@@ -33,6 +33,7 @@ export interface Channel {
 export type ChannelConfig = { 'sms' : SMSConfig } |
   { 'custom' : Array<[string, string]> } |
   { 'push' : PushConfig } |
+  { 'telegramContact' : { 'chatId' : string } } |
   { 'webhook' : WebhookConfig } |
   { 'email' : EmailConfig };
 export type ChannelId = bigint;
@@ -46,6 +47,7 @@ export interface ChannelTestResult {
 export type ChannelType = { 'sms' : null } |
   { 'custom' : string } |
   { 'push' : null } |
+  { 'telegramContact' : null } |
   { 'webhook' : null } |
   { 'email' : null };
 export interface Condition {
@@ -165,31 +167,47 @@ export type Result = { 'ok' : null } |
   { 'err' : Error };
 export type Result_1 = { 'ok' : ChannelTestResult } |
   { 'err' : Error };
-export type Result_10 = { 'ok' : Message } |
+export type Result_10 = { 'ok' : string } |
   { 'err' : Error };
-export type Result_11 = { 'ok' : Channel } |
+export type Result_11 = { 'ok' : Message } |
   { 'err' : Error };
-export type Result_12 = { 'ok' : Array<Rule> } |
+export type Result_12 = { 'ok' : Channel } |
   { 'err' : Error };
-export type Result_13 = { 'ok' : Array<Message> } |
+export type Result_13 = { 'ok' : Array<Rule> } |
   { 'err' : Error };
-export type Result_14 = { 'ok' : Array<Channel> } |
+export type Result_14 = { 'ok' : Array<Message> } |
   { 'err' : Error };
-export type Result_15 = { 'ok' : RuleId } |
+export type Result_15 = { 'ok' : Array<Channel> } |
   { 'err' : Error };
-export type Result_16 = { 'ok' : ChannelId } |
+export type Result_16 = { 'ok' : Array<[bigint, JobSchedule]> } |
+  { 'err' : Error };
+export type Result_17 = {
+    'ok' : Array<{ 'jobs' : Array<DispatchJob>, 'user' : Principal }>
+  } |
+  { 'err' : Error };
+export type Result_18 = { 'ok' : RuleId } |
+  { 'err' : Error };
+export type Result_19 = { 'ok' : ChannelId } |
   { 'err' : Error };
 export type Result_2 = { 'ok' : Principal } |
   { 'err' : Error };
-export type Result_3 = { 'ok' : bigint } |
+export type Result_3 = {
+    'ok' : {
+      'token' : string,
+      'expiresAt' : bigint,
+      'channelId' : [] | [ChannelId],
+    }
+  } |
   { 'err' : Error };
-export type Result_4 = { 'ok' : MessageReceipt } |
+export type Result_4 = { 'ok' : bigint } |
   { 'err' : Error };
-export type Result_5 = { 'ok' : Array<DispatchJob> } |
+export type Result_5 = { 'ok' : MessageReceipt } |
   { 'err' : Error };
-export type Result_6 = { 'ok' : Array<Principal> } |
+export type Result_6 = { 'ok' : Array<DispatchJob> } |
   { 'err' : Error };
-export type Result_7 = {
+export type Result_7 = { 'ok' : Array<Principal> } |
+  { 'err' : Error };
+export type Result_8 = {
     'ok' : {
       'messagesCount' : bigint,
       'rulesCount' : bigint,
@@ -199,9 +217,7 @@ export type Result_7 = {
     }
   } |
   { 'err' : Error };
-export type Result_8 = { 'ok' : Rule } |
-  { 'err' : Error };
-export type Result_9 = { 'ok' : string } |
+export type Result_9 = { 'ok' : Rule } |
   { 'err' : Error };
 export interface RetryConfig {
   'timeoutMs' : number,
@@ -250,7 +266,8 @@ export interface WebhookConfig {
 export interface _SERVICE {
   'acknowledgeJobDelivery' : ActorMethod<[bigint, DispatchStatus], Result>,
   'addAuthorizedSelf' : ActorMethod<[], Result>,
-  'cleanupExpiredJobs' : ActorMethod<[], Result_3>,
+  'bridgeConfirmVerification' : ActorMethod<[string, string], Result>,
+  'cleanupExpiredJobs' : ActorMethod<[], Result_4>,
   'createChannel' : ActorMethod<
     [
       string,
@@ -260,7 +277,7 @@ export interface _SERVICE {
       [] | [RetryConfig],
       [] | [ValidationConfig],
     ],
-    Result_16
+    Result_19
   >,
   'createRule' : ActorMethod<
     [
@@ -271,18 +288,20 @@ export interface _SERVICE {
       Array<Action>,
       number,
     ],
-    Result_15
+    Result_18
   >,
+  'debug_dumpAllDispatchJobs' : ActorMethod<[], Result_17>,
+  'debug_dumpScheduledJobs' : ActorMethod<[], Result_16>,
   'deleteChannel' : ActorMethod<[ChannelId], Result>,
   'deleteRule' : ActorMethod<[RuleId], Result>,
-  'getAllChannels' : ActorMethod<[], Result_14>,
-  'getAllMessages' : ActorMethod<[], Result_13>,
-  'getAllRules' : ActorMethod<[], Result_12>,
-  'getChannel' : ActorMethod<[ChannelId], Result_11>,
-  'getMessage' : ActorMethod<[MessageId], Result_10>,
-  'getMyUsername' : ActorMethod<[], Result_9>,
-  'getRule' : ActorMethod<[RuleId], Result_8>,
-  'getStats' : ActorMethod<[], Result_7>,
+  'getAllChannels' : ActorMethod<[], Result_15>,
+  'getAllMessages' : ActorMethod<[], Result_14>,
+  'getAllRules' : ActorMethod<[], Result_13>,
+  'getChannel' : ActorMethod<[ChannelId], Result_12>,
+  'getMessage' : ActorMethod<[MessageId], Result_11>,
+  'getMyUsername' : ActorMethod<[], Result_10>,
+  'getRule' : ActorMethod<[RuleId], Result_9>,
+  'getStats' : ActorMethod<[], Result_8>,
   'getSystemHealth' : ActorMethod<
     [],
     {
@@ -297,18 +316,19 @@ export interface _SERVICE {
     }
   >,
   'init' : ActorMethod<[], undefined>,
-  'listAuthorized' : ActorMethod<[], Result_6>,
-  'nextDispatchJobs' : ActorMethod<[bigint], Result_5>,
-  'notifyAlias' : ActorMethod<[string, string, MessageContent], Result_4>,
+  'listAuthorized' : ActorMethod<[], Result_7>,
+  'nextDispatchJobs' : ActorMethod<[bigint], Result_6>,
+  'notifyAlias' : ActorMethod<[string, string, MessageContent], Result_5>,
   'notifyPrincipal' : ActorMethod<
     [Principal, string, MessageContent],
-    Result_4
+    Result_5
   >,
   'ping' : ActorMethod<[], string>,
-  'processMessage' : ActorMethod<[string, string, MessageContent], Result_4>,
-  'processScheduledJobs' : ActorMethod<[], Result_3>,
+  'processMessage' : ActorMethod<[string, string, MessageContent], Result_5>,
+  'processScheduledJobs' : ActorMethod<[], Result_4>,
   'registerUsername' : ActorMethod<[string], Result>,
   'removeAuthorizedSelf' : ActorMethod<[], Result>,
+  'requestTelegramVerification' : ActorMethod<[[] | [boolean]], Result_3>,
   'resolveUsername' : ActorMethod<[string], Result_2>,
   'scheduleJob' : ActorMethod<[bigint, JobSchedule], Result>,
   'testChannel' : ActorMethod<[ChannelId], Result_1>,

@@ -13,6 +13,7 @@
     "@dfinity/identity": "^3.2.1",
     "@dfinity/identity-secp256k1": "^3.2.1",
     "dotenv": "^16.6.1",
+    "express": "^5.1.0",
     "node-fetch": "^3.3.2",
     "tweetnacl": "^1.0.3"
   }

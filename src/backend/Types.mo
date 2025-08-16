@@ -228,6 +228,7 @@ module {
     #webhook: WebhookConfig;
     #push: PushConfig;
     #custom: [(Text, Text)];
+    #telegramContact: { chatId: Text };
   };
 
   public type RetryConfig = {
@@ -242,6 +243,7 @@ module {
     #webhook;
     #push;
     #custom: Text;
+    #telegramContact;
   };
 
   public type Channel = {
@@ -255,6 +257,21 @@ module {
     isActive: Bool;
     createdAt: Int;
     updatedAt: Int;
+  };
+
+  // Verification types for contact provisioning (e.g., Telegram)
+  public type VerificationMethod = {
+    #telegram;
+    #email;
+  };
+
+  public type VerificationRecord = {
+    method: VerificationMethod;
+    token: Text;     // raw token (short-lived)
+    chatId: ?Text;   // populated on confirmation for Telegram
+    expiresAt: Int;  // expiry timestamp (nanoseconds)
+    verified: Bool;
+    channelId: ?ChannelId; // optional placeholder channel created for this verification
   };
 
   // Rate limiting types

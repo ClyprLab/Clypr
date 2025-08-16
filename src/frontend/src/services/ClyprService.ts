@@ -134,19 +134,24 @@ export function toBackendChannel(channel: Omit<Channel, 'id' | 'createdAt' | 'up
   }[];
 } {
   // Convert JS object variant to Candid variant format for ChannelType
+  // Also map frontend 'telegram' variant -> backend 'telegramContact'
   let candidChannelType: any = null;
   if (typeof channel.channelType === 'object') {
     const keys = Object.keys(channel.channelType);
     if (keys.length === 1) {
       const key = keys[0];
       const value = (channel.channelType as any)[key];
+      // Map frontend key to backend key when needed
+      const backendKey = key === 'telegram' ? 'telegramContact' : key;
       // For custom, value is a string; for others, value is null
-      candidChannelType = value !== null ? { [key]: value } : { [key]: null };
+      candidChannelType = value !== null ? { [backendKey]: value } : { [backendKey]: null };
     }
   }
   // Fallback for string type (shouldn't happen)
   if (!candidChannelType && typeof (channel as any).channelType === 'string') {
-    candidChannelType = { [(channel as any).channelType]: null };
+    const key = (channel as any).channelType;
+    const backendKey = key === 'telegram' ? 'telegramContact' : key;
+    candidChannelType = { [backendKey]: null };
   }
 
   // retryConfig is optional at call-site in canister: represent opt as [] | [obj]
@@ -175,12 +180,30 @@ export function toBackendChannel(channel: Omit<Channel, 'id' | 'createdAt' | 'up
       }]
     : [];
 
+  // Map frontend channel config to backend ChannelConfig variant when needed
+  let backendConfig: any = channel.config as any;
+  try {
+    if (typeof channel.channelType === 'object') {
+      const key = Object.keys(channel.channelType)[0];
+      if (key === 'telegram') {
+        // Backend expects { telegramContact: { chatId: string } }
+        const chatId = channel.config && (channel.config as any).telegram && (channel.config as any).telegram.chatId
+          ? (channel.config as any).telegram.chatId
+          : '';
+        backendConfig = { telegramContact: { chatId } };
+      }
+    }
+  } catch (e) {
+    // Fallback to passing through original config
+    backendConfig = channel.config as any;
+  }
+
   return {
     name: channel.name,
     description: channel.description ? [channel.description] : [],
     channelType: candidChannelType,
-    // Backend expects ChannelConfig variant, not flattened kv pairs
-    config: channel.config as any,
+    // Backend expects ChannelConfig variant
+    config: backendConfig,
     retryConfig: candidRetryConfig,
     validationConfig: candidValidationConfig,
   };
@@ -308,7 +331,7 @@ export interface Channel {
   id: number;
   name: string;
   description?: string;
-  channelType: { email: null } | { sms: null } | { webhook: null } | { push: null } | { custom: string };
+  channelType: { email: null } | { sms: null } | { webhook: null } | { push: null } | { custom: string } | { telegram: null };
   config: ChannelConfig;
   retryConfig: RetryConfig;
   validationConfig: ValidationConfig;
@@ -355,6 +378,7 @@ export type ChannelConfig = {
     platform: 'fcm' | 'apn' | 'webpush';
   };
   custom?: [string, string][];
+  telegram?: { chatId?: string };
 };
 
 export interface Message {
@@ -822,6 +846,67 @@ export class ClyprService {
       throw new Error(Object.keys(result.err)[0]);
     }
   }
+
+  // Initiate Telegram verification flow. Returns short-lived token for deep-linking with the bot.
+  async requestTelegramVerification(createPlaceholder: boolean = true): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
+    if (!this.actor) throw new Error('Actor not initialized');
+
+    const parsePayload = (payload: any) => {
+      if (!payload) return undefined;
+      // Direct legacy string return
+      if (typeof payload === 'string') return { token: payload, expiresAt: Date.now() + 15 * 60 * 1000 };
+      // Result wrapper
+      if (payload.ok) return parsePayload(payload.ok);
+      // Structured object
+      if (payload.token && typeof payload.token === 'string') {
+        const token = payload.token;
+        const expiresAtRaw = payload.expiresAt ?? Date.now() + 15 * 60 * 1000;
+        const expiresAt = typeof expiresAtRaw === 'bigint' ? Number(expiresAtRaw) : Number(expiresAtRaw);
+        let channelId: number | undefined;
+        if (payload.channelId && Array.isArray(payload.channelId) && payload.channelId.length > 0) channelId = Number(payload.channelId[0]);
+        if (typeof payload.channelId === 'number') channelId = payload.channelId;
+        return { token, expiresAt, channelId };
+      }
+      // Tuple/array-like responses
+      if (Array.isArray(payload) && payload.length > 0) {
+        const first = payload[0];
+        if (typeof first === 'string') return { token: first, expiresAt: Date.now() + 15 * 60 * 1000 };
+        if (first && typeof first === 'object' && first.token) return parsePayload(first);
+      }
+      return undefined;
+    };
+
+    const callActor = async (arg?: any) => {
+      // Candid signature uses Opt(Bool) for this param; frontend must send [] for None or [bool] for Some(bool)
+      if (typeof arg === 'undefined') return await this.actor.requestTelegramVerification();
+      return await this.actor.requestTelegramVerification([arg]);
+    };
+
+    // Try new signature first, then fallback to legacy no-arg if it traps/throws
+    try {
+      const res = await callActor(createPlaceholder);
+      if (res && 'ok' in res) return parsePayload(res.ok as any);
+      if (res && 'err' in res) {
+        console.error('requestTelegramVerification returned err:', res.err);
+        return undefined;
+      }
+      return parsePayload(res as any);
+    } catch (primaryErr: any) {
+      console.warn('requestTelegramVerification primary call failed:', primaryErr && primaryErr.message ? primaryErr.message : primaryErr);
+      try {
+        const fallback = await callActor();
+        if (fallback && 'ok' in fallback) return parsePayload(fallback.ok as any);
+        if (fallback && 'err' in fallback) {
+          console.error('requestTelegramVerification fallback returned err:', fallback.err);
+          return undefined;
+        }
+        return parsePayload(fallback as any);
+      } catch (fallbackErr: any) {
+        console.error('requestTelegramVerification fallback also failed:', fallbackErr && fallbackErr.message ? fallbackErr.message : fallbackErr);
+        return undefined;
+      }
+    }
+  }
   
   async getChannel(channelId: number): Promise<Channel | undefined> {
     const result = await this.actor.getChannel(channelId);
@@ -853,7 +938,7 @@ export class ClyprService {
       // omitted: id/createdAt/updatedAt are set below for the record
     } as any);
 
-    // Unwrap optional arrays returned by toBackendChannel and provide sensible defaults
+    // Unwrap optional arrays returned from toBackendChannel and provide sensible defaults
     const unwrappedRetryConfig = (backendChannel.retryConfig && backendChannel.retryConfig.length > 0)
       ? backendChannel.retryConfig[0]
       : { maxAttempts: channel.retryConfig?.maxAttempts ?? 3, backoffMs: channel.retryConfig?.backoffMs ?? 1000, timeoutMs: channel.retryConfig?.timeoutMs ?? 5000 };

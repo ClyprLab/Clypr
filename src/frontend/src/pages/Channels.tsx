@@ -103,14 +103,15 @@ const ChannelGrid = ({ channels, onEdit, onDelete, onToggle, onAddNew }: { chann
 
 const Channels = () => {
   const { 
-    channels, 
-    channelsLoading,
-    createChannel,
-    updateChannel,
-    deleteChannel,
-    isAuthenticated,
-    error
-  } = useClypr() as any;
+     channels, 
+     channelsLoading,
+     createChannel,
+     updateChannel,
+     deleteChannel,
+     loadChannels,
+     isAuthenticated,
+     error
+   } = useClypr() as any;
 
   const [showForm, setShowForm] = (React as any).useState(false);
   const [editingChannel, setEditingChannel] = (React as any).useState(null);
@@ -202,7 +203,9 @@ const Channels = () => {
     <div className="flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <Text as="h1">Communication Channels</Text>
-        <Button onClick={() => (setShowForm(true))}>Add New Channel</Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => (setShowForm(true))}>Add New Channel</Button>
+        </div>
       </div>
 
       {error && (
