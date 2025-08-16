@@ -3,7 +3,8 @@ import Button from '../UI/Button';
 import Card from '../UI/Card';
 import Text from '../UI/Text';
 import Input from '../UI/Input';
-import { ChannelConfig, RetryConfig, ValidationConfig } from '../../services/ClyprService';
+import { ChannelConfig, ValidationConfig } from '../../services/ClyprService';
+import { useClypr } from '../../hooks/useClypr';
 
 const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: any) => {
   const [name, setName] = (React as any).useState(initialChannel?.name || '');
@@ -58,12 +59,6 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
     return base;
   });
 
-  const [retryConfig, setRetryConfig] = (React as any).useState({
-    maxAttempts: 3,
-    backoffMs: 1000,
-    timeoutMs: 5000
-  });
-
   const [validationConfig, setValidationConfig] = (React as any).useState({
     contentLimits: {
       maxTitleLength: 200,
@@ -78,11 +73,34 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
     }
   });
 
+  // Telegram verification state
+  const { service, loadChannels } = useClypr() as any;
+  const [telegramToken, setTelegramToken] = (React as any).useState<string | null>(null);
+  const [telegramLoading, setTelegramLoading] = (React as any).useState(false);
+
   const handleSubmit = (e: any) => {
     e.preventDefault();
     const finalChannelType = channelType === 'custom' 
       ? { custom: customType }
       : { [channelType]: null };
+
+        // If Telegram selected, start verification flow instead of creating channel on-chain here.
+    if (channelType === 'telegram') {
+      // Trigger the same connect flow as the dedicated button
+      (async () => {
+        if (!service || typeof service.requestTelegramVerification !== 'function') return;
+        try {
+          setTelegramLoading(true);
+          const token = await service.requestTelegramVerification();
+          if (token) setTelegramToken(token);
+        } catch (err) {
+          console.error('Failed to request telegram verification', err);
+        } finally {
+          setTelegramLoading(false);
+        }
+      })();
+      return;
+    }
 
         // Normalize optionals and variants to avoid double-wrapping
     const smtpRaw = config.email?.smtp;
@@ -139,7 +157,6 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       description: description || undefined,
       channelType: finalChannelType,
       config: processedConfig,
-      retryConfig,
       validationConfig,
       isActive
     });
@@ -165,6 +182,8 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
         return 'Configure push notification service. Required: api_key, app_id, service_url.';
       case 'custom':
         return 'Configure custom channel with your own parameters.';
+      case 'telegram':
+        return 'Connect and configure Telegram bot for messaging.';
       default:
         return '';
     }
@@ -189,6 +208,8 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
         return { webhook: { url: '', method: 'POST', headers: [], authType: { none: null }, retryCount: 3 } };
       case 'push':
         return { push: { provider: '', apiKey: '', appId: '', platform: 'fcm' } };
+      case 'telegram':
+        return { telegram: { botToken: '', chatId: '' } };
       default:
         return { custom: [] };
     }
@@ -230,11 +251,13 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                   value={channelType}
                   onChange={(e) => handleChannelTypeChange((e as any).target.value)}
                 >
-                  <option value="email">Email (SMTP)</option>
-                  <option value="sms">SMS</option>
+                  {/* <option value="email">Email (SMTP)</option> */}
+                  {/* <option value="sms">SMS</option> */}
+                  <option value="telegram">Telegram</option>
                   <option value="webhook">Webhook</option>
-                  <option value="push">Push Notification</option>
-                  <option value="custom">Custom</option>
+                  <option value="mail">Email</option>
+                  {/* <option value="push">Push Notification</option> */}
+                  {/* <option value="custom">Custom</option> */}
                 </select>
 
                 {channelType === 'custom' && (
@@ -282,7 +305,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                       placeholder="noreply@yourdomain.com"
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="block mb-2 font-medium">Reply To (Optional)</label>
                     <Input
                       value={config.email?.replyTo || ''}
@@ -292,7 +315,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                       })}
                       placeholder="support@yourdomain.com"
                     />
-                  </div>
+                  </div> */}
                   <div className="p-4 bg-neutral-950 rounded-md">
                     <h4 className="font-medium mb-3">SMTP Settings</h4>
                     <div className="space-y-3">
@@ -627,61 +650,50 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                   </Button>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Retry Configuration */}
-          <div className="mb-6">
-            <h3 className="text-lg mb-2">Retry Configuration</h3>
-            <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
-              Configure how messages should be retried on failure.
-            </Text>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block mb-2 text-sm font-medium">Max Attempts</label>
-                <Input
-                  type="number"
-                  value={retryConfig.maxAttempts}
-                  onChange={(e: any) => setRetryConfig({
-                    ...retryConfig,
-                    maxAttempts: parseInt(e.target.value) || 3
-                  })}
-                  min="1"
-                  max="10"
-                />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium">Backoff (ms)</label>
-                <Input
-                  type="number"
-                  value={retryConfig.backoffMs}
-                  onChange={(e: any) => setRetryConfig({
-                    ...retryConfig,
-                    backoffMs: parseInt(e.target.value) || 1000
-                  })}
-                  min="100"
-                  step="100"
-                />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium">Timeout (ms)</label>
-                <Input
-                  type="number"
-                  value={retryConfig.timeoutMs}
-                  onChange={(e: any) => setRetryConfig({
-                    ...retryConfig,
-                    timeoutMs: parseInt(e.target.value) || 5000
-                  })}
-                  min="1000"
-                  step="1000"
-                />
-              </div>
+              {channelType === 'telegram' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block mb-2 font-medium">Connect Telegram</label>
+                    <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
+                      Click Connect to request a short-lived verification token. Open the Clypr bot and start it using the link to complete verification.
+                    </Text>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={async () => {
+                        if (!service || typeof service.requestTelegramVerification !== 'function') return;
+                        try {
+                          setTelegramLoading(true);
+                          const resp = await service.requestTelegramVerification(true);
+                          if (resp) {
+                            setTelegramToken(resp.token);
+                            // If placeholder channel was created, reload channels so it appears in the list
+                            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
+                              await loadChannels();
+                            }
+                          }
+                        } catch (err) {
+                          console.error('Failed to request telegram verification', err);
+                        } finally {
+                          setTelegramLoading(false);
+                        }
+                      }} disabled={telegramLoading}>{telegramLoading ? 'Preparing...' : 'Connect Telegram'}</Button>
+                      {telegramToken && (
+                        <div className="flex items-center gap-2">
+                          <a className="font-mono underline" href={`https://t.me/Clypr_bot?start=${encodeURIComponent(telegramToken)}`} target="_blank" rel="noreferrer">Open Clypr Bot</a>
+                          <input aria-label="telegram-token" className="font-mono p-2 bg-neutral-950 rounded-md" readOnly value={telegramToken} />
+                          <Button onClick={() => { navigator.clipboard.writeText(telegramToken || ''); }}>Copy</Button>
+                          <Button variant="ghost" onClick={() => { setTelegramToken(null); if (typeof loadChannels === 'function') loadChannels(); }}>Done</Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Validation Configuration */}
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <h3 className="text-lg mb-2">Validation Configuration</h3>
             <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
               Configure content validation and rate limiting.
@@ -778,7 +790,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="flex justify-end gap-3 mt-6">
             <Button type="button" variant="secondary" onClick={onCancel}>

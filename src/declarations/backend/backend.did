@@ -60,14 +60,9 @@ type RetryConfig =
 type Result_9 = 
  variant {
    err: Error;
-   ok: text;
- };
-type Result_8 = 
- variant {
-   err: Error;
    ok: Rule;
  };
-type Result_7 = 
+type Result_8 = 
  variant {
    err: Error;
    ok:
@@ -79,65 +74,95 @@ type Result_7 =
       rulesCount: nat;
     };
  };
-type Result_6 = 
+type Result_7 = 
  variant {
    err: Error;
    ok: vec principal;
  };
-type Result_5 = 
+type Result_6 = 
  variant {
    err: Error;
    ok: vec DispatchJob;
  };
-type Result_4 = 
+type Result_5 = 
  variant {
    err: Error;
    ok: MessageReceipt;
  };
-type Result_3 = 
+type Result_4 = 
  variant {
    err: Error;
    ok: nat;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: record {
+         channelId: opt ChannelId;
+         expiresAt: int;
+         token: text;
+       };
  };
 type Result_2 = 
  variant {
    err: Error;
    ok: principal;
  };
-type Result_16 = 
+type Result_19 = 
  variant {
    err: Error;
    ok: ChannelId;
  };
-type Result_15 = 
+type Result_18 = 
  variant {
    err: Error;
    ok: RuleId;
  };
-type Result_14 = 
+type Result_17 = 
+ variant {
+   err: Error;
+   ok: vec record {
+             jobs: vec DispatchJob;
+             user: principal;
+           };
+ };
+type Result_16 = 
+ variant {
+   err: Error;
+   ok: vec record {
+             nat;
+             JobSchedule;
+           };
+ };
+type Result_15 = 
  variant {
    err: Error;
    ok: vec Channel;
  };
-type Result_13 = 
+type Result_14 = 
  variant {
    err: Error;
    ok: vec Message;
  };
-type Result_12 = 
+type Result_13 = 
  variant {
    err: Error;
    ok: vec Rule;
  };
-type Result_11 = 
+type Result_12 = 
  variant {
    err: Error;
    ok: Channel;
  };
-type Result_10 = 
+type Result_11 = 
  variant {
    err: Error;
    ok: Message;
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: text;
  };
 type Result_1 = 
  variant {
@@ -308,6 +333,7 @@ type ChannelType =
    email;
    push;
    sms;
+   telegramContact;
    webhook;
  };
 type ChannelTestResult = 
@@ -331,6 +357,7 @@ type ChannelConfig =
    email: EmailConfig;
    push: PushConfig;
    sms: SMSConfig;
+   telegramContact: record {chatId: text;};
    webhook: WebhookConfig;
  };
 type Channel = 
@@ -376,23 +403,26 @@ type Action =
 service : {
   acknowledgeJobDelivery: (jobId: nat, status: DispatchStatus) -> (Result);
   addAuthorizedSelf: () -> (Result);
-  cleanupExpiredJobs: () -> (Result_3);
+  bridgeConfirmVerification: (token: text, chatId: text) -> (Result);
+  cleanupExpiredJobs: () -> (Result_4);
   createChannel: (name: text, description: opt text, channelType:
    ChannelType, config: ChannelConfig, retryConfig: opt RetryConfig,
-   validationConfig: opt ValidationConfig) -> (Result_16);
+   validationConfig: opt ValidationConfig) -> (Result_19);
   createRule: (name: text, description: opt text, dappPrincipal:
    opt principal, conditions: vec Condition, actions: vec Action, priority:
-   nat8) -> (Result_15);
+   nat8) -> (Result_18);
+  debug_dumpAllDispatchJobs: () -> (Result_17) query;
+  debug_dumpScheduledJobs: () -> (Result_16) query;
   deleteChannel: (channelId: ChannelId) -> (Result);
   deleteRule: (ruleId: RuleId) -> (Result);
-  getAllChannels: () -> (Result_14) query;
-  getAllMessages: () -> (Result_13) query;
-  getAllRules: () -> (Result_12) query;
-  getChannel: (channelId: ChannelId) -> (Result_11) query;
-  getMessage: (messageId: MessageId) -> (Result_10) query;
-  getMyUsername: () -> (Result_9) query;
-  getRule: (ruleId: RuleId) -> (Result_8) query;
-  getStats: () -> (Result_7) query;
+  getAllChannels: () -> (Result_15) query;
+  getAllMessages: () -> (Result_14) query;
+  getAllRules: () -> (Result_13) query;
+  getChannel: (channelId: ChannelId) -> (Result_12) query;
+  getMessage: (messageId: MessageId) -> (Result_11) query;
+  getMyUsername: () -> (Result_10) query;
+  getRule: (ruleId: RuleId) -> (Result_9) query;
+  getStats: () -> (Result_8) query;
   getSystemHealth: () ->
    (record {
       activeChannelsCount: nat;
@@ -405,19 +435,20 @@ service : {
       uptime: int;
     }) query;
   init: () -> ();
-  listAuthorized: () -> (Result_6) query;
-  nextDispatchJobs: (limit: nat) -> (Result_5);
+  listAuthorized: () -> (Result_7) query;
+  nextDispatchJobs: (limit: nat) -> (Result_6);
   notifyAlias: (recipientAlias: text, messageType: text, content:
-   MessageContent) -> (Result_4);
+   MessageContent) -> (Result_5);
   notifyPrincipal: (recipientId: principal, messageType: text, content:
-   MessageContent) -> (Result_4);
+   MessageContent) -> (Result_5);
   ping: () -> (text) query;
   /// Deprecated: prefer `notifyAlias` for clearer DX. Kept for backward-compat.
   processMessage: (recipientUsername: text, messageType: text, content:
-   MessageContent) -> (Result_4);
-  processScheduledJobs: () -> (Result_3);
+   MessageContent) -> (Result_5);
+  processScheduledJobs: () -> (Result_4);
   registerUsername: (username: text) -> (Result);
   removeAuthorizedSelf: () -> (Result);
+  requestTelegramVerification: (createPlaceholder: opt bool) -> (Result_3);
   resolveUsername: (username: text) -> (Result_2) query;
   scheduleJob: (jobId: nat, schedule: JobSchedule) -> (Result);
   testChannel: (channelId: ChannelId) -> (Result_1);

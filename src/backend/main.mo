@@ -65,6 +65,12 @@ persistent actor ClyprCanister {
   private stable var nextChannelId : ChannelId = 0;
   private stable var nextJobId : Nat = 0;
 
+  // Verification records (stable storage for migration)
+  private stable var userVerificationsEntries : [(UserId, [Types.VerificationRecord])] = [];
+
+  // Telegram verification token mapping (token -> Principal)
+  private transient var tokenToUser = HashMap.HashMap<Text, Principal>(100, Text.equal, Text.hash);
+
   // Bridge allowlist (stable)
   private stable var authorizedCallersEntries : [Principal] = [];
 
@@ -77,6 +83,9 @@ persistent actor ClyprCanister {
   private transient var userChannels = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
   private transient var userMessages = HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
   private transient var userDispatchJobs = HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+
+  // Transient verification records mapped per user (in-memory during runtime)
+  private transient var userVerifications = HashMap.HashMap<UserId, [Types.VerificationRecord]>(10, Principal.equal, Principal.hash);
 
   // Bridge allowlist (runtime)
   private transient var authorizedCallers = HashMap.HashMap<Principal, ()>(10, Principal.equal, Principal.hash);
@@ -99,7 +108,6 @@ persistent actor ClyprCanister {
   private transient var usernameRegistry = HashMap.HashMap<Text, Principal>(10, Text.equal, Text.hash);
   private transient var principalToUsername = HashMap.HashMap<Principal, Text>(10, Principal.equal, Principal.hash);
 
-  
   // Helper functions for user-specific data access
   private func getUserRules(userId : UserId) : HashMap.HashMap<RuleId, Rule> {
     switch (userRules.get(userId)) {
@@ -152,6 +160,7 @@ persistent actor ClyprCanister {
     userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
     userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
     userDispatchJobs := HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+    userVerifications := HashMap.HashMap<UserId, [Types.VerificationRecord]>(10, Principal.equal, Principal.hash);
     
     // Restore user data from stable storage
     for ((userId, rulesArray) in userRulesEntries.vals()) {
@@ -169,6 +178,11 @@ persistent actor ClyprCanister {
       userMessages.put(userId, messagesMap);
     };
 
+    // Restore verification records from stable storage
+    for ((userId, verArray) in userVerificationsEntries.vals()) {
+      userVerifications.put(userId, verArray);
+    };
+    
     // Restore dispatch jobs from stable storage
     for ((userId, jobsArray) in userDispatchJobsEntries.vals()) {
       let jobsMap = HashMap.fromIter<Nat, DispatchJob>(Iter.fromArray(jobsArray), 100, Nat.equal, func (x) { Nat32.fromNat(x) });
@@ -244,6 +258,16 @@ persistent actor ClyprCanister {
         }
       )
     );
+    
+    // Save verification records
+    userVerificationsEntries := Iter.toArray(
+      Iter.map<(UserId, [Types.VerificationRecord]), (UserId, [Types.VerificationRecord])>(
+        userVerifications.entries(),
+        func ((userId, verArr) : (UserId, [Types.VerificationRecord])) : (UserId, [Types.VerificationRecord]) {
+          (userId, verArr)
+        }
+      )
+    );
 
     // Save alias data to stable storage
     usernameRegistryEntries := Iter.toArray(usernameRegistry.entries());
@@ -276,6 +300,7 @@ persistent actor ClyprCanister {
     userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
     userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
     userDispatchJobs := HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
+    userVerifications := HashMap.HashMap<UserId, [Types.VerificationRecord]>(10, Principal.equal, Principal.hash);
     
     // Restore user data
     for ((userId, rulesArray) in userRulesEntries.vals()) {
@@ -299,6 +324,11 @@ persistent actor ClyprCanister {
       userDispatchJobs.put(userId, jobsMap);
     };
 
+    // Restore verification records
+    for ((userId, verArray) in userVerificationsEntries.vals()) {
+      userVerifications.put(userId, verArray);
+    };
+    
     // Restore alias data
     usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
     principalToUsername := HashMap.fromIter<Principal, Text>(Iter.fromArray(principalToUsernameEntries), 10, Principal.equal, Principal.hash);
@@ -487,6 +517,18 @@ persistent actor ClyprCanister {
   // Validate channel configuration
   private func validateChannelConfig(channelType : ChannelType, config : ChannelConfig) : Result<ChannelValidation, Error> {
     let validation = switch (channelType, config) {
+      case (#telegramContact, #telegramContact(tc)) {
+        var errors : [Text] = [];
+        if (Text.size(tc.chatId) == 0) {
+          errors := Array.append(errors, ["Telegram chatId is required"]);
+        };
+        {
+          configValid = Array.size(errors) == 0;
+          authValid = true;
+          testResult = null;
+          errors = errors;
+        }
+      };
       case (#email, #email(emailConfig)) {
         // Validate email configuration
         var errors : [Text] = [];
@@ -752,6 +794,15 @@ persistent actor ClyprCanister {
             {
               title = "Test";
               body = "Custom channel test: " # t;
+              priority = 1 : Nat8;
+              contentType = "text/plain";
+              metadata = [];
+            }
+          };
+          case (#telegramContact) {
+            {
+              title = "Test Telegram";
+              body = "Test message to Telegram contact";
               priority = 1 : Nat8;
               contentType = "text/plain";
               metadata = [];
@@ -1417,5 +1468,285 @@ persistent actor ClyprCanister {
     };
 
     return #ok(Iter.toArray(scheduledJobs.entries()));
+  };
+  
+  // Request a telegram verification token (user-initiated). Accept optional flag so older frontends without arg don't trap.
+  public shared(msg) func requestTelegramVerification(createPlaceholder : ?Bool) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
+    if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
+
+    // Support both old no-arg callers and new callers with explicit flag
+    let create = Option.get(createPlaceholder, false);
+
+    let token = Principal.toText(msg.caller) # "-" # Int.toText(Time.now());
+    let expiresAt = Time.now() + 900_000_000_000; // 15 minutes
+
+    var placeholderChannelId : ?ChannelId = null;
+
+    if (create) {
+      let userChannelsMap = getUserChannels(msg.caller);
+      let cid = nextChannelId;
+      nextChannelId += 1;
+      let now = Time.now();
+
+      let defaultRetry : RetryConfig = {
+        maxAttempts = 3;
+        backoffMs = 60_000; // 1 minute
+        timeoutMs = 30_000; // 30 seconds
+      };
+
+      let defaultValidationConfig : Types.ValidationConfig = {
+        contentLimits = {
+          maxTitleLength = 256;
+          maxBodyLength = 10240;
+          maxMetadataCount = 10;
+          allowedContentTypes = ["text/plain", "application/json"];
+        };
+        rateLimit = {
+          windowMs = 60_000;
+          maxRequests = 100;
+          perChannel = true;
+        };
+      };
+
+      let placeholderChannel : Channel = {
+        id = cid;
+        name = "Telegram (unverified)";
+        description = null;
+        channelType = #telegramContact;
+        config = #telegramContact({ chatId = "" });
+        retryConfig = defaultRetry;
+        validationConfig = defaultValidationConfig;
+        isActive = false;
+        createdAt = now;
+        updatedAt = now;
+      };
+
+      userChannelsMap.put(cid, placeholderChannel);
+      placeholderChannelId := ?cid;
+    };
+
+    let record : Types.VerificationRecord = {
+      method = #telegram;
+      token = token;
+      chatId = null;
+      expiresAt = expiresAt;
+      verified = false;
+      channelId = placeholderChannelId;
+    };
+
+    // Append to user's verification list
+    switch (userVerifications.get(msg.caller)) {
+      case null {
+        userVerifications.put(msg.caller, [record]);
+      };
+      case (?arr) {
+        userVerifications.put(msg.caller, Array.append(arr, [record]));
+      };
+    };
+
+    tokenToUser.put(token, msg.caller);
+
+    // Create a DispatchJob for the bridge to consume via nextDispatchJobs
+    let jobId = nextJobId;
+    nextJobId += 1;
+    let now = Time.now();
+
+    let verificationIntent : [(Text, Text)] = [
+      ("intentType", "telegram_verification"),
+      ("token", token),
+      ("expiresAt", Int.toText(expiresAt)),
+      ("owner", Principal.toText(msg.caller))
+    ];
+
+    let jobContent : MessageContent = {
+      title = "Telegram Verification";
+      body = token;
+      priority = Nat8.fromNat(0);
+      metadata = [];
+      contentType = "text/plain";
+    };
+
+    let job : DispatchJob = {
+      id = jobId;
+      messageId = "verification-" # Int.toText(now);
+      recipientId = msg.caller;
+      channelId = 0;
+      channelType = #custom("verification");
+      channelName = "telegram_verification";
+      channelConfig = #custom([]);
+      messageType = "verification";
+      content = jobContent;
+      intents = verificationIntent;
+      attempts = 0;
+      retryConfig = {
+        maxAttempts = 3;
+        backoffMs = 60_000;
+        timeoutMs = 30_000;
+      };
+      metadata = null;
+      createdAt = now;
+      expiresAt = expiresAt;
+      status = #pending;
+    };
+
+    let jobsMap = getUserDispatchJobs(msg.caller);
+    jobsMap.put(jobId, job);
+    totalJobsScheduled += 1;
+
+    return #ok({ token = token; expiresAt = expiresAt; channelId = placeholderChannelId });
+  };
+
+  // Bridge (bot) calls this to confirm a token and provide chatId. Only authorized bridge principals may call.
+  public shared(msg) func bridgeConfirmVerification(token : Text, chatId : Text) : async Result<(), Error> {
+    if (not isAuthorizedBridge(msg.caller)) { return #err(#NotAuthorized); };
+
+    switch (tokenToUser.get(token)) {
+      case null { return #err(#NotFound); };
+      case (?userId) {
+        switch (userVerifications.get(userId)) {
+          case null { return #err(#NotFound); };
+          case (?verArr) {
+            var found = false;
+            var updatedArr : [Types.VerificationRecord] = [];
+
+            for (r in Iter.fromArray(verArr)) {
+              if (r.token == token and r.expiresAt >= Time.now()) {
+                found := true;
+
+                // Determine channel id to use (either placeholder or new)
+                let targetChannelId : ChannelId = switch (r.channelId) {
+                  case (?cid) { cid };
+                  case (null) {
+                    let nid = nextChannelId;
+                    nextChannelId += 1;
+                    nid
+                  };
+                };
+
+                let userChannelsMap = getUserChannels(userId);
+
+                // If placeholder existed and channel present, update it; otherwise create new channel
+                switch (r.channelId) {
+                  case (?cid) {
+                    switch (userChannelsMap.get(cid)) {
+                      case null {
+                        // Create new channel (placeholder disappeared) - create with targetChannelId
+                        let now = Time.now();
+                        let defaultRetry : RetryConfig = {
+                          maxAttempts = 3;
+                          backoffMs = 60_000;
+                          timeoutMs = 30_000;
+                        };
+                        let defaultValidationConfig : Types.ValidationConfig = {
+                          contentLimits = {
+                            maxTitleLength = 256;
+                            maxBodyLength = 10240;
+                            maxMetadataCount = 10;
+                            allowedContentTypes = ["text/plain", "application/json"];
+                          };
+                          rateLimit = {
+                            windowMs = 60_000;
+                            maxRequests = 100;
+                            perChannel = true;
+                          };
+                        };
+
+                        let newChannel : Channel = {
+                          id = targetChannelId;
+                          name = "Telegram";
+                          description = null;
+                          channelType = #telegramContact;
+                          config = #telegramContact({ chatId = chatId });
+                          retryConfig = defaultRetry;
+                          validationConfig = defaultValidationConfig;
+                          isActive = true;
+                          createdAt = now;
+                          updatedAt = now;
+                        };
+                        userChannelsMap.put(targetChannelId, newChannel);
+                      };
+                      case (?existingChannel) {
+                        // Update placeholder
+                        let now = Time.now();
+                        let updatedChannel : Channel = {
+                          id = existingChannel.id;
+                          name = existingChannel.name;
+                          description = existingChannel.description;
+                          channelType = existingChannel.channelType;
+                          config = #telegramContact({ chatId = chatId });
+                          retryConfig = existingChannel.retryConfig;
+                          validationConfig = existingChannel.validationConfig;
+                          isActive = true;
+                          createdAt = existingChannel.createdAt;
+                          updatedAt = now;
+                        };
+                        userChannelsMap.put(cid, updatedChannel);
+                      };
+                    };
+                  };
+                  case (null) {
+                    // No placeholder - create new channel
+                    let now = Time.now();
+                    let defaultRetry : RetryConfig = {
+                      maxAttempts = 3;
+                      backoffMs = 60_000;
+                      timeoutMs = 30_000;
+                    };
+                    let defaultValidationConfig : Types.ValidationConfig = {
+                      contentLimits = {
+                        maxTitleLength = 256;
+                        maxBodyLength = 10240;
+                        maxMetadataCount = 10;
+                        allowedContentTypes = ["text/plain", "application/json"];
+                      };
+                      rateLimit = {
+                        windowMs = 60_000;
+                        maxRequests = 100;
+                        perChannel = true;
+                      };
+                    };
+
+                    let newChannel : Channel = {
+                      id = targetChannelId;
+                      name = "Telegram";
+                      description = null;
+                      channelType = #telegramContact;
+                      config = #telegramContact({ chatId = chatId });
+                      retryConfig = defaultRetry;
+                      validationConfig = defaultValidationConfig;
+                      isActive = true;
+                      createdAt = now;
+                      updatedAt = now;
+                    };
+                    userChannelsMap.put(targetChannelId, newChannel);
+                  };
+                };
+
+                // Append updated verification record
+                let updatedRec : Types.VerificationRecord = {
+                  method = r.method;
+                  token = r.token;
+                  chatId = ?chatId;
+                  expiresAt = r.expiresAt;
+                  verified = true;
+                  channelId = ?targetChannelId;
+                };
+
+                updatedArr := Array.append(updatedArr, [updatedRec]);
+
+              } else {
+                updatedArr := Array.append(updatedArr, [r]);
+              };
+            };
+
+            if (not found) { return #err(#NotFound); };
+
+            userVerifications.put(userId, updatedArr);
+            ignore tokenToUser.remove(token);
+            return #ok();
+          };
+        };
+      };
+    };
   };
 }
