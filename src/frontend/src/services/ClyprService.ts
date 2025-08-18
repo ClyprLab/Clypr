@@ -425,7 +425,7 @@ export class ClyprService {
     // Get canister IDs from environment or window object
     const backendCanisterId = (window as any).canisterIds?.backend ||
                               process.env.PUBLIC_BACKEND_CANISTER_ID || 
-                              '5elod-ciaaa-aaaag-aufgq-cai';
+                              'uxrrr-q7777-77774-qaaaq-cai';
 
     console.log("Backend Canister ID:", backendCanisterId);
     this.canisterId = Principal.fromText(backendCanisterId);
@@ -1266,6 +1266,29 @@ export class ClyprService {
     }
     return undefined;
   }
+}
+
+// Expose a singleton instance on window to avoid multiple initializations and duplicate logs
+declare global {
+  interface Window { __clyprService?: ClyprService; }
+}
+
+function createSingleton(): ClyprService {
+  const globalAny = window as any;
+  if (!globalAny.__clyprService) {
+    globalAny.__clyprService = new ClyprService();
+  }
+  return globalAny.__clyprService;
+}
+
+export function getClyprService(): ClyprService {
+  return createSingleton();
+}
+
+export function recreateClyprService(): ClyprService {
+  const globalAny = window as any;
+  globalAny.__clyprService = new ClyprService();
+  return globalAny.__clyprService;
 }
 
 export default ClyprService;

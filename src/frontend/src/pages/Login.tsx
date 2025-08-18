@@ -2,13 +2,16 @@ import React from 'react';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useClypr } from '../hooks/useClypr';
 
 const Login = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, authReady } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { aliasChecked, hasAlias, checkMyAlias } = useClypr();
+  // preserved redirect path (if Layout redirected to login); fallback to sessionStorage to survive external redirects
+  const redirectTo = (location.state as any)?.from || sessionStorage.getItem('clypr.postLoginRedirect') || '/app/dashboard';
   
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -18,13 +21,20 @@ const Login = () => {
   }, [isAuthenticated]);
 
   React.useEffect(() => {
+    // Wait for auth to be initialized and alias check to complete before navigating
+    if (!authReady) return;
     if (!isAuthenticated || !aliasChecked) return;
+
+    // Clear stored redirect now that we're about to navigate
+    try { sessionStorage.removeItem('clypr.postLoginRedirect'); } catch (e) {}
+
     if (hasAlias) {
-      navigate('/app/dashboard');
+      navigate(redirectTo);
     } else {
-      navigate('/claim-alias');
+      // pass redirectTo so ClaimAlias can return the user to intended page
+      navigate('/claim-alias', { state: { from: redirectTo } });
     }
-  }, [isAuthenticated, aliasChecked, hasAlias, navigate]);
+  }, [authReady, isAuthenticated, aliasChecked, hasAlias, navigate, redirectTo]);
   
   const handleLogin = async () => {
     await login();
