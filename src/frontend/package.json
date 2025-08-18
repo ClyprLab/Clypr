@@ -17,13 +17,16 @@
     "@noble/curves": "^1.9.4",
     "@noble/hashes": "^1.5.0",
     "buffer": "^6.0.3",
+    "clsx": "^2.0.0",
+    "framer-motion": "^10.16.4",
     "lucide-react": "^0.539.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-modal": "^3.16.3",
     "react-router-dom": "^6.16.0",
     "react-syntax-highlighter": "^15.5.0",
-    "styled-components": "^6.1.19"
+    "styled-components": "^6.1.19",
+    "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -65,5 +68,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "packageManager": "yarn@4.9.2+sha512.1fc009bc09d13cfd0e19efa44cbfc2b9cf6ca61482725eb35bbc5e257e093ebf4130db6dfe15d604ff4b79efd8e1e8e99b25fa7d0a6197c9f9826358d4d65c3c"
 }
