@@ -4,6 +4,8 @@ import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
 import { useClypr } from '../hooks/useClypr';
+import ReactModal from 'react-modal';
+import { useState } from 'react';
 
 // Note: Avoid strict typing in TSX per project guidance
 // to prevent IDE type noise and keep runtime logic intact.
@@ -21,6 +23,32 @@ const getProcessedTags = (message: any): string[] => {
 };
 
 const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages: any[]; searchTerm: string; statusFilter: string; }) => {
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [detailMessage, setDetailMessage] = React.useState<any | null>(null);
+  const [detailJobs, setDetailJobs] = React.useState<any[]>([]);
+  const { service } = useClypr() as any;
+
+  const openDetails = async (message: any) => {
+    setDetailMessage(message);
+    setDetailOpen(true);
+    try {
+        if (service) {
+          // Use the service wrapper which tries the canister query and falls back to debug dump
+          const jobs = await service.getDispatchJobsForMessage(message.messageId);
+          setDetailJobs(jobs || []);
+        }
+      } catch (e) {
+        console.error('Failed to load dispatch jobs for message:', e);
+        setDetailJobs([]);
+      }
+  };
+
+  const closeDetails = () => {
+    setDetailOpen(false);
+    setDetailMessage(null);
+    setDetailJobs([]);
+  };
+
   const filteredMessages = messages.filter(message => {
     const matchesSearch = !searchTerm || 
       message.content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,7 +103,7 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
               ))}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm">View Details</Button>
+              <Button variant="secondary" size="sm" onClick={() => openDetails(message)}>View Details</Button>
               {!message.isProcessed && (
                 <Button size="sm">Process</Button>
               )}
@@ -83,6 +111,41 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
           </div>
         </Card>
       ))}
+
+      <ReactModal isOpen={detailOpen} onRequestClose={closeDetails} ariaHideApp={false} style={{ content: { background: '#0b0b0b', color: '#fff', inset: '10% 20%' } }}>
+        <div className="p-4">
+          <h2 className="text-lg mb-2">Message Details</h2>
+          {detailMessage && (
+            <div>
+              <div className="mb-2">Title: {detailMessage.content.title}</div>
+              <div className="mb-2">Body: {detailMessage.content.body}</div>
+              <div className="mb-2">Status: {typeof detailMessage.status === 'object' ? Object.keys(detailMessage.status)[0] : detailMessage.status}</div>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <h3 className="text-base mb-2">Dispatch Jobs</h3>
+            {detailJobs.length === 0 ? <div className="text-sm text-neutral-400">No dispatch jobs found for this message.</div> : (
+              <div className="space-y-2">
+                {detailJobs.map(job => (
+                  <div key={String(job.id)} className="p-3 bg-neutral-900 rounded">
+                    <div className="flex justify-between">
+                      <div className="text-sm">Channel: {job.channelName} ({job.channelId})</div>
+                      <div className="text-xs text-neutral-400">Status: {typeof job.status === 'object' ? Object.keys(job.status)[0] : job.status}</div>
+                    </div>
+                    <div className="text-xs mt-1">Attempts: {String(job.attempts)}</div>
+                    <div className="text-xs mt-1">Intents: {(job.intents || []).map(i => i.join(': ')).join(', ')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button onClick={closeDetails}>Close</Button>
+          </div>
+        </div>
+      </ReactModal>
     </div>
   );
 };
