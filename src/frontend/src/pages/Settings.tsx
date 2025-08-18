@@ -1,10 +1,30 @@
 import React from 'react';
 import Button from '../components/UI/Button';
-import Card from '../components/UI/Card';
-import Text from '../components/UI/Text';
+import { Card, GlassCard } from '../components/UI/Card';
 import Input from '../components/UI/Input';
 import { useClypr } from '../hooks/useClypr';
 import { useAuth } from '../hooks/useAuth';
+import { 
+  Settings as SettingsIcon, 
+  User, 
+  Shield, 
+  Bell, 
+  Code, 
+  Palette,
+  Globe,
+  Key,
+  Copy,
+  CheckCircle,
+  AlertTriangle,
+  Save,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Download,
+  Upload,
+  Trash2
+} from 'lucide-react';
+import { cn } from '../utils/cn';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = (React as any).useState('general');
@@ -13,6 +33,7 @@ const Settings = () => {
   const [newUsername, setNewUsername] = (React as any).useState('');
   const [submitting, setSubmitting] = (React as any).useState(false);
   const [error, setError] = (React as any).useState(null);
+  const [copied, setCopied] = (React as any).useState(false);
 
   const handleRegisterUsername = async () => {
     if (!newUsername) return;
@@ -29,119 +50,366 @@ const Settings = () => {
     }
   };
 
+  const handleCopyUsername = async () => {
+    if (myUsername) {
+      await navigator.clipboard.writeText(myUsername);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleCopyPrincipal = async () => {
+    if (principal) {
+      await navigator.clipboard.writeText(principal.toText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const tabs = [
+    { id: 'general', label: 'General', icon: SettingsIcon, description: 'Account and interface settings' },
+    { id: 'privacy', label: 'Privacy', icon: Shield, description: 'Data and privacy preferences' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert and notification settings' },
+    { id: 'api', label: 'API & Integration', icon: Code, description: 'Developer and API configuration' }
+  ];
+
   return (
-    <div className="flex flex-col">
-      <div className="mb-6">
-        <Text as="h1">Settings</Text>
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">Settings</h1>
+            <p className="text-neutral-400">Configure your Clypr privacy agent preferences</p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex border-b border-neutral-800 mb-6">
-        {['general','privacy','security','notifications','api'].map((key) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`px-4 py-3 -mb-px border-b-2 font-mono ${activeTab === key ? 'border-neutral-100 text-neutral-100' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}
-          >
-            {key.charAt(0).toUpperCase() + key.slice(1)}
-          </button>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar Navigation */}
+        <div className="lg:col-span-1">
+          <Card className="p-4">
+            <nav className="space-y-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-all duration-200',
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white border border-cyan-500/30'
+                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                    )}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{tab.label}</div>
+                      <div className="text-xs text-neutral-500">{tab.description}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          {activeTab === 'general' && (
+            <div className="space-y-6">
+              {/* Account Information */}
+              <Card>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-400/20 to-cyan-400/10 rounded-lg flex items-center justify-center">
+                    <User className="h-5 w-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Account Information</h2>
+                    <p className="text-neutral-400">Manage your Clypr identity and account details</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Clypr Username */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Clypr Identity</label>
+                    {myUsername ? (
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Input
+                            value={myUsername}
+                            readOnly
+                            variant="glass"
+                            leftIcon={<User className="h-4 w-4" />}
+                          />
+                        </div>
+                        <Button
+                          variant={copied ? 'success' : 'outline'}
+                          size="sm"
+                          leftIcon={copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          onClick={handleCopyUsername}
+                        >
+                          {copied ? 'Copied!' : 'Copy'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Choose your Clypr username"
+                              value={newUsername}
+                              onChange={(e: any) => setNewUsername(e.target.value)}
+                              variant="floating"
+                              label="Username"
+                              leftIcon={<User className="h-4 w-4" />}
+                            />
+                          </div>
+                          <Button
+                            variant="gradient"
+                            size="sm"
+                            onClick={handleRegisterUsername}
+                            disabled={submitting || !newUsername}
+                            loading={submitting}
+                          >
+                            {submitting ? 'Registering...' : 'Register'}
+                          </Button>
+                        </div>
+                        {error && (
+                          <div className="flex items-center gap-2 text-red-400 text-sm">
+                            <AlertTriangle className="h-4 w-4" />
+                            {error}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs text-neutral-400 mt-2">
+                      This is your unique identifier for receiving messages via Clypr
+                    </p>
+                  </div>
+
+                  {/* Internet Identity Principal */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Internet Identity Principal</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <Input
+                          value={principal?.toText() || ''}
+                          readOnly
+                          variant="glass"
+                          leftIcon={<Key className="h-4 w-4" />}
+                        />
+                      </div>
+                      <Button
+                        variant={copied ? 'success' : 'outline'}
+                        size="sm"
+                        leftIcon={copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        onClick={handleCopyPrincipal}
+                      >
+                        {copied ? 'Copied!' : 'Copy'}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-2">
+                      Your Internet Identity principal for authentication
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Interface Settings */}
+              <Card>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-fuchsia-400/20 to-fuchsia-400/10 rounded-lg flex items-center justify-center">
+                    <Palette className="h-5 w-5 text-fuchsia-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Interface Settings</h2>
+                    <p className="text-neutral-400">Customize your Clypr experience</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Theme Toggle */}
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                    <div>
+                      <div className="font-medium text-white">Dark Mode</div>
+                      <div className="text-sm text-neutral-400">Use dark theme interface</div>
+                    </div>
+                    <div className="relative">
+                      <input type="checkbox" className="sr-only" defaultChecked />
+                      <div className="w-11 h-6 bg-neutral-700 rounded-full relative cursor-pointer">
+                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 transform translate-x-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Compact View */}
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                    <div>
+                      <div className="font-medium text-white">Compact View</div>
+                      <div className="text-sm text-neutral-400">Display more content with less spacing</div>
+                    </div>
+                    <div className="relative">
+                      <input type="checkbox" className="sr-only" />
+                      <div className="w-11 h-6 bg-neutral-700 rounded-full relative cursor-pointer">
+                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Timezone */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Timezone</label>
+                    <Input
+                      defaultValue="UTC (Coordinated Universal Time)"
+                      variant="glass"
+                      leftIcon={<Globe className="h-4 w-4" />}
+                    />
+                    <p className="text-xs text-neutral-400 mt-2">
+                      Timezone for displaying timestamps and scheduling
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-6 mt-6 border-t border-neutral-700/50">
+                  <Button variant="outline" size="sm">
+                    Reset to Defaults
+                  </Button>
+                  <Button variant="gradient" size="sm" leftIcon={<Save className="h-4 w-4" />}>
+                    Save Changes
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'privacy' && (
+            <Card>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-400/20 to-green-400/10 rounded-lg flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Privacy Settings</h2>
+                  <p className="text-neutral-400">Control your data privacy and security preferences</p>
+                </div>
+              </div>
+
+              <div className="text-center py-12">
+                <Shield className="h-12 w-12 text-neutral-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">Privacy Controls</h3>
+                <p className="text-neutral-400 mb-6">
+                  Advanced privacy settings and data controls will be available here
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+                  <div className="w-2 h-2 bg-neutral-600 rounded-full" />
+                  <span>Coming Soon</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === 'notifications' && (
+            <Card>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-400/20 to-orange-400/10 rounded-lg flex items-center justify-center">
+                  <Bell className="h-5 w-5 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Notification Settings</h2>
+                  <p className="text-neutral-400">Configure how you receive alerts and updates</p>
+                </div>
+              </div>
+
+              <div className="text-center py-12">
+                <Bell className="h-12 w-12 text-neutral-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">Notification Preferences</h3>
+                <p className="text-neutral-400 mb-6">
+                  Customize your notification settings and alert preferences
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+                  <div className="w-2 h-2 bg-neutral-600 rounded-full" />
+                  <span>Coming Soon</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === 'api' && (
+            <Card>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-400/20 to-purple-400/10 rounded-lg flex items-center justify-center">
+                  <Code className="h-5 w-5 text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">API & Integration</h2>
+                  <p className="text-neutral-400">Developer tools and API configuration</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* API Documentation */}
+                <div className="p-4 rounded-lg bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 border border-cyan-500/20">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Code className="h-5 w-5 text-cyan-400" />
+                    <h3 className="font-medium text-white">API Documentation</h3>
+                  </div>
+                  <p className="text-sm text-neutral-300 mb-4">
+                    Access comprehensive API documentation and integration guides for developers
+                  </p>
+                  <Button variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />}>
+                    View Documentation
+                  </Button>
+                </div>
+
+                {/* Integration Examples */}
+                <div className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Upload className="h-5 w-5 text-fuchsia-400" />
+                    <h3 className="font-medium text-white">Integration Examples</h3>
+                  </div>
+                  <p className="text-sm text-neutral-300 mb-4">
+                    Sample code and integration examples for popular platforms
+                  </p>
+                  <Button variant="ghost" size="sm">
+                    Browse Examples
+                  </Button>
+                </div>
+
+                {/* Data Export */}
+                <div className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Download className="h-5 w-5 text-green-400" />
+                    <h3 className="font-medium text-white">Data Export</h3>
+                  </div>
+                  <p className="text-sm text-neutral-300 mb-4">
+                    Export your rules, messages, and configuration data
+                  </p>
+                  <Button variant="ghost" size="sm">
+                    Export Data
+                  </Button>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Trash2 className="h-5 w-5 text-red-400" />
+                    <h3 className="font-medium text-white">Danger Zone</h3>
+                  </div>
+                  <p className="text-sm text-neutral-300 mb-4">
+                    Irreversible actions that will permanently delete your data
+                  </p>
+                  <Button variant="danger" size="sm">
+                    Delete Account
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
-
-      {activeTab === 'general' && (
-        <Card className="p-4 md:p-6">
-          <div className="mb-8">
-            <h3 className="mb-4">Account Information</h3>
-
-            <div className="mb-4">
-              <label htmlFor="username" className="block mb-2 font-medium">Clypr Username</label>
-              {myUsername ? (
-                <Input id="username" value={myUsername} readOnly />
-              ) : (
-                <div className="flex gap-2">
-                  <Input id="new-username" placeholder="Choose a username" value={newUsername} onChange={(e: any) => setNewUsername(e.target.value)} />
-                  <Button onClick={handleRegisterUsername} disabled={submitting || !newUsername}>{submitting ? 'Saving…' : 'Register'}</Button>
-                </div>
-              )}
-              {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-              <p className="mt-1 text-xs text-neutral-400">Share this alias with dApps to receive messages via Clypr.</p>
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="principal" className="block mb-2 font-medium">Internet Identity Principal</label>
-              <Input id="principal" value={principal?.toText() || ''} readOnly />
-              <p className="mt-1 text-xs text-neutral-400">Read-only identifier from Internet Identity.</p>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="mb-4">Interface Settings</h3>
-
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <label className="block font-medium">Dark Mode</label>
-                <p className="text-xs text-neutral-400">Switch between light and dark interface themes</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" aria-label="Toggle dark mode" className="sr-only peer" />
-                <div className="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:bg-neutral-100 relative">
-                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5" />
-                </div>
-              </label>
-            </div>
-
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <label className="block font-medium">Compact View</label>
-                <p className="text-xs text-neutral-400">Display more content with less spacing</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" aria-label="Toggle compact view" className="sr-only peer" />
-                <div className="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:bg-neutral-100 relative">
-                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5" />
-                </div>
-              </label>
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="timezone" className="block mb-2 font-medium">Timezone</label>
-              <Input id="timezone" defaultValue="UTC (Coordinated Universal Time)" />
-            </div>
-
-            <div className="border-t border-neutral-800 pt-4 mt-6 flex justify-end gap-2">
-              <Button variant="secondary">Reset to Defaults</Button>
-              <Button>Save Changes</Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {activeTab === 'privacy' && (
-        <Card className="p-4 md:p-6">
-          <h3 className="mb-4">Privacy Settings</h3>
-          <Text>Privacy settings content will go here</Text>
-        </Card>
-      )}
-
-      {activeTab === 'security' && (
-        <Card className="p-4 md:p-6">
-          <h3 className="mb-4">Security Settings</h3>
-          <Text>Security settings content will go here</Text>
-        </Card>
-      )}
-
-      {activeTab === 'notifications' && (
-        <Card className="p-4 md:p-6">
-          <h3 className="mb-4">Notification Settings</h3>
-          <Text>Notification settings content will go here</Text>
-        </Card>
-      )}
-
-      {activeTab === 'api' && (
-        <Card className="p-4 md:p-6">
-          <h3 className="mb-4">API Configuration</h3>
-          <Text>API settings content will go here</Text>
-        </Card>
-      )}
     </div>
   );
 };

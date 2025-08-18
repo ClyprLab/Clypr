@@ -11,6 +11,8 @@ import Landing from './pages/Landing';
 import NotFound from './pages/NotFound';
 import Test from './pages/Test';
 import Demo from './pages/Demo';
+import Pricing from './pages/Pricing';
+import Docs from './pages/Docs';
 import { AuthProvider } from './hooks/useAuth';
 import ClaimAlias from './pages/ClaimAlias';
 
@@ -23,6 +25,8 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/claim-alias" element={<ClaimAlias />} />
           <Route path="/demo" element={<Demo />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/docs" element={<Docs />} />
           
           <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />

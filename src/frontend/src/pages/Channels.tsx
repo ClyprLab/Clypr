@@ -1,21 +1,41 @@
 import React from 'react';
 import Button from '../components/UI/Button';
-import Card from '../components/UI/Card';
-import Text from '../components/UI/Text';
+import { Card, GlassCard, GradientCard } from '../components/UI/Card';
 import ChannelForm from '../components/Channels/ChannelForm';
 import { useClypr } from '../hooks/useClypr';
+import { 
+  Zap, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  Power, 
+  PowerOff,
+  Mail,
+  MessageSquare,
+  Globe,
+  Smartphone,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Settings,
+  ArrowRight,
+  TestTube,
+  Wifi,
+  WifiOff
+} from 'lucide-react';
+import { cn } from '../utils/cn';
 
-const getChannelIcon = (channelType: any): string => {
+const getChannelIcon = (channelType: any): React.ReactNode => {
   if (typeof channelType === 'string') {
     switch (channelType) {
-      case 'email': return '✉';
-      case 'sms': return '✆';
-      case 'webhook': return '🔗';
-      case 'push': return '📱';
-      default: return '📡';
+      case 'email': return <Mail className="h-5 w-5" />;
+      case 'sms': return <Smartphone className="h-5 w-5" />;
+      case 'webhook': return <Globe className="h-5 w-5" />;
+      case 'push': return <MessageSquare className="h-5 w-5" />;
+      default: return <Zap className="h-5 w-5" />;
     }
   } else {
-    return '⚙'; // Custom channel
+    return <Settings className="h-5 w-5" />;
   }
 };
 
@@ -33,73 +53,167 @@ const getChannelTypeName = (channelType: any): string => {
   }
 };
 
-const ChannelGrid = ({ channels, onEdit, onDelete, onToggle, onAddNew }: { channels: any[]; onEdit: (c: any) => void; onDelete: (id: number) => void; onToggle: (id: number, isActive: boolean) => void; onAddNew: () => void; }) => {
+const getChannelColor = (channelType: any): string => {
+  if (typeof channelType === 'string') {
+    switch (channelType) {
+      case 'email': return 'from-blue-400/20 to-blue-400/10';
+      case 'sms': return 'from-green-400/20 to-green-400/10';
+      case 'webhook': return 'from-purple-400/20 to-purple-400/10';
+      case 'push': return 'from-orange-400/20 to-orange-400/10';
+      default: return 'from-cyan-400/20 to-cyan-400/10';
+    }
+  } else {
+    return 'from-neutral-400/20 to-neutral-400/10';
+  }
+};
+
+const ChannelCard = ({ 
+  channel, 
+  onEdit, 
+  onDelete, 
+  onToggle, 
+  onTest 
+}: { 
+  channel: any; 
+  onEdit: (c: any) => void; 
+  onDelete: (id: number) => void; 
+  onToggle: (id: number, isActive: boolean) => void; 
+  onTest: (id: number) => void;
+}) => {
+  const iconColor = channel.isActive ? 'text-white' : 'text-neutral-400';
+  const bgGradient = getChannelColor(channel.channelType);
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Card className="p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-3xl mb-3">+</div>
-          <Text>Connect a new communication channel</Text>
-          <div className="mt-4">
-            <Button onClick={onAddNew}>Add Channel</Button>
+    <Card className="group hover:border-neutral-600/50 transition-all duration-200">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-3">
+            <div className={cn(
+              "w-10 h-10 rounded-lg flex items-center justify-center",
+              `bg-gradient-to-br ${bgGradient}`
+            )}>
+              <div className={iconColor}>
+                {getChannelIcon(channel.channelType)}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-lg font-semibold text-white truncate">{channel.name}</h3>
+                <div className={cn(
+                  "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
+                  channel.isActive 
+                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                    : "bg-red-500/20 text-red-400 border-red-500/30"
+                )}>
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    channel.isActive ? "bg-green-400" : "bg-red-400"
+                  )} />
+                  {channel.isActive ? 'Active' : 'Inactive'}
+                </div>
+              </div>
+              <p className="text-sm text-neutral-400">{getChannelTypeName(channel.channelType)}</p>
+            </div>
+          </div>
+
+          {channel.description && (
+            <p className="text-neutral-300 text-sm mb-3">{channel.description}</p>
+          )}
+
+          <div className="flex items-center gap-4 text-xs text-neutral-500 mb-3">
+            <div className="flex items-center gap-1">
+              <Settings className="h-3 w-3" />
+              {channel.config.length} parameters
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {new Date(Number(channel.createdAt) / 1000000).toLocaleDateString()}
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-xs">ID: {channel.id}</span>
+            </div>
           </div>
         </div>
-      </Card>
+        
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onTest(channel.id)}
+            title="Test channel"
+          >
+            <TestTube className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(channel)}
+            title="Edit channel"
+          >
+            <Edit3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onToggle(channel.id, !channel.isActive)}
+            title={channel.isActive ? 'Disable channel' : 'Enable channel'}
+          >
+            {channel.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(channel.id)}
+            title="Delete channel"
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-      {channels.map((channel: any) => (
-        <Card key={channel.id} className="flex flex-col">
-          <div className="p-4 border-b border-neutral-800">
-            <h3 className="m-0 mb-1 text-base flex items-center gap-2">
-              <span className="mr-1">{getChannelIcon(channel.channelType)}</span>
-              <span className={`inline-block w-2 h-2 rounded-full ${channel.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-              {channel.name}
-            </h3>
-            <div className="text-xs text-neutral-400">{getChannelTypeName(channel.channelType)}</div>
-            <div className="text-xs text-neutral-500 font-mono mt-1">ID: {channel.id}</div>
+      <div className="flex items-center justify-between pt-3 border-t border-neutral-700/50">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
+            channel.isActive 
+              ? "bg-green-500/20 text-green-400 border-green-500/30" 
+              : "bg-neutral-500/20 text-neutral-400 border-neutral-500/30"
+          )}>
+            {channel.isActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {channel.isActive ? 'Connected' : 'Disconnected'}
           </div>
-
-          <div className="p-4 flex-1">
-            {channel.description && (
-              <div className="mb-3">
-                <div className="text-xs text-neutral-400 mb-1">Description</div>
-                <div className="font-mono text-sm break-words">{channel.description}</div>
-              </div>
-            )}
-
-            <div className="mb-3">
-              <div className="text-xs text-neutral-400 mb-1">Configuration</div>
-              <div className="font-mono text-sm">{channel.config.length} parameters configured</div>
-            </div>
-
-            <div>
-              <div className="text-xs text-neutral-400 mb-1">Created</div>
-              <div className="font-mono text-sm">{new Date(Number(channel.createdAt) / 1000000).toLocaleDateString()}</div>
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-neutral-800 flex justify-end gap-2">
-            <Button variant="secondary" size="sm" onClick={() => onEdit(channel)}>Edit</Button>
-            {channel.isActive ? (
-              <Button variant="ghost" size="sm" onClick={() => onToggle(channel.id, false)}>Disable</Button>
-            ) : (
-              <Button size="sm" onClick={() => onToggle(channel.id, true)}>Enable</Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (window.confirm('Are you sure you want to delete this channel?')) onDelete(channel.id);
-              }}
-              style={{ color: '#f44336' }}
-            >
-              Delete
-            </Button>
-          </div>
-        </Card>
-      ))}
-    </div>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          rightIcon={<ArrowRight className="h-3 w-3" />}
+          onClick={() => onEdit(channel)}
+        >
+          Configure
+        </Button>
+      </div>
+    </Card>
   );
 };
+
+const AddChannelCard = ({ onAddNew }: { onAddNew: () => void }) => (
+  <Card className="group hover:border-neutral-600/50 transition-all duration-200 cursor-pointer" onClick={onAddNew}>
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="w-16 h-16 bg-gradient-to-br from-cyan-400/20 to-fuchsia-500/20 rounded-full flex items-center justify-center mb-4 group-hover:from-cyan-400/30 group-hover:to-fuchsia-500/30 transition-all duration-200">
+        <Plus className="h-8 w-8 text-cyan-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-white mb-2">Add New Channel</h3>
+      <p className="text-neutral-400 text-sm mb-4 max-w-xs">
+        Connect a new communication channel to receive messages
+      </p>
+      <Button variant="gradient" size="sm">
+        Connect Channel
+      </Button>
+    </div>
+  </Card>
+);
 
 const Channels = () => {
   const { 
@@ -152,6 +266,7 @@ const Channels = () => {
   };
 
   const handleDeleteChannel = async (channelId: number) => {
+    if (!window.confirm('Are you sure you want to delete this communication channel? This action cannot be undone.')) return;
     try {
       await deleteChannel(channelId);
     } catch (err) {
@@ -170,19 +285,41 @@ const Channels = () => {
     }
   };
 
+  const handleTestChannel = (channelId: number) => {
+    // TODO: Implement channel testing
+    alert(`Testing channel ${channelId}...`);
+  };
+
+  const activeChannelsCount = channels.filter((c: any) => c.isActive).length;
+  const totalChannelsCount = channels.length;
+
   if (showForm) {
     return (
-      <div className="flex flex-col">
+      <div className="animate-fade-in">
         <div className="flex items-center justify-between mb-6">
-          <Text as="h1">{editingChannel ? 'Edit Channel' : 'Create New Channel'}</Text>
-          <Button variant="secondary" onClick={() => { setShowForm(false); setEditingChannel(null); }}>
+          <div>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">
+              {editingChannel ? 'Edit Channel' : 'Add New Channel'}
+            </h1>
+            <p className="text-neutral-400">
+              {editingChannel ? 'Update your communication channel settings' : 'Configure a new delivery route for your messages'}
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => { setShowForm(false); setEditingChannel(null); }}
+          >
             ← Back to Channels
           </Button>
         </div>
 
         {error && (
-          <Card className="mb-4 p-3">
-            <Text color="red">{error}</Text>
+          <Card variant="danger" className="mb-6">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+              <h3 className="text-white font-medium">Error</h3>
+            </div>
+            <p className="text-red-300 mb-4">{error}</p>
           </Card>
         )}
 
@@ -196,37 +333,141 @@ const Channels = () => {
   }
 
   if (!isAuthenticated) {
-    return <Text>Please authenticate to manage communication channels.</Text>;
+    return (
+      <div className="animate-fade-in">
+        <div className="mb-6">
+          <h1 className="text-3xl font-display font-bold text-white mb-2">Communication Channels</h1>
+          <p className="text-neutral-400">Configure how messages are delivered to you</p>
+        </div>
+        <GlassCard>
+          <div className="text-center py-8">
+            <Zap className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">Authentication Required</h3>
+            <p className="text-neutral-400 mb-4">Please log in to manage your communication channels.</p>
+          </div>
+        </GlassCard>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <Text as="h1">Communication Channels</Text>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => (setShowForm(true))}>Add New Channel</Button>
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-white mb-2">Communication Channels</h1>
+            <p className="text-neutral-400">Configure delivery routes for your messages</p>
+          </div>
+          <Button 
+            variant="gradient" 
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => setShowForm(true)}
+          >
+            Add Channel
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <GlassCard>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{totalChannelsCount}</div>
+                <div className="text-sm text-neutral-400">Total Channels</div>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-cyan-400/20 to-cyan-400/10 rounded-lg flex items-center justify-center">
+                <Zap className="h-5 w-5 text-cyan-400" />
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{activeChannelsCount}</div>
+                <div className="text-sm text-neutral-400">Active Channels</div>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-green-400/20 to-green-400/10 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-400" />
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{totalChannelsCount - activeChannelsCount}</div>
+                <div className="text-sm text-neutral-400">Inactive Channels</div>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-neutral-400/20 to-neutral-400/10 rounded-lg flex items-center justify-center">
+                <PowerOff className="h-5 w-5 text-neutral-400" />
+              </div>
+            </div>
+          </GlassCard>
         </div>
       </div>
 
+      {/* Error Display */}
       {error && (
-        <Card className="mb-4 p-3">
-          <Text color="red">{error}</Text>
+        <Card variant="danger" className="mb-6">
+          <div className="flex items-center mb-4">
+            <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+            <h3 className="text-white font-medium">Error Loading Channels</h3>
+          </div>
+          <p className="text-red-300 mb-4">{error}</p>
+          <Button 
+            variant="outline" 
+            onClick={() => loadChannels()}
+          >
+            Retry Loading
+          </Button>
         </Card>
       )}
 
-      {channelsLoading ? (
-        <div className="flex items-center justify-center p-8">
-          <Text>Loading channels...</Text>
-        </div>
-      ) : (
-        <ChannelGrid
-          channels={channels}
-          onEdit={handleEditChannel}
-          onDelete={handleDeleteChannel}
-          onToggle={handleToggleChannel}
-          onAddNew={() => (setShowForm(true))}
-        />
-      )}
+      {/* Channels Grid */}
+      <Card>
+        {channelsLoading ? (
+          <div className="flex items-center justify-center p-12">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-neutral-400">Loading your communication channels...</p>
+            </div>
+          </div>
+        ) : channels.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gradient-to-br from-cyan-400/20 to-fuchsia-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Zap className="h-8 w-8 text-cyan-400" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">No channels configured yet</h3>
+            <p className="text-neutral-400 mb-6 max-w-md mx-auto">
+              Connect your first communication channel to start receiving messages through Clypr
+            </p>
+            <Button 
+              variant="gradient" 
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => setShowForm(true)}
+            >
+              Connect Your First Channel
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AddChannelCard onAddNew={() => setShowForm(true)} />
+            
+            {channels.map((channel: any) => (
+              <ChannelCard
+                key={channel.id}
+                channel={channel}
+                onEdit={handleEditChannel}
+                onDelete={handleDeleteChannel}
+                onToggle={handleToggleChannel}
+                onTest={handleTestChannel}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 };
