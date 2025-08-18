@@ -1461,6 +1461,21 @@ persistent actor ClyprCanister {
     return #ok(Buffer.toArray(out));
   };
 
+  // Retrieve dispatch jobs for a specific message for the calling user
+  public shared query(msg) func getDispatchJobsForMessage(messageId : MessageId) : async Result<[DispatchJob], Error> {
+    if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
+
+    let userJobsMap = getUserDispatchJobs(msg.caller);
+    var out : Buffer.Buffer<DispatchJob> = Buffer.Buffer(0);
+    for ((_, job) in userJobsMap.entries()) {
+      if (job.messageId == messageId) {
+        out.add(job);
+      };
+    };
+
+    return #ok(Buffer.toArray(out));
+  };
+  
   // Debug: Dump scheduled jobs (temporary admin endpoint)
   public shared query(msg) func debug_dumpScheduledJobs() : async Result<[(Nat, Types.JobSchedule)], Error> {
     if (not (Principal.equal(msg.caller, owner) or isAuthorizedBridge(msg.caller))) {

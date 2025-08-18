@@ -456,6 +456,14 @@ export class ClyprService {
       agent: this.agent,
       canisterId: this.canisterId
     });
+
+    // Diagnostic: list available actor methods to detect stale IDL/runtime mismatch
+    try {
+      const methodNames = this.actor ? Object.keys(this.actor) : [];
+      console.debug('ClyprService actor created. Available actor methods:', methodNames);
+    } catch (diagErr) {
+      console.debug('ClyprService actor diagnostics failed:', diagErr);
+    }
   }
   /**
    * Authenticate via Internet Identity and reinitialize the agent and actor
@@ -1133,6 +1141,63 @@ export class ClyprService {
   async getAllMessages(): Promise<Message[] | undefined> {
     const result = await this.actor.getAllMessages();
     return this.handleResult(result);
+  }
+
+  // Return dispatch jobs for a given messageId. Tries the canister API first then falls back to debug_dumpAllDispatchJobs.
+  async getDispatchJobsForMessage(messageId: string): Promise<any[]> {
+    if (!this.actor) throw new Error('Actor not initialized');
+
+    // Try the targeted query if available
+    try {
+      if (typeof this.actor.getDispatchJobsForMessage === 'function') {
+        const res = await this.actor.getDispatchJobsForMessage(messageId);
+        if (res && 'ok' in res) return res.ok || [];
+        if (res && 'err' in res) {
+          console.warn('getDispatchJobsForMessage returned err:', res.err);
+        }
+      } else {
+        console.warn('Actor does not expose getDispatchJobsForMessage, falling back to debug_dumpAllDispatchJobs');
+      }
+    } catch (e) {
+      console.warn('getDispatchJobsForMessage call failed:', e);
+    }
+
+    // Fallback: use debug dump and filter across users (useful during development or principal mismatch)
+    try {
+      if (typeof this.actor.debug_dumpAllDispatchJobs === 'function') {
+        const dump = await this.actor.debug_dumpAllDispatchJobs();
+        console.debug('debug_dumpAllDispatchJobs raw result:', dump);
+        if (dump && 'ok' in dump) {
+          const rows = dump.ok || [];
+          console.debug(`debug_dumpAllDispatchJobs rows count: ${rows.length}`);
+          const matches: any[] = [];
+          for (const row of rows) {
+            try {
+              console.debug('scanning row for user:', row.user && row.user.toString ? row.user.toString() : row.user, 'jobsCount:', (row.jobs || []).length);
+            } catch (_) {}
+            const jobs = row.jobs || [];
+            for (const job of jobs) {
+              try {
+                // Normalize both sides to string before comparing to avoid subtle type differences
+                if (job && String(job.messageId) === String(messageId)) {
+                  matches.push(job);
+                }
+              } catch (cmpErr) {
+                console.warn('Error comparing job.messageId with target:', cmpErr, job, messageId);
+              }
+            }
+          }
+          console.debug('getDispatchJobsForMessage fallback matches:', matches.length);
+          return matches;
+        }
+      } else {
+        console.warn('Actor does not expose debug_dumpAllDispatchJobs');
+      }
+    } catch (e) {
+      console.warn('debug_dumpAllDispatchJobs fallback failed:', e);
+    }
+
+    return [];
   }
   
   // Stats
