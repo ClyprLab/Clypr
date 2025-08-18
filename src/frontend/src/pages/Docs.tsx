@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, 
@@ -19,13 +19,62 @@ import {
   Database,
   Cpu,
   Lock,
-  CheckCircle
+  CheckCircle,
+  Mail,
+  Bell,
+  Send
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import CodeBlock from '../components/UI/CodeBlock';
 
 const Docs = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeSection, setActiveSection] = useState('getting-started');
+  const [searchTerm, setSearchTerm] = (React as any).useState('');
+  const [activeSection, setActiveSection] = (React as any).useState('getting-started');
+
+  const [activeSubsection, setActiveSubsection] = (React as any).useState('');
+
+  // Handle scroll to update active section and subsection
+  (React as any).useEffect(() => {
+    const handleScroll = () => {
+      const allElements = document.querySelectorAll('section[id], div[id]');
+      const scrollPosition = window.scrollY + 150;
+
+      let currentSection = 'getting-started';
+      let currentSubsection = '';
+
+      allElements.forEach((element) => {
+        const elementTop = (element as HTMLElement).offsetTop;
+        const elementHeight = (element as HTMLElement).offsetHeight;
+        const elementId = element.getAttribute('id');
+
+        if (scrollPosition >= elementTop && scrollPosition < elementTop + elementHeight) {
+          if (elementId) {
+            // Check if this is a main section or subsection
+            const mainSection = navigation.find(nav => nav.id === elementId);
+            if (mainSection) {
+              currentSection = elementId;
+            } else {
+              // This is a subsection
+              currentSubsection = elementId;
+              // Find which main section this subsection belongs to
+              for (const nav of navigation) {
+                if (nav.items.some(item => item.href === `#${elementId}`)) {
+                  currentSection = nav.id;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      setActiveSection(currentSection);
+      setActiveSubsection(currentSubsection);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navigation = [
     {
@@ -34,31 +83,9 @@ const Docs = () => {
       icon: Play,
       items: [
         { title: 'Quick Start', href: '#quick-start' },
-        { title: 'Internet Identity Setup', href: '#ii-setup' },
-        { title: 'Canister Integration', href: '#canister-integration' },
-        { title: 'First Message', href: '#first-message' }
-      ]
-    },
-    {
-      title: 'Core Concepts',
-      id: 'concepts',
-      icon: BookOpen,
-      items: [
-        { title: 'Privacy Agents', href: '#privacy-agents' },
-        { title: 'Message Flow', href: '#message-flow' },
-        { title: 'Rules Engine', href: '#rules-engine' },
-        { title: 'Channels', href: '#channels' }
-      ]
-    },
-    {
-      title: 'ICP Integration',
-      id: 'icp',
-      icon: Cpu,
-      items: [
-        { title: 'Canister Calls', href: '#canister-calls' },
-        { title: 'Identity Management', href: '#identity-management' },
-        { title: 'Cycle Management', href: '#cycle-management' },
-        { title: 'Error Handling', href: '#error-handling' }
+        { title: 'Installation', href: '#installation' },
+        { title: 'Configuration', href: '#configuration' },
+        { title: 'Send Your First Message', href: '#first-message' }
       ]
     },
     {
@@ -66,10 +93,21 @@ const Docs = () => {
       id: 'api',
       icon: Code,
       items: [
-        { title: 'Message API', href: '#message-api' },
-        { title: 'Rules API', href: '#rules-api' },
-        { title: 'Channels API', href: '#channels-api' },
-        { title: 'User Management', href: '#user-management' }
+        { title: 'notifyAlias', href: '#notify-alias' },
+        { title: 'verifyAlias', href: '#verify-alias' },
+        { title: 'Field Reference', href: '#field-reference' },
+        { title: 'Error Handling', href: '#error-handling' }
+      ]
+    },
+    {
+      title: 'Language Examples',
+      id: 'examples',
+      icon: Terminal,
+      items: [
+        { title: 'Motoko', href: '#motoko-examples' },
+        { title: 'Rust', href: '#rust-examples' },
+        { title: 'Python', href: '#python-examples' },
+        { title: 'JavaScript/TypeScript', href: '#js-examples' }
       ]
     },
     {
@@ -77,21 +115,28 @@ const Docs = () => {
       id: 'integrations',
       icon: Zap,
       items: [
-        { title: 'Motoko Integration', href: '#motoko-integration' },
-        { title: 'JavaScript/TypeScript', href: '#js-integration' },
-        { title: 'React Hooks', href: '#react-hooks' },
-        { title: 'Testing', href: '#testing' }
+        { title: 'Canister Integration', href: '#canister-integration' },
+        { title: 'Frontend Integration', href: '#frontend-integration' }
       ]
     },
     {
-      title: 'Security & Privacy',
-      id: 'security',
-      icon: Shield,
+      title: 'Message Types',
+      id: 'message-types',
+      icon: MessageSquare,
       items: [
-        { title: 'Data Protection', href: '#data-protection' },
-        { title: 'Privacy Rules', href: '#privacy-rules' },
-        { title: 'Audit Logs', href: '#audit-logs' },
-        { title: 'Compliance', href: '#compliance' }
+        { title: 'Message Structure', href: '#message-structure' },
+        { title: 'Priority Levels', href: '#priority-levels' },
+        { title: 'Metadata Examples', href: '#metadata-examples' }
+      ]
+    },
+    {
+      title: 'Advanced Topics',
+      id: 'advanced',
+      icon: Settings,
+      items: [
+        { title: 'Error Handling', href: '#advanced-error-handling' },
+        { title: 'Rate Limiting', href: '#rate-limiting' },
+        { title: 'Best Practices', href: '#best-practices' }
       ]
     }
   ];
@@ -101,7 +146,7 @@ npm install @dfinity/agent @dfinity/auth-client @dfinity/identity
 
 // 2. Initialize Internet Identity
 import { AuthClient } from '@dfinity/auth-client';
-import { Identity } from '@dfinity/agent';
+import { Actor, HttpAgent } from '@dfinity/agent';
 
 const authClient = await AuthClient.create();
 await authClient.login({
@@ -112,23 +157,21 @@ await authClient.login({
 });
 
 // 3. Create agent and connect to Clypr canister
-import { Actor, HttpAgent } from '@dfinity/agent';
-import { idlFactory } from './declarations/clypr/clypr.did.js';
-
 const identity = authClient.getIdentity();
 const agent = new HttpAgent({ identity });
 await agent.fetchRootKey();
 
 const clyprActor = Actor.createActor(idlFactory, {
   agent,
-  canisterId: 'your-clypr-canister-id'
+  canisterId: 'YOUR_CANISTER_ID' // Replace with actual canister ID
 });
 
-// 4. Send your first message
+// 4. Send a message to a user
 const message = await clyprActor.notifyAlias("alice", "notification", {
   title: "Welcome to Clypr!",
   body: "Your privacy-first communication layer is ready.",
   priority: 1,
+  contentType: "text/plain", // Required: "text/plain" or "application/json"
   metadata: [["source", "onboarding"]]
 });
 
@@ -136,8 +179,17 @@ console.log('Message sent:', message);`;
 
   const motokoExample = `// Motoko canister integration
 import Clypr "canister:clypr";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Nat8 "mo:base/Nat8";
 
 actor {
+    // Verify if a user exists before sending
+    public shared({caller}) func verifyUser(alias: Text) : async Bool {
+        await Clypr.verifyAlias(alias)
+    };
+
+    // Send notification to a user
     public shared({caller}) func sendNotification(
         recipient: Text,
         title: Text,
@@ -145,10 +197,17 @@ actor {
         priority: Nat8
     ) : async Result.Result<Text, Text> {
         try {
+            // First verify the user exists
+            let userExists = await Clypr.verifyAlias(recipient);
+            if (not userExists) {
+                return #err("User not found");
+            };
+
             let message = await Clypr.notifyAlias(recipient, "notification", {
                 title = title;
                 body = body;
                 priority = priority;
+                contentType = "text/plain";
                 metadata = [("source", "your-dapp")];
             });
             
@@ -159,33 +218,147 @@ actor {
     };
 }`;
 
-  const reactHookExample = `// hooks/useClypr.ts
-import { useState, useEffect } from 'react';
-import { useAuth } from './useAuth';
-import { useClypr } from './useClypr';
+  const rustExample = `// Rust canister integration
+use candid::{CandidType, Deserialize};
+use ic_cdk::api::call::call;
+use ic_cdk::api::call::CallResult;
+use ic_cdk::export::Principal;
 
-export function useClyprMessaging() {
-  const { principal } = useAuth();
-  const { notifyAlias } = useClypr();
-  const [loading, setLoading] = useState(false);
+#[derive(CandidType, Deserialize)]
+struct MessageContent {
+    title: String,
+    body: String,
+    priority: u8,
+    contentType: String,
+    metadata: Vec<(String, String)>,
+}
 
-  const sendMessage = async (recipient: string, payload: any) => {
-    if (!principal) throw new Error('Not authenticated');
+#[ic_cdk::update]
+async fn verify_user(alias: String) -> CallResult<bool> {
+    let clypr_principal = Principal::from_text("YOUR_CANISTER_ID")
+        .expect("Invalid canister ID");
     
-    setLoading(true);
-    try {
-      const result = await notifyAlias(recipient, "notification", payload);
-      return result;
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    call(clypr_principal, "verifyAlias", (alias,)).await
+}
 
-  return { sendMessage, loading };
+#[ic_cdk::update]
+async fn send_notification(
+    recipient: String,
+    title: String,
+    body: String,
+    priority: u8,
+) -> CallResult<String> {
+    let clypr_principal = Principal::from_text("YOUR_CANISTER_ID")
+        .expect("Invalid canister ID");
+    
+    // First verify the user exists
+    let user_exists: bool = verify_user(recipient.clone()).await?;
+    if !user_exists {
+        return Err("User not found".into());
+    }
+
+    let content = MessageContent {
+        title,
+        body,
+        priority,
+        contentType: "text/plain".to_string(),
+        metadata: vec![("source".to_string(), "your-dapp".to_string())],
+    };
+
+    call(clypr_principal, "notifyAlias", (recipient, "notification".to_string(), content)).await
 }`;
+
+    const pythonExample = `# Python integration using ic-agent
+from ic_agent import Agent, Identity
+from ic_agent.auth import AuthClient
+import asyncio
+from typing import Dict, List, Tuple
+
+class ClyprMessaging:
+    def __init__(self, canister_id: str):
+        self.canister_id = canister_id
+        self.agent = None
+        self.clypr_actor = None
+    
+    async def initialize(self):
+        """Initialize the agent and create Clypr actor"""
+        auth_client = AuthClient()
+        await auth_client.login()
+        
+        identity = auth_client.get_identity()
+        self.agent = Agent(identity=identity)
+        
+        # Create actor (you'll need to provide the IDL)
+        self.clypr_actor = self.agent.create_actor(
+            canister_id=self.canister_id,
+            interface_idl=idl_factory  # You'll need to import this
+        )
+    
+    async def verify_user(self, alias: str) -> bool:
+        """Verify if a user exists"""
+        if not self.clypr_actor:
+            raise RuntimeError("Agent not initialized. Call initialize() first.")
+        
+        try:
+            exists = await self.clypr_actor.verifyAlias(alias)
+            return exists
+        except Exception as e:
+            print(f"Error verifying user: {e}")
+            return False
+    
+    async def send_message(
+        self, 
+        recipient: str, 
+        title: str, 
+        body: str, 
+        priority: int = 3,
+        metadata: List[Tuple[str, str]] = None
+    ) -> str:
+        """Send a message to a user"""
+        if not self.clypr_actor:
+            raise RuntimeError("Agent not initialized. Call initialize() first.")
+        
+        # First verify the user exists
+        user_exists = await self.verify_user(recipient)
+        if not user_exists:
+            raise ValueError(f"User '{recipient}' not found")
+        
+        # Prepare message content
+        content = {
+            "title": title,
+            "body": body,
+            "priority": priority,
+            "contentType": "text/plain",
+            "metadata": metadata or [["source", "python-client"]]
+        }
+        
+        # Send message
+        message_id = await self.clypr_actor.notifyAlias(
+            recipient, "notification", content
+        )
+        
+        return message_id
+
+# Usage example
+async def main():
+    clypr = ClyprMessaging("YOUR_CANISTER_ID")
+    await clypr.initialize()
+    
+    try:
+        message_id = await clypr.send_message(
+            recipient="alice",
+            title="Welcome to Clypr!",
+            body="Your privacy-first communication layer is ready.",
+            priority=1,
+            metadata=[["source", "onboarding"], ["client", "python"]]
+        )
+        print(f"Message sent successfully: {message_id}")
+    except Exception as e:
+        print(f"Failed to send message: {e}")
+
+# Run the example
+if __name__ == "__main__":
+    asyncio.run(main())`;
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-white">
@@ -256,11 +429,15 @@ export function useClyprMessaging() {
                     
                     {activeSection === section.id && (
                       <div className="mt-2 ml-7 space-y-1">
-                        {section.items.map((item) => (
-                          <a
+                        {section.items.map((item) => (                            <a
                             key={item.href}
                             href={item.href}
-                            className="block px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-200"
+                            className={cn(
+                              "block px-3 py-2 text-sm rounded-lg transition-all duration-200",
+                              activeSubsection === item.href.substring(1)
+                                ? "bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 text-white border border-cyan-500/20"
+                                : "text-zinc-400 hover:text-white hover:bg-white/5"
+                            )}
                           >
                             {item.title}
                           </a>
@@ -281,11 +458,11 @@ export function useClyprMessaging() {
             <div className="mb-12">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-cyan-400/20 to-fuchsia-500/20 rounded-xl flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-cyan-400" />
+                  <Code className="h-6 w-6 text-cyan-400" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Documentation</h1>
-                  <p className="text-zinc-400">Integrate Clypr into your ICP-based applications</p>
+                  <h1 className="text-3xl font-bold text-white">Developer Documentation</h1>
+                  <p className="text-zinc-400">Integrate Clypr messaging into your ICP applications</p>
                 </div>
               </div>
             </div>
@@ -295,159 +472,116 @@ export function useClyprMessaging() {
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-white mb-4">Quick Start</h2>
                 <p className="text-zinc-300 mb-6">
-                  Get up and running with Clypr in minutes. This guide will help you integrate Clypr into your Internet Computer canister.
+                  Get up and running with Clypr messaging in minutes. Send messages to users through their privacy agents.
                 </p>
               </div>
 
-              <div className="grid gap-8 lg:grid-cols-2">
-                <div>
+              <div className="">
+                <div id="installation">
                   <h3 className="text-lg font-semibold text-white mb-4">Prerequisites</h3>
                   <ul className="space-y-3 text-sm text-zinc-300">
                     <li className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                      <span>Internet Computer canister deployed</span>
+                      <span>Internet Computer canister or frontend app</span>
                     </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                      <span>DFINITY agent and auth-client libraries</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                      <span>Clypr canister ID (get from configuration)</span>
+                    </li>
+                                         <li className="flex items-start gap-3">
+                       <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
+                       <span>Target user's Clypr alias (that's all you need!)</span>
+                     </li>
                     <li className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
                       <span>Internet Identity authentication</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                      <span>DFINITY agent and auth-client</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                      <span>Clypr canister ID</span>
                     </li>
                   </ul>
                 </div>
 
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Installation</h3>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{`npm install @dfinity/agent @dfinity/auth-client @dfinity/identity
+                  <div className="space-y-6">
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h4 className="font-semibold text-white mb-4">1. Frontend Development (JavaScript/TypeScript)</h4>
+                      <p className="text-sm text-zinc-300 mb-4">
+                        For web applications using React, Next.js, or any JavaScript framework.
+                      </p>
+                      <CodeBlock language="bash">
+                        npm install @dfinity/agent @dfinity/auth-client @dfinity/identity
+                      </CodeBlock>
+                    </div>
 
-# For Motoko canisters
-# Add Clypr canister as a dependency in dfx.json`}
-                    </pre>
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h4 className="font-semibold text-white mb-4">2. Motoko Canister Development</h4>
+                      <p className="text-sm text-zinc-300 mb-4">
+                        For building Internet Computer canisters in Motoko. Add to your dfx.json:
+                      </p>
+                      <CodeBlock language="json">
+{`{
+  "canisters": {
+    "your-canister": {
+      "dependencies": ["clypr"]
+    }
+  }
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h4 className="font-semibold text-white mb-4">3. Rust Canister Development</h4>
+                      <p className="text-sm text-zinc-300 mb-4">
+                        For building Internet Computer canisters in Rust. Add to your Cargo.toml:
+                      </p>
+                      <CodeBlock language="toml">
+{`[dependencies]
+ic-cdk = "0.12"
+candid = "0.10"`}
+                      </CodeBlock>
+                    </div>
+
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h4 className="font-semibold text-white mb-4">4. External Integration (Python)</h4>
+                      <p className="text-sm text-zinc-300 mb-4">
+                        For external scripts and services integrating with the Internet Computer.
+                      </p>
+                      <CodeBlock language="bash">
+                        pip install ic-agent
+                      </CodeBlock>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8">
+              <div className="mt-8" id="configuration">
+                <h3 className="text-lg font-semibold text-white mb-4">Configuration</h3>
+                <p className="text-zinc-300 text-sm mb-4">
+                  Update the configuration file with your Clypr canister ID and other settings.
+                </p>
+                                 <CodeBlock language="json">
+{`{
+  "canisterId": "YOUR_MAINNET_CANISTER_ID",
+  "api": {
+    "baseUrl": "https://YOUR_MAINNET_CANISTER_ID.ic0.app",
+    "identityProvider": "https://identity.ic0.app"
+  },
+  "contentTypes": [
+    "text/plain",
+    "application/json"
+  ]
+}`}
+                 </CodeBlock>
+              </div>
+
+              <div className="mt-8" id="first-message">
                 <h3 className="text-lg font-semibold text-white mb-4">Send Your First Message</h3>
-                <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-6">
-                  <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
+                <CodeBlock language="javascript">
 {quickStartCode}
-                  </pre>
-                </div>
-              </div>
-            </section>
-
-            {/* ICP Integration */}
-            <section id="icp" className="mb-16">
-              <h2 className="text-2xl font-bold text-white mb-8">ICP Integration</h2>
-              
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Canister Calls</h3>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Clypr is built as an Internet Computer canister. Integrate directly with cross-canister calls.
-                  </p>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{motokoExample}
-                    </pre>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">React Hooks Integration</h3>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Use our React hooks for seamless integration in frontend applications.
-                  </p>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{reactHookExample}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Core Concepts */}
-            <section id="concepts" className="mb-16">
-              <h2 className="text-2xl font-bold text-white mb-8">Core Concepts</h2>
-              
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-400/20 to-cyan-400/10 rounded-lg flex items-center justify-center">
-                      <Shield className="h-5 w-5 text-cyan-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">Privacy Agents</h3>
-                  </div>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Each user has a personal privacy agent (canister) that processes incoming messages according to their rules. Agents are isolated and private.
-                  </p>
-                  <ul className="text-sm text-zinc-400 space-y-2">
-                    <li>• User-owned canisters</li>
-                    <li>• Isolated message processing</li>
-                    <li>• Zero-knowledge operations</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-fuchsia-400/20 to-fuchsia-400/10 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="h-5 w-5 text-fuchsia-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">Message Flow</h3>
-                  </div>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Messages flow through the ICP network with cross-canister calls, ensuring privacy and decentralization.
-                  </p>
-                  <ul className="text-sm text-zinc-400 space-y-2">
-                    <li>• Cross-canister communication</li>
-                    <li>• Rule-based filtering</li>
-                    <li>• Multi-channel delivery</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-400/20 to-green-400/10 rounded-lg flex items-center justify-center">
-                      <Settings className="h-5 w-5 text-green-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">Rules Engine</h3>
-                  </div>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    User-defined rules run on their personal canister, ensuring complete control and privacy.
-                  </p>
-                  <ul className="text-sm text-zinc-400 space-y-2">
-                    <li>• Canister-based execution</li>
-                    <li>• User-controlled logic</li>
-                    <li>• Automated actions</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-400/20 to-orange-400/10 rounded-lg flex items-center justify-center">
-                      <Globe className="h-5 w-5 text-orange-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">Channels</h3>
-                  </div>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Support for multiple communication channels with canister-based routing and delivery.
-                  </p>
-                  <ul className="text-sm text-zinc-400 space-y-2">
-                    <li>• Canister-managed routing</li>
-                    <li>• Custom integrations</li>
-                    <li>• Delivery guarantees</li>
-                  </ul>
-                </div>
+                </CodeBlock>
               </div>
             </section>
 
@@ -456,208 +590,714 @@ export function useClyprMessaging() {
               <h2 className="text-2xl font-bold text-white mb-8">API Reference</h2>
               
               <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Message API</h3>
+                <div id="notify-alias">
+                  <h3 className="text-lg font-semibold text-white mb-4">notifyAlias</h3>
                   <p className="text-zinc-300 text-sm mb-4">
-                    Send messages to users through their privacy agents using cross-canister calls.
+                    Send a message to a user by their Clypr username.
                   </p>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{`// Send a message to a user
-await clyprActor.notifyAlias(
-  "alice",           // recipient username
-  "notification",    // message type
-  {
-    title: "DAO Vote Required",
-    body: "Proposal #123 needs your vote",
-    priority: 2,
-    metadata: [["proposal_id", "123"]]
+                  <CodeBlock language="typescript">
+{`notifyAlias(
+  username: string,           // Clypr username (e.g., "alice")
+  messageType: string,        // Message type (e.g., "notification")
+  content: {
+    title: string,            // Message title (max 256 chars)
+    body: string,             // Message body (max 10KB)
+    priority: number,         // Priority level (1-5)
+    contentType: string,      // "text/plain" or "application/json"
+    metadata: [string, string][] // Custom metadata (optional)
   }
-);
-
-// Response
-{
-  ok: "message_id_abc123"
-}`}
-                    </pre>
-                  </div>
+): Promise<string>           // Returns message ID`}
+                  </CodeBlock>
                 </div>
 
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Rules API</h3>
-                  <p className="text-zinc-300 text-sm mb-4">
-                    Manage user privacy rules through canister calls.
-                  </p>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{`// Create a new rule
-await clyprActor.createRule({
-  name: "DAO Notifications",
-  condition: "sender == 'dao-canister-id'",
-  action: "route_to_email",
-  priority: 1
-});
+                                 <div id="verify-alias">
+                   <h3 className="text-lg font-semibold text-white mb-4">verifyAlias</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Check if a Clypr alias exists and is valid.
+                   </p>
+                   <CodeBlock language="typescript">
+{`verifyAlias(
+  alias: string              // Clypr alias to verify
+): Promise<boolean>         // Returns true if alias exists`}
+                   </CodeBlock>
+                 </div>
 
-// List user rules
-const rules = await clyprActor.getRules();`}
-                    </pre>
-                  </div>
+                <div id="error-handling">
+                  <h3 className="text-lg font-semibold text-white mb-4">Error Handling</h3>
+                  <p className="text-zinc-300 text-sm mb-4">
+                    Common errors and how to handle them when sending messages.
+                  </p>
+                                     <CodeBlock language="typescript">
+{`// Common error types
+try {
+  // First verify the user exists
+  const userExists = await clyprActor.verifyAlias(recipient);
+  if (!userExists) {
+    console.error('User not found or not registered with Clypr');
+    return;
+  }
+
+  const result = await clyprActor.notifyAlias(recipient, "notification", content);
+  console.log('Message sent:', result);
+} catch (error) {
+  if (error.message.includes('NotFound')) {
+    console.error('User not found or not registered with Clypr');
+  } else if (error.message.includes('RateLimitExceeded')) {
+    console.error('Rate limit exceeded, try again later');
+  } else if (error.message.includes('InvalidContentType')) {
+    console.error('Content type must be "text/plain" or "application/json"');
+  } else if (error.message.includes('InvalidPriority')) {
+    console.error('Priority must be between 1 and 5');
+  } else {
+    console.error('Failed to send message:', error);
+  }
+}`}
+                   </CodeBlock>
                 </div>
               </div>
             </section>
 
-            {/* Integration Examples */}
-            <section id="integrations" className="mb-16">
-              <h2 className="text-2xl font-bold text-white mb-8">Integration Examples</h2>
+            {/* Field Reference */}
+            <section id="field-reference" className="mb-16">
+              <h2 className="text-2xl font-bold text-white mb-8">Field Reference</h2>
               
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Motoko Canister</h3>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4 mb-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{`import Clypr "canister:clypr";
-
-actor {
-    public shared({caller}) func notifyUser(
-        recipient: Text,
-        message: Text
-    ) : async Result.Result<Text, Text> {
-        try {
-            let result = await Clypr.notifyAlias(
-                recipient, 
-                "notification", 
-                {
-                    title = "New Message";
-                    body = message;
-                    priority = 1;
-                    metadata = [("source", "your-dapp")];
-                }
-            );
-            #ok(result)
-        } catch (error) {
-            #err(debug_show(error))
-        }
-    };
-}`}
-                    </pre>
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">Message Content Fields</h3>
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-white mb-2">title (string, required)</h4>
+                        <p className="text-sm text-zinc-300 mb-2">The message title displayed to the user.</p>
+                        <ul className="text-xs text-zinc-400 space-y-1">
+                          <li>• <strong>Max length:</strong> 256 characters</li>
+                          <li>• <strong>Example:</strong> "DAO Vote Required"</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-white mb-2">body (string, required)</h4>
+                        <p className="text-sm text-zinc-300 mb-2">The main message content.</p>
+                        <ul className="text-xs text-zinc-400 space-y-1">
+                          <li>• <strong>Max length:</strong> 10,240 characters</li>
+                          <li>• <strong>Example:</strong> "Proposal #123 needs your vote by tomorrow."</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-white mb-2">priority (number, required)</h4>
+                        <p className="text-sm text-zinc-300 mb-2">Message priority level (1-5).</p>
+                        <ul className="text-xs text-zinc-400 space-y-1">
+                          <li>• <strong>1:</strong> Critical - Emergency notifications, security alerts</li>
+                          <li>• <strong>2:</strong> High - Important updates, time-sensitive actions</li>
+                          <li>• <strong>3:</strong> Normal - Regular notifications, general updates</li>
+                          <li>• <strong>4:</strong> Low - Newsletters, promotional content</li>
+                          <li>• <strong>5:</strong> Very Low - Marketing, non-urgent content</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-white mb-2">contentType (string, required)</h4>
+                        <p className="text-sm text-zinc-300 mb-2">The content type of the message body.</p>
+                        <ul className="text-xs text-zinc-400 space-y-1">
+                          <li>• <strong>Allowed values:</strong> "text/plain" or "application/json"</li>
+                          <li>• <strong>Default:</strong> "text/plain"</li>
+                          <li>• <strong>Note:</strong> Other content types will be rejected</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-white mb-2">metadata (array, optional)</h4>
+                        <p className="text-sm text-zinc-300 mb-2">Custom key-value pairs for additional context.</p>
+                        <ul className="text-xs text-zinc-400 space-y-1">
+                          <li>• <strong>Max pairs:</strong> 10</li>
+                          <li>• <strong>Key max length:</strong> 50 characters</li>
+                          <li>• <strong>Value max length:</strong> 200 characters</li>
+                          <li>• <strong>Example:</strong> [["proposal_id", "123"], ["deadline", "2024-01-15"]]</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                  <Link href="#" className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-2">
-                    View full example <ArrowRight className="h-4 w-4" />
-                  </Link>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">React Frontend</h3>
-                  <div className="bg-[#0C0D14] border border-white/10 rounded-lg p-4 mb-4">
-                    <pre className="text-sm text-zinc-200 font-mono overflow-x-auto">
-{`import { useClypr } from './hooks/useClypr';
+                                 <div>
+                   <h3 className="text-lg font-semibold text-white mb-4">User Identification</h3>
+                   <div className="bg-white/5 rounded-lg p-6">
+                     <div className="space-y-4">
+                       <div>
+                         <h4 className="font-semibold text-white mb-2">Clypr Alias (string)</h4>
+                         <p className="text-sm text-zinc-300 mb-2">The user's registered Clypr alias - that's all you need!</p>
+                         <ul className="text-xs text-zinc-400 space-y-1">
+                           <li>• <strong>Format:</strong> Alphanumeric, lowercase, no spaces</li>
+                           <li>• <strong>Example:</strong> "alice", "bob123", "dao_member"</li>
+                           <li>• <strong>Note:</strong> All users with Clypr aliases are valid recipients</li>
+                           <li>• <strong>Verification:</strong> Use verifyAlias() to check if an alias exists</li>
+                         </ul>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+              </div>
+            </section>
 
-function NotificationButton({ recipient, message }) {
-  const { notifyAlias, loading } = useClypr();
+            {/* Language Examples */}
+            <section id="examples" className="mb-16">
+              <h2 className="text-2xl font-bold text-white mb-8">Language Examples</h2>
+              
+                             <div className="space-y-8">
+                 <div id="motoko-examples">
+                   <h3 className="text-lg font-semibold text-white mb-4">Motoko</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Cross-canister calls from a Motoko canister. Perfect for ICP-native applications.
+                   </p>
 
-  const handleSend = async () => {
+                   <CodeBlock language="motoko">
+{motokoExample}
+                   </CodeBlock>
+                 </div>
+
+                                 <div id="rust-examples">
+                   <h3 className="text-lg font-semibold text-white mb-4">Rust</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Cross-canister calls from a Rust canister. Ideal for performance-critical applications.
+                   </p>
+
+                   <CodeBlock language="rust">
+{rustExample}
+                   </CodeBlock>
+                 </div>
+
+                                 <div id="python-examples">
+                   <h3 className="text-lg font-semibold text-white mb-4">Python</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Using Python with ic-agent library. Great for scripts and external integrations.
+                   </p>
+
+                   <CodeBlock language="python">
+{pythonExample}
+                   </CodeBlock>
+                 </div>
+
+                                 <div id="js-examples">
+                   <h3 className="text-lg font-semibold text-white mb-4">JavaScript/TypeScript</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Frontend integration with React hooks. Perfect for web applications and user interfaces.
+                   </p>
+
+                   <CodeBlock language="typescript">
+{`// TypeScript/JavaScript integration
+import { AuthClient } from '@dfinity/auth-client';
+import { Actor, HttpAgent } from '@dfinity/agent';
+
+interface MessageContent {
+  title: string;
+  body: string;
+  priority: number;
+  contentType: string;
+  metadata?: [string, string][];
+}
+
+class ClyprClient {
+  private agent: HttpAgent | null = null;
+  private actor: any = null;
+  private canisterId: string;
+
+  constructor(canisterId: string) {
+    this.canisterId = canisterId;
+  }
+
+  async initialize(): Promise<void> {
+    // Initialize Internet Identity
+    const authClient = await AuthClient.create();
+    await authClient.login({
+      identityProvider: 'https://identity.ic0.app',
+      onSuccess: () => console.log('Successfully authenticated!')
+    });
+
+    // Create agent and actor
+    const identity = authClient.getIdentity();
+    this.agent = new HttpAgent({ identity });
+    await this.agent.fetchRootKey();
+
+    this.actor = Actor.createActor(idlFactory, {
+      agent: this.agent,
+      canisterId: this.canisterId
+    });
+  }
+
+  async verifyUser(alias: string): Promise<boolean> {
+    if (!this.actor) {
+      throw new Error('Client not initialized. Call initialize() first.');
+    }
+    
     try {
-      await notifyAlias(recipient, "notification", {
-        title: message.title,
-        body: message.body,
-        priority: 2
-      });
-      alert('Message sent!');
+      return await this.actor.verifyAlias(alias);
     } catch (error) {
-      alert('Failed to send message');
+      console.error('Error verifying user:', error);
+      return false;
+    }
+  }
+
+  async sendMessage(
+    recipient: string,
+    content: MessageContent
+  ): Promise<string> {
+    if (!this.actor) {
+      throw new Error('Client not initialized. Call initialize() first.');
+    }
+
+    // First verify the user exists
+    const userExists = await this.verifyUser(recipient);
+    if (!userExists) {
+      throw new Error(\`User '\${recipient}' not found\`);
+    }
+
+    // Send the message
+    return await this.actor.notifyAlias(recipient, "notification", content);
+  }
+}
+
+// React hook for easy integration
+import { useState, useCallback } from 'react';
+
+export function useClypr(canisterId: string) {
+  const [client, setClient] = useState<ClyprClient | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const initialize = useCallback(async () => {
+    const clyprClient = new ClyprClient(canisterId);
+    await clyprClient.initialize();
+    setClient(clyprClient);
+  }, [canisterId]);
+
+  const sendMessage = useCallback(async (
+    recipient: string,
+    content: MessageContent
+  ) => {
+    if (!client) {
+      throw new Error('Client not initialized');
+    }
+    
+    setLoading(true);
+    try {
+      const result = await client.sendMessage(recipient, content);
+      return result;
+    } finally {
+      setLoading(false);
+    }
+  }, [client]);
+
+  return { initialize, sendMessage, loading, client };
+}
+
+// Usage in React component
+function NotificationForm() {
+  const { initialize, sendMessage, loading } = useClypr('YOUR_CANISTER_ID');
+  const [recipient, setRecipient] = useState('');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await initialize();
+      const messageId = await sendMessage(recipient, {
+        title,
+        body,
+        priority: 2,
+        contentType: "text/plain",
+        metadata: [["source", "react-app"]]
+      });
+      
+      alert(\`Message sent! ID: \${messageId}\`);
+    } catch (error) {
+      alert(\`Failed to send message: \${error}\`);
     }
   };
 
   return (
-    <button onClick={handleSend} disabled={loading}>
-      {loading ? 'Sending...' : 'Send Notification'}
-    </button>
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        placeholder="Recipient alias"
+        value={recipient}
+        onChange={(e) => setRecipient(e.target.value)}
+      />
+      <input
+        type="text"
+        placeholder="Message title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        placeholder="Message body"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+      />
+      <button type="submit" disabled={loading}>
+        {loading ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
   );
 }`}
-                    </pre>
-                  </div>
-                  <Link href="#" className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-2">
-                    View full example <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
+                   </CodeBlock>
+                 </div>
               </div>
             </section>
 
-            {/* Security & Privacy */}
-            <section id="security" className="mb-16">
-              <h2 className="text-2xl font-bold text-white mb-8">Security & Privacy</h2>
+            {/* Message Types */}
+            <section id="message-types" className="mb-16">
+              <h2 className="text-2xl font-bold text-white mb-8">Message Types & Format</h2>
               
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8">
-                <div className="grid gap-8 md:grid-cols-2">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Data Protection</h3>
-                    <ul className="text-sm text-zinc-300 space-y-3">
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Canister isolation ensures data privacy</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Zero-knowledge message processing</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Internet Identity authentication</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Decentralized architecture</span>
-                      </li>
-                    </ul>
-                  </div>
+              <div className="space-y-8">
+                                 <div id="message-structure">
+                   <h3 className="text-lg font-semibold text-white mb-4">Message Content Structure</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     All messages follow this structure for consistent delivery.
+                   </p>
+                   <CodeBlock language="typescript">
+{`{
+  title: string,              // Required: Message title (max 256 chars)
+  body: string,               // Required: Message body (max 10KB)
+  priority: number,           // Required: Priority level (1-5)
+  contentType: string,        // Required: "text/plain" or "application/json"
+  metadata: [string, string][] // Optional: Custom key-value pairs
+}`}
+                   </CodeBlock>
+                 </div>
 
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Privacy Rules</h3>
-                    <ul className="text-sm text-zinc-300 space-y-3">
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>User-controlled canister logic</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Content-based message routing</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Sender reputation management</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2 flex-shrink-0" />
-                        <span>Automated spam detection</span>
-                      </li>
-                    </ul>
-                  </div>
+                                 <div id="priority-levels">
+                   <h3 className="text-lg font-semibold text-white mb-4">Priority Levels</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Use priority levels to help users filter and manage their messages.
+                   </p>
+                   <div className="grid gap-4 md:grid-cols-2">
+                     <div className="bg-white/5 rounded-lg p-4">
+                       <h4 className="font-semibold text-white mb-2">Priority 1 - Critical</h4>
+                       <p className="text-sm text-zinc-300">Emergency notifications, security alerts</p>
+                     </div>
+                     <div className="bg-white/5 rounded-lg p-4">
+                       <h4 className="font-semibold text-white mb-2">Priority 2 - High</h4>
+                       <p className="text-sm text-zinc-300">Important updates, time-sensitive actions</p>
+                     </div>
+                     <div className="bg-white/5 rounded-lg p-4">
+                       <h4 className="font-semibold text-white mb-2">Priority 3 - Normal</h4>
+                       <p className="text-sm text-zinc-300">Regular notifications, general updates</p>
+                     </div>
+                     <div className="bg-white/5 rounded-lg p-4">
+                       <h4 className="font-semibold text-white mb-2">Priority 4-5 - Low</h4>
+                       <p className="text-sm text-zinc-300">Newsletters, promotional content</p>
+                     </div>
+                   </div>
+                 </div>
+
+                                 <div id="metadata-examples">
+                   <h3 className="text-lg font-semibold text-white mb-4">Metadata Examples</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Use metadata to provide additional context for message processing.
+                   </p>
+                   <CodeBlock language="json">
+{`// DAO voting notification
+metadata: [
+  ["proposal_id", "123"],
+  ["dao_name", "ExampleDAO"],
+  ["deadline", "2024-01-15T23:59:59Z"]
+]
+
+// Transaction confirmation
+metadata: [
+  ["tx_hash", "0xabc123..."],
+  ["amount", "100 ICP"],
+  ["recipient", "alice.ic0.app"]
+]
+
+// System alert
+metadata: [
+  ["alert_type", "security"],
+  ["severity", "high"],
+  ["action_required", "true"]
+]`}
+                   </CodeBlock>
+                 </div>
+              </div>
+            </section>
+
+            {/* Integration Guides */}
+            <section id="integrations" className="mb-16">
+              <h2 className="text-2xl font-bold text-white mb-8">Integration Guides</h2>
+              
+                             <div className="space-y-8">
+                 <div id="canister-integration">
+                   <h3 className="text-lg font-semibold text-white mb-4">Canister Integration</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Add Clypr messaging to your existing canister.
+                   </p>
+                                      <CodeBlock language="motoko">
+{`// dfx.json
+{
+  "canisters": {
+    "your-canister": {
+      "dependencies": ["clypr"]
+    }
+  }
+}
+
+// In your canister code
+import Clypr "canister:clypr";
+
+// Send notification when user performs action
+public shared({caller}) func performAction() : async Result.Result<(), Text> {
+  // ... your logic ...
+  
+  // First verify the user exists
+  let userExists = await Clypr.verifyAlias("user123");
+  if (not userExists) {
+    return #err("User not found");
+  };
+  
+  // Send notification
+  let _ = await Clypr.notifyAlias("user123", "notification", {
+    title = "Action Completed";
+    body = "Your action has been processed successfully.";
+    priority = 2;
+    contentType = "text/plain";
+    metadata = [("action_id", "abc123")];
+  });
+  
+  #ok(())
+}`}
+                   </CodeBlock>
+                </div>
+
+                                 <div id="frontend-integration">
+                   <h3 className="text-lg font-semibold text-white mb-4">Frontend Integration</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Add messaging capabilities to your frontend application.
+                   </p>
+                                      <CodeBlock language="typescript">
+{`// hooks/useClyprMessaging.ts
+import { useClypr } from './useClypr';
+
+export function useClyprMessaging() {
+  const { notifyAlias, verifyAlias } = useClypr();
+
+  const sendNotification = async (recipient: string, content: any) => {
+    try {
+      // First verify the user exists
+      const userExists = await verifyAlias(recipient);
+      if (!userExists) {
+        return { success: false, error: 'User not found' };
+      }
+
+      const result = await notifyAlias(recipient, "notification", content);
+      return { success: true, messageId: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  return { sendNotification };
+}
+
+// Usage in component
+function NotificationForm() {
+  const { sendNotification } = useClyprMessaging();
+  const [recipient, setRecipient] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSend = async () => {
+    const result = await sendNotification(recipient, {
+      title: "New Message",
+      body: message,
+      priority: 2,
+      contentType: "text/plain"
+    });
+    
+    if (result.success) {
+      alert('Message sent!');
+    } else {
+      alert('Failed to send message: ' + result.error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSend}>
+      {/* form fields */}
+    </form>
+  );
+}`}
+                   </CodeBlock>
                 </div>
               </div>
             </section>
 
-            {/* CTA */}
-            <section className="border-t border-white/5 pt-12">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-4">Ready to get started?</h2>
-                <p className="text-zinc-300 mb-8 max-w-2xl mx-auto">
-                  Join developers building privacy-first applications on the Internet Computer
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link to="/login">
-                    <button className="inline-flex items-center rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-8 py-3 text-base font-medium text-[#0A0A0F] hover:opacity-90 transition-all hover:scale-105 duration-300">
-                      Start Building
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </button>
-                  </Link>
-                  <Link to="/pricing">
-                    <button className="inline-flex items-center rounded-lg border border-white/20 bg-white/5 px-8 py-3 text-base font-medium text-white hover:bg-white/10 transition-all duration-300">
-                      View Pricing
-                    </button>
-                  </Link>
+            {/* Advanced Topics */}
+            <section id="advanced" className="mb-16">
+              <h2 className="text-2xl font-bold text-white mb-8">Advanced Topics</h2>
+              
+                             <div className="space-y-8">
+                 <div id="advanced-error-handling">
+                   <h3 className="text-lg font-semibold text-white mb-4">Error Handling</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Handle common errors when sending messages.
+                   </p>
+                                      <CodeBlock language="typescript">
+{`// JavaScript error handling
+try {
+  // First verify the user exists
+  const userExists = await clyprActor.verifyAlias(recipient);
+  if (!userExists) {
+    console.error('User not found or not registered with Clypr');
+    return;
+  }
+
+  const result = await clyprActor.notifyAlias(recipient, "notification", content);
+  console.log('Message sent:', result);
+} catch (error) {
+  if (error.message.includes('NotFound')) {
+    console.error('User not found or not registered with Clypr');
+  } else if (error.message.includes('RateLimitExceeded')) {
+    console.error('Rate limit exceeded, try again later');
+  } else {
+    console.error('Failed to send message:', error);
+  }
+}
+
+// Motoko error handling
+let userExists = await Clypr.verifyAlias(recipient);
+if (not userExists) {
+  // User not found
+} else {
+  let message = await Clypr.notifyAlias(recipient, "notification", content);
+  switch (message) {
+    case (#ok(messageId)) {
+      // Message sent successfully
+    };
+    case (#err(#RateLimitExceeded)) {
+      // Rate limit exceeded
+    };
+    case (#err(#Other(error))) {
+      // Other error
+    };
+  };
+};`}
+                   </CodeBlock>
                 </div>
+
+                                 <div id="rate-limiting">
+                   <h3 className="text-lg font-semibold text-white mb-4">Rate Limiting</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Understand and work with Clypr's rate limiting.
+                   </p>
+                   <div className="bg-white/5 rounded-lg p-6">
+                     <ul className="text-sm text-zinc-300 space-y-2">
+                       <li>• <strong>Per-user limit:</strong> 100 messages per hour per recipient</li>
+                       <li>• <strong>Per-canister limit:</strong> 1000 messages per hour</li>
+                       <li>• <strong>Global limit:</strong> 10,000 messages per hour across all senders</li>
+                       <li>• <strong>Retry strategy:</strong> Use exponential backoff for rate limit errors</li>
+                     </ul>
+                   </div>
+                 </div>
+
+                                 <div id="best-practices">
+                   <h3 className="text-lg font-semibold text-white mb-4">Best Practices</h3>
+                   <p className="text-zinc-300 text-sm mb-4">
+                     Follow these guidelines for optimal message delivery and user experience.
+                   </p>
+                   
+                   <div className="space-y-6">
+                     <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-6">
+                       <div className="flex items-center gap-3 mb-4">
+                         <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                           <CheckCircle className="h-5 w-5 text-green-400" />
+                         </div>
+                         <h4 className="text-lg font-semibold text-white">✅ Recommended Practices</h4>
+                       </div>
+                       <div className="grid gap-3 md:grid-cols-2">
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-green-400 text-sm">User Verification</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Always use verifyAlias() before sending messages</li>
+                             <li>• Handle cases where users don't exist gracefully</li>
+                             <li>• Provide clear feedback when verification fails</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-green-400 text-sm">Message Content</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Use descriptive, actionable titles</li>
+                             <li>• Keep body content concise and relevant</li>
+                             <li>• Include relevant metadata for context</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-green-400 text-sm">Priority Management</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Use priority 1 only for critical alerts</li>
+                             <li>• Reserve priority 2 for time-sensitive actions</li>
+                             <li>• Use priority 3-5 for regular updates</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-green-400 text-sm">Error Handling</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Implement proper try-catch blocks</li>
+                             <li>• Handle rate limit errors with backoff</li>
+                             <li>• Log errors for debugging</li>
+                           </ul>
+                         </div>
+                       </div>
+                     </div>
+
+                     <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-lg p-6">
+                       <div className="flex items-center gap-3 mb-4">
+                         <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                           <Lock className="h-5 w-5 text-red-400" />
+                         </div>
+                         <h4 className="text-lg font-semibold text-white">❌ Avoid These Practices</h4>
+                       </div>
+                       <div className="grid gap-3 md:grid-cols-2">
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-red-400 text-sm">User Management</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Don't send messages without verification</li>
+                             <li>• Don't assume all users have Clypr accounts</li>
+                             <li>• Don't ignore user existence checks</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-red-400 text-sm">Content Guidelines</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Don't send spam or promotional content</li>
+                             <li>• Don't use misleading titles</li>
+                             <li>• Don't exceed content length limits</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-red-400 text-sm">Priority Misuse</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Don't use priority 1 for non-critical messages</li>
+                             <li>• Don't ignore priority guidelines</li>
+                             <li>• Don't spam high-priority notifications</li>
+                           </ul>
+                         </div>
+                         <div className="space-y-2">
+                           <h5 className="font-medium text-red-400 text-sm">Technical Issues</h5>
+                           <ul className="text-sm text-zinc-300 space-y-1">
+                             <li>• Don't ignore rate limit errors</li>
+                             <li>• Don't send without error handling</li>
+                             <li>• Don't use invalid content types</li>
+                           </ul>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
               </div>
             </section>
+
+
           </div>
         </main>
       </div>
