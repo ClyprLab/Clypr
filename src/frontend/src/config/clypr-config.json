@@ -1,0 +1,34 @@
+{
+  "canisterId": "YOUR_MAINNET_CANISTER_ID",
+  "api": {
+    "baseUrl": "https://YOUR_MAINNET_CANISTER_ID.ic0.app",
+    "identityProvider": "https://identity.ic0.app"
+  },
+  "rateLimits": {
+    "perUser": 100,
+    "perCanister": 1000,
+    "global": 10000,
+    "timeWindow": "1 hour"
+  },
+  "contentTypes": [
+    "text/plain",
+    "application/json"
+  ],
+  "priorityLevels": {
+    "1": "Critical - Emergency notifications, security alerts",
+    "2": "High - Important updates, time-sensitive actions", 
+    "3": "Normal - Regular notifications, general updates",
+    "4": "Low - Newsletters, promotional content",
+    "5": "Very Low - Marketing, non-urgent content"
+  },
+  "metadata": {
+    "maxKeys": 10,
+    "maxKeyLength": 50,
+    "maxValueLength": 200
+  },
+  "messageLimits": {
+    "titleMaxLength": 256,
+    "bodyMaxLength": 10240,
+    "metadataMaxCount": 10
+  }
+}
