@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Button from '../components/UI/Button';
+import Skeleton from '../components/UI/Skeleton';
 import { useClypr } from '../hooks/useClypr';
 
 const Dashboard = () => {
@@ -79,11 +80,11 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[0,1,2].map(i => (
             <Card key={i}>
-              <div className="text-3xl font-bold font-mono mb-2">-</div>
-              <div className="text-sm text-neutral-400">Loading...</div>
+              <Skeleton lines={2} />
             </Card>
           ))}
         </div>

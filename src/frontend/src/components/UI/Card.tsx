@@ -1,77 +1,22 @@
 import React from 'react';
+import theme from '../../styles/theme';
 
-interface CardProps {
-  children: React.ReactNode;
-  title?: string;
-  subtitle?: string;
-  footer?: React.ReactNode;
-  padding?: 'sm' | 'md' | 'lg' | 'none';
-  elevation?: 'flat' | 'low' | 'medium' | 'high';
-  className?: string;
-}
-
-const pad = (p: NonNullable<CardProps['padding']>) => {
-  switch (p) {
-    case 'none':
-      return 'p-0';
-    case 'sm':
-      return 'p-3';
-    case 'lg':
-      return 'p-5';
-    case 'md':
-    default:
-      return 'p-4';
-  }
+export type CardProps = React.HTMLAttributes<HTMLDivElement> & {
+  variant?: 'default' | 'glass';
 };
 
-const shadow = (e: NonNullable<CardProps['elevation']>) => {
-  switch (e) {
-    case 'flat':
-      return 'shadow-none';
-    case 'low':
-      return 'shadow-sm';
-    case 'medium':
-      return 'shadow-md';
-    case 'high':
-      return 'shadow-lg';
-    default:
-      return 'shadow-sm';
-  }
-};
+export const Card = ({ children, variant = 'default', ...rest }: CardProps) => {
+  const base = `rounded-lg p-4`;
+  const variants: Record<string, string> = {
+    default: `bg-[${theme.colors.panel}] border border-[${theme.colors.border}]`,
+    glass: `bg-[${theme.colors.glass}] backdrop-blur-sm border border-[${theme.colors.border}]`
+  };
 
-const Card: React.FC<CardProps> = ({
-  children,
-  title,
-  subtitle,
-  footer,
-  padding = 'md',
-  elevation = 'low',
-  className,
-}) => {
-  const container = [
-    'flex flex-col bg-neutral-900/60 border border-neutral-800 rounded-lg transition',
-    shadow(elevation),
-    className || '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const hasHeader = !!(title || subtitle);
+  const className = `${base} ${variants[variant]} ${rest.className ?? ''}`;
 
   return (
-    <div className={container}>
-      {hasHeader && (
-        <div className={`border-b border-neutral-800 ${pad('md')} pb-2`}>
-          {title && <h3 className="font-mono text-lg font-semibold m-0 text-neutral-100">{title}</h3>}
-          {subtitle && <p className="text-sm text-neutral-400 mt-1 mb-0">{subtitle}</p>}
-        </div>
-      )}
-      <div className={pad(padding)}>
-        {children}
-      </div>
-      {footer && (
-        <div className={`border-t border-neutral-800 ${pad('md')}`}>{footer}</div>
-      )}
+    <div {...rest} className={className}>
+      {children}
     </div>
   );
 };

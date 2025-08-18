@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import Text from '../UI/Text';
 import Input from '../UI/Input';
 import { Rule, Condition, Action } from '../../services/ClyprService';
+import { Principal } from '@dfinity/principal';
 
 const FormContainer = styled.div`
   max-width: 600px;
@@ -123,6 +124,15 @@ interface RuleFormProps {
   isLoading?: boolean;
 }
 
+type FormErrors = {
+  name?: string;
+  dappPrincipal?: string;
+  priority?: string;
+  conditions?: (string | null)[];
+  actions?: (string | null)[];
+  general?: string;
+};
+
 const RuleForm: React.FC<RuleFormProps> = ({
   initialRule,
   onSubmit,
@@ -134,8 +144,8 @@ const RuleForm: React.FC<RuleFormProps> = ({
   const [dappPrincipal, setDappPrincipal] = useState(
     initialRule?.dappPrincipal ? initialRule.dappPrincipal.toText() : ''
   );
-  const [priority, setPriority] = useState(initialRule?.priority || 5);
-  const [isActive, setIsActive] = useState(initialRule?.isActive ?? true);
+  const [priority, setPriority] = useState<number>(initialRule?.priority ?? 5);
+  const [isActive, setIsActive] = useState<boolean>(initialRule?.isActive ?? true);
   const [conditions, setConditions] = useState<Condition[]>(
     initialRule?.conditions || [{ field: 'content.title', operator: 'contains', value: '' }]
   );
@@ -143,65 +153,175 @@ const RuleForm: React.FC<RuleFormProps> = ({
     initialRule?.actions || [{ actionType: 'allow', channelId: undefined, parameters: [] as [string, string][] }]
   );
 
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    // validate on mount/when initial data changes
+    validateAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const isOperatorValueRequired = (op: string) => {
+    return ['contains', 'notContains', 'equals', 'notEquals'].includes(op);
+  };
+
+  const validateAll = (): boolean => {
+    const next: FormErrors = {};
+
+    if (!name || !name.trim()) next.name = 'Name is required';
+
+    if (dappPrincipal && dappPrincipal.trim()) {
+      try {
+        Principal.fromText(dappPrincipal.trim());
+      } catch (e) {
+        next.dappPrincipal = 'Invalid principal format';
+      }
+    }
+
+    if (!Number.isFinite(priority) || priority < 1 || priority > 10) {
+      next.priority = 'Priority must be a number between 1 and 10';
+    }
+
+    // conditions
+    const condErrors: (string | null)[] = [];
+    conditions.forEach((c, idx) => {
+      if (isOperatorValueRequired(c.operator) && (!c.value || !String(c.value).trim())) {
+        condErrors[idx] = 'Value is required for this operator';
+      } else {
+        condErrors[idx] = null;
+      }
+    });
+    if (condErrors.some(e => e)) next.conditions = condErrors;
+
+    // actions
+    const actionErrors: (string | null)[] = [];
+    actions.forEach((a, idx) => {
+      if (a.actionType === 'route') {
+        if (a.channelId === undefined || a.channelId === null || Number.isNaN(Number(a.channelId)) || Number(a.channelId) <= 0) {
+          actionErrors[idx] = 'Channel ID is required and must be a positive number for route actions';
+        } else {
+          actionErrors[idx] = null;
+        }
+      } else {
+        actionErrors[idx] = null;
+      }
+    });
+    if (actionErrors.some(e => e)) next.actions = actionErrors;
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // The onSubmit prop expects the data in the frontend format.
-    // The ClyprService is responsible for converting it to the backend format.
-    onSubmit({
-      name,
-      description: description || undefined,
-      dappPrincipal: (dappPrincipal as any) || undefined,
-      conditions,
-      actions,
-      priority,
-      isActive
-    });
+    if (isSubmitting || isLoading) return;
+
+    const ok = validateAll();
+    if (!ok) return;
+
+    setIsSubmitting(true);
+    try {
+      const normalized = {
+        name: name.trim(),
+        description: description && description.trim() !== '' ? description.trim() : undefined,
+        dappPrincipal: dappPrincipal && dappPrincipal.trim() !== '' ? dappPrincipal.trim() : undefined,
+        conditions: conditions.map(c => ({ field: c.field, operator: c.operator, value: c.value })),
+        actions: actions.map(a => ({ actionType: a.actionType, channelId: a.channelId, parameters: a.parameters || [] })),
+        priority: Number(priority),
+        isActive: !!isActive
+      } as Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>;
+
+      onSubmit(normalized);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const addCondition = () => {
     setConditions([...conditions, { field: 'content.title', operator: 'contains', value: '' }]);
+    setErrors(prev => ({ ...prev, conditions: prev.conditions ? [...prev.conditions, null] : undefined }));
   };
 
   const removeCondition = (index: number) => {
     setConditions(conditions.filter((_, i) => i !== index));
+    setErrors(prev => ({ ...prev, conditions: prev.conditions ? prev.conditions.filter((_, i) => i !== index) : undefined }));
   };
 
-  const updateCondition = (index: number, field: keyof Condition, value: any) => {
+  const updateCondition = (index: number, fieldKey: keyof Condition, value: any) => {
     const updated = [...conditions];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { ...updated[index], [fieldKey]: value };
     setConditions(updated);
+
+    // Re-validate this condition
+    setErrors(prev => {
+      const next = { ...prev };
+      if (next.conditions) {
+        const conds = [...next.conditions];
+        conds[index] = isOperatorValueRequired(updated[index].operator) && (!updated[index].value || !String(updated[index].value).trim())
+          ? 'Value is required for this operator'
+          : null;
+        next.conditions = conds;
+        if (!next.conditions.some(x => x)) delete next.conditions;
+      }
+      return next;
+    });
   };
 
   const addAction = () => {
-    setActions([...actions, { 
-      actionType: 'allow', 
-      channelId: undefined, 
-      parameters: [] as [string, string][] 
-    }]);
+    setActions([...actions, { actionType: 'allow', channelId: undefined, parameters: [] as [string, string][] }]);
+    setErrors(prev => ({ ...prev, actions: prev.actions ? [...prev.actions, null] : undefined }));
   };
 
   const removeAction = (index: number) => {
     setActions(actions.filter((_, i) => i !== index));
+    setErrors(prev => ({ ...prev, actions: prev.actions ? prev.actions.filter((_, i) => i !== index) : undefined }));
   };
 
-  const updateAction = (index: number, field: keyof Action, value: any) => {
+  const updateAction = (index: number, fieldKey: keyof Action, value: any) => {
     const updated = [...actions];
     const currentAction = { ...updated[index] };
 
-    if (field === 'actionType') {
+    if (fieldKey === 'actionType') {
       const newActionType = value as Action['actionType'];
       currentAction.actionType = newActionType;
-      // When type changes, reset channelId unless the new type is 'route'
       if (newActionType !== 'route') {
         currentAction.channelId = undefined;
       }
     } else {
-      (currentAction as any)[field] = value;
+      (currentAction as any)[fieldKey] = value;
     }
-    
+
     updated[index] = currentAction;
     setActions(updated);
+
+    // Re-validate this action
+    setErrors(prev => {
+      const next = { ...prev };
+      if (next.actions) {
+        const acts = [...next.actions];
+        if (currentAction.actionType === 'route') {
+          acts[index] = currentAction.channelId === undefined || currentAction.channelId === null || Number.isNaN(Number(currentAction.channelId)) || Number(currentAction.channelId) <= 0
+            ? 'Channel ID is required and must be a positive number for route actions'
+            : null;
+        } else {
+          acts[index] = null;
+        }
+        next.actions = acts;
+        if (!next.actions.some(x => x)) delete next.actions;
+      }
+      return next;
+    });
+  };
+
+  const canSubmit = (): boolean => {
+    // disabled if loading, submitting, or validation errors exist
+    if (isLoading || isSubmitting) return false;
+    // quick checks
+    if (!name || !name.trim()) return false;
+    if (!Number.isFinite(priority) || priority < 1 || priority > 10) return false;
+    if (errors && (errors.name || errors.dappPrincipal || errors.priority || errors.conditions || errors.actions || errors.general)) return false;
+    return true;
   };
 
   return (
@@ -210,7 +330,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
         <form onSubmit={handleSubmit}>
           <FormSection>
             <SectionTitle>Basic Information</SectionTitle>
-            
+
             <FormGroup>
               <Label>Rule Name *</Label>
               <Input
@@ -219,8 +339,9 @@ const RuleForm: React.FC<RuleFormProps> = ({
                 placeholder="e.g., Email Privacy Filter"
                 required
               />
+              {errors.name && <div className="text-xs text-red-400 mt-1">{errors.name}</div>}
             </FormGroup>
-            
+
             <FormGroup>
               <Label>Description</Label>
               <TextArea
@@ -237,8 +358,9 @@ const RuleForm: React.FC<RuleFormProps> = ({
                 onChange={(e) => setDappPrincipal(e.target.value)}
                 placeholder="Enter a dApp Principal to make this rule dApp-specific"
               />
+              {errors.dappPrincipal && <div className="text-xs text-red-400 mt-1">{errors.dappPrincipal}</div>}
             </FormGroup>
-            
+
             <FormRow>
               <FormGroup>
                 <Label>Priority (1-10)</Label>
@@ -249,8 +371,9 @@ const RuleForm: React.FC<RuleFormProps> = ({
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
                 />
+                {errors.priority && <div className="text-xs text-red-400 mt-1">{errors.priority}</div>}
               </FormGroup>
-              
+
               <FormGroup>
                 <Label>Status</Label>
                 <Select
@@ -269,7 +392,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
             <Text size="sm" color="secondary" style={{ marginBottom: 'var(--space-3)' }}>
               Define when this rule should be triggered. All conditions must be met.
             </Text>
-            
+
             <ConditionsList>
               {conditions.map((condition, index) => (
                 <ConditionItem key={index}>
@@ -284,7 +407,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
                       <option value="senderId">Sender ID</option>
                     </Select>
                   </FormGroup>
-                  
+
                   <FormGroup>
                     <Select
                       value={condition.operator}
@@ -298,15 +421,16 @@ const RuleForm: React.FC<RuleFormProps> = ({
                       <option value="notExists">Does not exist</option>
                     </Select>
                   </FormGroup>
-                  
+
                   <FormGroup>
                     <Input
                       value={condition.value}
                       onChange={(e) => updateCondition(index, 'value', e.target.value)}
                       placeholder="Value..."
                     />
+                    {errors.conditions && errors.conditions[index] && <div className="text-xs text-red-400 mt-1">{errors.conditions[index]}</div>}
                   </FormGroup>
-                  
+
                   {conditions.length > 1 && (
                     <RemoveButton onClick={() => removeCondition(index)} type="button">
                       ×
@@ -314,7 +438,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
                   )}
                 </ConditionItem>
               ))}
-              
+
               <AddButton onClick={addCondition} type="button" variant="secondary" size="sm">
                 Add Condition
               </AddButton>
@@ -326,7 +450,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
             <Text size="sm" color="secondary" style={{ marginBottom: 'var(--space-3)' }}>
               Define what happens when conditions are met.
             </Text>
-            
+
             <ConditionsList>
               {actions.map((action, index) => (
                 <ConditionItem key={index}>
@@ -342,7 +466,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
                       <option value="prioritize">Prioritize</option>
                     </Select>
                   </FormGroup>
-                  
+
                   {action.actionType === 'route' && (
                     <FormGroup>
                       <Input
@@ -355,9 +479,10 @@ const RuleForm: React.FC<RuleFormProps> = ({
                         placeholder="Channel ID"
                         required
                       />
+                      {errors.actions && errors.actions[index] && <div className="text-xs text-red-400 mt-1">{errors.actions[index]}</div>}
                     </FormGroup>
                   )}
-                  
+
                   {actions.length > 1 && (
                     <RemoveButton onClick={() => removeAction(index)} type="button">
                       ×
@@ -365,7 +490,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
                   )}
                 </ConditionItem>
               ))}
-              
+
               <AddButton onClick={addAction} type="button" variant="secondary" size="sm">
                 Add Action
               </AddButton>

@@ -4,6 +4,7 @@ import Card from '../components/UI/Card';
 import Text from '../components/UI/Text';
 import Input from '../components/UI/Input';
 import RuleForm from '../components/Rules/RuleForm';
+import CreateRuleSlideOver from '../components/Rules/CreateRuleSlideOver';
 import { useClypr } from '../hooks/useClypr';
 import { Rule } from '../services/ClyprService';
 
@@ -118,39 +119,6 @@ const Rules = () => {
     (rule.description && rule.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  if (showForm) {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <Text as="h1">{editingRule ? 'Edit Rule' : 'Create New Rule'}</Text>
-          <Button variant="secondary" onClick={() => { setShowForm(false); setEditingRule(null); }}>
-            ← Back to Rules
-          </Button>
-        </div>
-
-        {error && (
-          <Card className="mb-4">
-            <p className="text-red-500">{error}</p>
-          </Card>
-        )}
-
-        <RuleForm
-          initialRule={editingRule || undefined}
-          onSubmit={editingRule ? handleUpdateRule : handleCreateRule}
-          onCancel={() => { setShowForm(false); setEditingRule(null); }}
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div>
-        <Text>Please authenticate to manage privacy rules.</Text>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -219,6 +187,9 @@ const Rules = () => {
           </div>
         )}
       </Card>
+
+      {/* SlideOver for create/edit */}
+      <CreateRuleSlideOver isOpen={showForm} onClose={() => { setShowForm(false); setEditingRule(null); }} />
     </div>
   );
 };
