@@ -1529,6 +1529,7 @@ persistent actor ClyprCanister {
       method = #telegram;
       token = token;
       chatId = null;
+      contact = null;
       expiresAt = expiresAt;
       verified = false;
       channelId = placeholderChannelId;
@@ -1727,6 +1728,7 @@ persistent actor ClyprCanister {
                   method = r.method;
                   token = r.token;
                   chatId = ?chatId;
+                  contact = r.contact;
                   expiresAt = r.expiresAt;
                   verified = true;
                   channelId = ?targetChannelId;
@@ -1746,6 +1748,213 @@ persistent actor ClyprCanister {
             return #ok();
           };
         };
+      };
+    };
+  };
+  
+  // Request an email verification token (user-initiated). Accept optional flag for placeholder creation
+  public shared(msg) func requestEmailVerification(email : Text, createPlaceholder : ?Bool) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
+    if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
+
+    let create = Option.get(createPlaceholder, false);
+    let token = Principal.toText(msg.caller) # "-email-" # Int.toText(Time.now());
+    let expiresAt = Time.now() + 900_000_000_000; // 15 minutes
+
+    var placeholderChannelId : ?ChannelId = null;
+
+    if (create) {
+      let userChannelsMap = getUserChannels(msg.caller);
+      let cid = nextChannelId;
+      nextChannelId += 1;
+      let now = Time.now();
+
+      let defaultRetry : RetryConfig = {
+        maxAttempts = 3;
+        backoffMs = 60_000; // 1 minute
+        timeoutMs = 30_000; // 30 seconds
+      };
+
+      let defaultValidationConfig : Types.ValidationConfig = {
+        contentLimits = {
+          maxTitleLength = 256;
+          maxBodyLength = 10240;
+          maxMetadataCount = 10;
+          allowedContentTypes = ["text/plain", "application/json"];
+        };
+        rateLimit = {
+          windowMs = 60_000;
+          maxRequests = 100;
+          perChannel = true;
+        };
+      };
+
+      // Create a placeholder email channel using the provided email as fromAddress
+      let placeholderChannel : Channel = {
+        id = cid;
+        name = "Email (unverified)";
+        description = null;
+        channelType = #email;
+        config = #email({ provider = ""; apiKey = null; fromAddress = email; replyTo = null; smtp = null });
+        retryConfig = defaultRetry;
+        validationConfig = defaultValidationConfig;
+        isActive = false;
+        createdAt = now;
+        updatedAt = now;
+      };
+
+      userChannelsMap.put(cid, placeholderChannel);
+      placeholderChannelId := ?cid;
+    };
+
+    let record : Types.VerificationRecord = {
+      method = #email;
+      token = token;
+      chatId = null;
+      contact = ?email;
+      expiresAt = expiresAt;
+      verified = false;
+      channelId = placeholderChannelId;
+    };
+
+    // Append to user's verification list
+    switch (userVerifications.get(msg.caller)) {
+      case null {
+        userVerifications.put(msg.caller, [record]);
+      };
+      case (?arr) {
+        userVerifications.put(msg.caller, Array.append(arr, [record]));
+      };
+    };
+
+    tokenToUser.put(token, msg.caller);
+
+    // Create a DispatchJob for the bridge/offchain to consume via nextDispatchJobs
+    let jobId = nextJobId;
+    nextJobId += 1;
+    let now = Time.now();
+
+    let verificationIntent : [(Text, Text)] = [
+      ("intentType", "email_verification"),
+      ("token", token),
+      ("email", email),
+      ("expiresAt", Int.toText(expiresAt)),
+      ("owner", Principal.toText(msg.caller))
+    ];
+
+    let jobContent : MessageContent = {
+      title = "Email Verification";
+      body = token;
+      priority = Nat8.fromNat(0);
+      metadata = [];
+      contentType = "text/plain";
+    };
+
+    let job : DispatchJob = {
+      id = jobId;
+      messageId = "verification-email-" # Int.toText(now);
+      recipientId = msg.caller;
+      channelId = 0;
+      channelType = #custom("verification");
+      channelName = "email_verification";
+      channelConfig = #custom([]);
+      messageType = "verification";
+      content = jobContent;
+      intents = verificationIntent;
+      attempts = 0;
+      retryConfig = {
+        maxAttempts = 3;
+        backoffMs = 60_000;
+        timeoutMs = 30_000;
+      };
+      metadata = null;
+      createdAt = now;
+      expiresAt = expiresAt;
+      status = #pending;
+    };
+
+    let jobsMap = getUserDispatchJobs(msg.caller);
+    jobsMap.put(jobId, job);
+    totalJobsScheduled += 1;
+
+    return #ok({ token = token; expiresAt = expiresAt; channelId = placeholderChannelId });
+  };
+
+  // Confirm email verification (user provides token via frontend)
+  public shared(msg) func confirmEmailVerification(token : Text) : async Result<(), Error> {
+    if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
+
+    // Resolve owner from transient token map or by scanning persisted verifications
+    var ownerOpt = tokenToUser.get(token);
+    if (ownerOpt == null) {
+      func findOwner(token : Text) : ?Principal {
+        for ((uid, arr) in userVerifications.entries()) {
+          for (r in Iter.fromArray(arr)) {
+            if (r.token == token) { return ?uid; };
+          };
+        };
+        return null;
+      };
+      ownerOpt := findOwner(token);
+    };
+
+    if (ownerOpt == null) { return #err(#NotFound); };
+    let owner = Option.get(ownerOpt, Principal.fromText("2vxsx-fae"));
+
+    // Only the owner who requested the token may confirm it
+    if (not Principal.equal(msg.caller, owner)) { return #err(#NotAuthorized); };
+
+    switch (userVerifications.get(owner)) {
+      case null { return #err(#NotFound); };
+      case (?arr) {
+        var matched : Bool = false;
+        var outArr : [Types.VerificationRecord] = [];
+
+        for (r in Iter.fromArray(arr)) {
+          if (r.token == token and r.expiresAt >= Time.now()) {
+            matched := true;
+
+            // Create a new Email channel for this verified contact
+            let cid = nextChannelId;
+            nextChannelId += 1;
+            let now = Time.now();
+
+            let newChannel : Channel = {
+              id = cid;
+              name = "Email";
+              description = null;
+              channelType = #email;
+              config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
+              retryConfig = { maxAttempts = 3; backoffMs = 60000; timeoutMs = 30000 };
+              validationConfig = { contentLimits = { maxTitleLength = 256; maxBodyLength = 10240; maxMetadataCount = 10; allowedContentTypes = ["text/plain"] }; rateLimit = { windowMs = 60000; maxRequests = 100; perChannel = true } };
+              isActive = true;
+              createdAt = now;
+              updatedAt = now;
+            };
+
+            let userChannelsMap = getUserChannels(owner);
+            userChannelsMap.put(cid, newChannel);
+
+            let updatedRec : Types.VerificationRecord = {
+              method = r.method;
+              token = r.token;
+              chatId = r.chatId;
+              contact = r.contact;
+              expiresAt = r.expiresAt;
+              verified = true;
+              channelId = ?cid;
+            };
+
+            outArr := Array.append(outArr, [updatedRec]);
+          } else {
+            outArr := Array.append(outArr, [r]);
+          };
+        };
+
+        if (not matched) { return #err(#NotFound); };
+
+        userVerifications.put(owner, outArr);
+        ignore tokenToUser.remove(token);
+        return #ok();
       };
     };
   };

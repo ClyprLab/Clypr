@@ -60,11 +60,6 @@ type RetryConfig =
 type Result_9 = 
  variant {
    err: Error;
-   ok: Rule;
- };
-type Result_8 = 
- variant {
-   err: Error;
    ok:
     record {
       blockedCount: nat;
@@ -74,22 +69,22 @@ type Result_8 =
       rulesCount: nat;
     };
  };
-type Result_7 = 
+type Result_8 = 
  variant {
    err: Error;
    ok: vec principal;
  };
-type Result_6 = 
+type Result_7 = 
  variant {
    err: Error;
    ok: vec DispatchJob;
  };
-type Result_5 = 
+type Result_6 = 
  variant {
    err: Error;
    ok: MessageReceipt;
  };
-type Result_4 = 
+type Result_5 = 
  variant {
    err: Error;
    ok: nat;
@@ -103,6 +98,11 @@ type Result_3 =
          token: text;
        };
  };
+type Result_20 = 
+ variant {
+   err: Error;
+   ok: ChannelId;
+ };
 type Result_2 = 
  variant {
    err: Error;
@@ -111,14 +111,9 @@ type Result_2 =
 type Result_19 = 
  variant {
    err: Error;
-   ok: ChannelId;
- };
-type Result_18 = 
- variant {
-   err: Error;
    ok: RuleId;
  };
-type Result_17 = 
+type Result_18 = 
  variant {
    err: Error;
    ok: vec record {
@@ -126,7 +121,7 @@ type Result_17 =
              user: principal;
            };
  };
-type Result_16 = 
+type Result_17 = 
  variant {
    err: Error;
    ok: vec record {
@@ -134,35 +129,40 @@ type Result_16 =
              JobSchedule;
            };
  };
-type Result_15 = 
+type Result_16 = 
  variant {
    err: Error;
    ok: vec Channel;
  };
-type Result_14 = 
+type Result_15 = 
  variant {
    err: Error;
    ok: vec Message;
  };
-type Result_13 = 
+type Result_14 = 
  variant {
    err: Error;
    ok: vec Rule;
  };
-type Result_12 = 
+type Result_13 = 
  variant {
    err: Error;
    ok: Channel;
  };
-type Result_11 = 
+type Result_12 = 
  variant {
    err: Error;
    ok: Message;
  };
-type Result_10 = 
+type Result_11 = 
  variant {
    err: Error;
    ok: text;
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: Rule;
  };
 type Result_1 = 
  variant {
@@ -404,25 +404,26 @@ service : {
   acknowledgeJobDelivery: (jobId: nat, status: DispatchStatus) -> (Result);
   addAuthorizedSelf: () -> (Result);
   bridgeConfirmVerification: (token: text, chatId: text) -> (Result);
-  cleanupExpiredJobs: () -> (Result_4);
+  cleanupExpiredJobs: () -> (Result_5);
+  confirmEmailVerification: (token: text) -> (Result);
   createChannel: (name: text, description: opt text, channelType:
    ChannelType, config: ChannelConfig, retryConfig: opt RetryConfig,
-   validationConfig: opt ValidationConfig) -> (Result_19);
+   validationConfig: opt ValidationConfig) -> (Result_20);
   createRule: (name: text, description: opt text, dappPrincipal:
    opt principal, conditions: vec Condition, actions: vec Action, priority:
-   nat8) -> (Result_18);
-  debug_dumpAllDispatchJobs: () -> (Result_17) query;
-  debug_dumpScheduledJobs: () -> (Result_16) query;
+   nat8) -> (Result_19);
+  debug_dumpAllDispatchJobs: () -> (Result_18) query;
+  debug_dumpScheduledJobs: () -> (Result_17) query;
   deleteChannel: (channelId: ChannelId) -> (Result);
   deleteRule: (ruleId: RuleId) -> (Result);
-  getAllChannels: () -> (Result_15) query;
-  getAllMessages: () -> (Result_14) query;
-  getAllRules: () -> (Result_13) query;
-  getChannel: (channelId: ChannelId) -> (Result_12) query;
-  getMessage: (messageId: MessageId) -> (Result_11) query;
-  getMyUsername: () -> (Result_10) query;
-  getRule: (ruleId: RuleId) -> (Result_9) query;
-  getStats: () -> (Result_8) query;
+  getAllChannels: () -> (Result_16) query;
+  getAllMessages: () -> (Result_15) query;
+  getAllRules: () -> (Result_14) query;
+  getChannel: (channelId: ChannelId) -> (Result_13) query;
+  getMessage: (messageId: MessageId) -> (Result_12) query;
+  getMyUsername: () -> (Result_11) query;
+  getRule: (ruleId: RuleId) -> (Result_10) query;
+  getStats: () -> (Result_9) query;
   getSystemHealth: () ->
    (record {
       activeChannelsCount: nat;
@@ -435,19 +436,21 @@ service : {
       uptime: int;
     }) query;
   init: () -> ();
-  listAuthorized: () -> (Result_7) query;
-  nextDispatchJobs: (limit: nat) -> (Result_6);
+  listAuthorized: () -> (Result_8) query;
+  nextDispatchJobs: (limit: nat) -> (Result_7);
   notifyAlias: (recipientAlias: text, messageType: text, content:
-   MessageContent) -> (Result_5);
+   MessageContent) -> (Result_6);
   notifyPrincipal: (recipientId: principal, messageType: text, content:
-   MessageContent) -> (Result_5);
+   MessageContent) -> (Result_6);
   ping: () -> (text) query;
   /// Deprecated: prefer `notifyAlias` for clearer DX. Kept for backward-compat.
   processMessage: (recipientUsername: text, messageType: text, content:
-   MessageContent) -> (Result_5);
-  processScheduledJobs: () -> (Result_4);
+   MessageContent) -> (Result_6);
+  processScheduledJobs: () -> (Result_5);
   registerUsername: (username: text) -> (Result);
   removeAuthorizedSelf: () -> (Result);
+  requestEmailVerification: (email: text, createPlaceholder: opt bool) ->
+   (Result_3);
   requestTelegramVerification: (createPlaceholder: opt bool) -> (Result_3);
   resolveUsername: (username: text) -> (Result_2) query;
   scheduleJob: (jobId: nat, schedule: JobSchedule) -> (Result);

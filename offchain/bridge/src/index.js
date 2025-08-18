@@ -8,6 +8,7 @@ import { sendWebhook } from './adapters/webhook.js';
 import { processWithAI } from './aiStub.js';
 import express from 'express';
 import * as telegramAdapter from './adapters/telegram.js';
+import * as emailAdapter from './adapters/email.js';
    
 const CANISTER_ID = process.env.CANISTER_ID;
 const IC_HOST = (process.env.IC_HOST || 'https://ic0.app').trim();
@@ -155,30 +156,39 @@ async function run() {
             continue; // do not ack here
           }
           delivered = !!r;
-        } else {
-          delivered = await deliverJob(job);
-        }
-      } catch (e) {
-        console.error('Job delivery routing error:', e);
-        delivered = false;
-      }
+        } else if (intentMap.intentType === 'email_verification') {
+          // Send verification email via email adapter (no webhook, ack immediately)
+          try {
+            const r = await emailAdapter.handleVerificationJob(job);
+            delivered = !!r;
+          } catch (e) {
+            log.error('email verification adapter error:', e);
+            delivered = false;
+          }
+         } else {
+           delivered = await deliverJob(job);
+         }
+       } catch (e) {
+         console.error('Job delivery routing error:', e);
+         delivered = false;
+       }
 
-      try {
-        const status = delivered ? { delivered: null } : { failed: null };
-        const ack = await actor.acknowledgeJobDelivery(job.id, status);
-        if ('err' in ack) {
-          log.warn('acknowledgeJobDelivery err:', ack.err);
-        } else {
-          log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
-        }
-      } catch (e) {
-        log.error('acknowledgeJobDelivery threw:', e);
-      }
-    }
-  }
-}
+       try {
+         const status = delivered ? { delivered: null } : { failed: null };
+         const ack = await actor.acknowledgeJobDelivery(job.id, status);
+         if ('err' in ack) {
+           log.warn('acknowledgeJobDelivery err:', ack.err);
+         } else {
+           log.info(`Acked job ${job.id} as ${delivered ? 'delivered' : 'failed'}`);
+         }
+       } catch (e) {
+         log.error('acknowledgeJobDelivery threw:', e);
+       }
+     }
+   }
+ }
 
-run().catch((e) => {
-  log.error('Fatal bridge error:', e);
-  process.exit(1);
-});
+ run().catch((e) => {
+   log.error('Fatal bridge error:', e);
+   process.exit(1);
+ });

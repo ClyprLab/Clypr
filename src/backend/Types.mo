@@ -269,6 +269,7 @@ module {
     method: VerificationMethod;
     token: Text;     // raw token (short-lived)
     chatId: ?Text;   // populated on confirmation for Telegram
+    contact: ?Text;  // generic contact (email or chatId), used for email records
     expiresAt: Int;  // expiry timestamp (nanoseconds)
     verified: Bool;
     channelId: ?ChannelId; // optional placeholder channel created for this verification

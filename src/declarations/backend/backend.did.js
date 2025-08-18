@@ -23,7 +23,7 @@ export const idlFactory = ({ IDL }) => {
     'InternalError' : IDL.Null,
   });
   const Result = IDL.Variant({ 'ok' : IDL.Null, 'err' : Error });
-  const Result_4 = IDL.Variant({ 'ok' : IDL.Nat, 'err' : Error });
+  const Result_5 = IDL.Variant({ 'ok' : IDL.Nat, 'err' : Error });
   const ChannelType = IDL.Variant({
     'sms' : IDL.Null,
     'custom' : IDL.Text,
@@ -102,7 +102,7 @@ export const idlFactory = ({ IDL }) => {
     'rateLimit' : RateLimit,
   });
   const ChannelId = IDL.Nat;
-  const Result_19 = IDL.Variant({ 'ok' : ChannelId, 'err' : Error });
+  const Result_20 = IDL.Variant({ 'ok' : ChannelId, 'err' : Error });
   const ConditionOperator = IDL.Variant({
     'contains' : IDL.Null,
     'notExists' : IDL.Null,
@@ -131,7 +131,7 @@ export const idlFactory = ({ IDL }) => {
     'actionType' : ActionType,
   });
   const RuleId = IDL.Nat;
-  const Result_18 = IDL.Variant({ 'ok' : RuleId, 'err' : Error });
+  const Result_19 = IDL.Variant({ 'ok' : RuleId, 'err' : Error });
   const MessageContent = IDL.Record({
     'title' : IDL.Text,
     'contentType' : IDL.Text,
@@ -176,7 +176,7 @@ export const idlFactory = ({ IDL }) => {
     'recipientId' : IDL.Principal,
     'retryConfig' : RetryConfig,
   });
-  const Result_17 = IDL.Variant({
+  const Result_18 = IDL.Variant({
     'ok' : IDL.Vec(
       IDL.Record({ 'jobs' : IDL.Vec(DispatchJob), 'user' : IDL.Principal })
     ),
@@ -187,7 +187,7 @@ export const idlFactory = ({ IDL }) => {
     'recurring' : IDL.Record({ 'interval' : IDL.Nat32, 'nextRun' : IDL.Int }),
     'immediate' : IDL.Null,
   });
-  const Result_16 = IDL.Variant({
+  const Result_17 = IDL.Variant({
     'ok' : IDL.Vec(IDL.Tuple(IDL.Nat, JobSchedule)),
     'err' : Error,
   });
@@ -203,7 +203,7 @@ export const idlFactory = ({ IDL }) => {
     'validationConfig' : ValidationConfig,
     'retryConfig' : RetryConfig,
   });
-  const Result_15 = IDL.Variant({ 'ok' : IDL.Vec(Channel), 'err' : Error });
+  const Result_16 = IDL.Variant({ 'ok' : IDL.Vec(Channel), 'err' : Error });
   const MessageStatus = IDL.Variant({
     'blocked' : IDL.Null,
     'delivered' : IDL.Null,
@@ -222,7 +222,7 @@ export const idlFactory = ({ IDL }) => {
     'recipientId' : IDL.Principal,
     'senderId' : IDL.Principal,
   });
-  const Result_14 = IDL.Variant({ 'ok' : IDL.Vec(Message), 'err' : Error });
+  const Result_15 = IDL.Variant({ 'ok' : IDL.Vec(Message), 'err' : Error });
   const Rule = IDL.Record({
     'id' : RuleId,
     'name' : IDL.Text,
@@ -235,12 +235,12 @@ export const idlFactory = ({ IDL }) => {
     'conditions' : IDL.Vec(Condition),
     'priority' : IDL.Nat8,
   });
-  const Result_13 = IDL.Variant({ 'ok' : IDL.Vec(Rule), 'err' : Error });
-  const Result_12 = IDL.Variant({ 'ok' : Channel, 'err' : Error });
-  const Result_11 = IDL.Variant({ 'ok' : Message, 'err' : Error });
-  const Result_10 = IDL.Variant({ 'ok' : IDL.Text, 'err' : Error });
-  const Result_9 = IDL.Variant({ 'ok' : Rule, 'err' : Error });
-  const Result_8 = IDL.Variant({
+  const Result_14 = IDL.Variant({ 'ok' : IDL.Vec(Rule), 'err' : Error });
+  const Result_13 = IDL.Variant({ 'ok' : Channel, 'err' : Error });
+  const Result_12 = IDL.Variant({ 'ok' : Message, 'err' : Error });
+  const Result_11 = IDL.Variant({ 'ok' : IDL.Text, 'err' : Error });
+  const Result_10 = IDL.Variant({ 'ok' : Rule, 'err' : Error });
+  const Result_9 = IDL.Variant({
     'ok' : IDL.Record({
       'messagesCount' : IDL.Nat,
       'rulesCount' : IDL.Nat,
@@ -250,17 +250,17 @@ export const idlFactory = ({ IDL }) => {
     }),
     'err' : Error,
   });
-  const Result_7 = IDL.Variant({
+  const Result_8 = IDL.Variant({
     'ok' : IDL.Vec(IDL.Principal),
     'err' : Error,
   });
-  const Result_6 = IDL.Variant({ 'ok' : IDL.Vec(DispatchJob), 'err' : Error });
+  const Result_7 = IDL.Variant({ 'ok' : IDL.Vec(DispatchJob), 'err' : Error });
   const MessageReceipt = IDL.Record({
     'messageId' : MessageId,
     'timestamp' : IDL.Int,
     'received' : IDL.Bool,
   });
-  const Result_5 = IDL.Variant({ 'ok' : MessageReceipt, 'err' : Error });
+  const Result_6 = IDL.Variant({ 'ok' : MessageReceipt, 'err' : Error });
   const Result_3 = IDL.Variant({
     'ok' : IDL.Record({
       'token' : IDL.Text,
@@ -279,7 +279,8 @@ export const idlFactory = ({ IDL }) => {
       ),
     'addAuthorizedSelf' : IDL.Func([], [Result], []),
     'bridgeConfirmVerification' : IDL.Func([IDL.Text, IDL.Text], [Result], []),
-    'cleanupExpiredJobs' : IDL.Func([], [Result_4], []),
+    'cleanupExpiredJobs' : IDL.Func([], [Result_5], []),
+    'confirmEmailVerification' : IDL.Func([IDL.Text], [Result], []),
     'createChannel' : IDL.Func(
         [
           IDL.Text,
@@ -289,7 +290,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Opt(RetryConfig),
           IDL.Opt(ValidationConfig),
         ],
-        [Result_19],
+        [Result_20],
         [],
       ),
     'createRule' : IDL.Func(
@@ -301,21 +302,21 @@ export const idlFactory = ({ IDL }) => {
           IDL.Vec(Action),
           IDL.Nat8,
         ],
-        [Result_18],
+        [Result_19],
         [],
       ),
-    'debug_dumpAllDispatchJobs' : IDL.Func([], [Result_17], ['query']),
-    'debug_dumpScheduledJobs' : IDL.Func([], [Result_16], ['query']),
+    'debug_dumpAllDispatchJobs' : IDL.Func([], [Result_18], ['query']),
+    'debug_dumpScheduledJobs' : IDL.Func([], [Result_17], ['query']),
     'deleteChannel' : IDL.Func([ChannelId], [Result], []),
     'deleteRule' : IDL.Func([RuleId], [Result], []),
-    'getAllChannels' : IDL.Func([], [Result_15], ['query']),
-    'getAllMessages' : IDL.Func([], [Result_14], ['query']),
-    'getAllRules' : IDL.Func([], [Result_13], ['query']),
-    'getChannel' : IDL.Func([ChannelId], [Result_12], ['query']),
-    'getMessage' : IDL.Func([MessageId], [Result_11], ['query']),
-    'getMyUsername' : IDL.Func([], [Result_10], ['query']),
-    'getRule' : IDL.Func([RuleId], [Result_9], ['query']),
-    'getStats' : IDL.Func([], [Result_8], ['query']),
+    'getAllChannels' : IDL.Func([], [Result_16], ['query']),
+    'getAllMessages' : IDL.Func([], [Result_15], ['query']),
+    'getAllRules' : IDL.Func([], [Result_14], ['query']),
+    'getChannel' : IDL.Func([ChannelId], [Result_13], ['query']),
+    'getMessage' : IDL.Func([MessageId], [Result_12], ['query']),
+    'getMyUsername' : IDL.Func([], [Result_11], ['query']),
+    'getRule' : IDL.Func([RuleId], [Result_10], ['query']),
+    'getStats' : IDL.Func([], [Result_9], ['query']),
     'getSystemHealth' : IDL.Func(
         [],
         [
@@ -333,27 +334,32 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'init' : IDL.Func([], [], []),
-    'listAuthorized' : IDL.Func([], [Result_7], ['query']),
-    'nextDispatchJobs' : IDL.Func([IDL.Nat], [Result_6], []),
+    'listAuthorized' : IDL.Func([], [Result_8], ['query']),
+    'nextDispatchJobs' : IDL.Func([IDL.Nat], [Result_7], []),
     'notifyAlias' : IDL.Func(
         [IDL.Text, IDL.Text, MessageContent],
-        [Result_5],
+        [Result_6],
         [],
       ),
     'notifyPrincipal' : IDL.Func(
         [IDL.Principal, IDL.Text, MessageContent],
-        [Result_5],
+        [Result_6],
         [],
       ),
     'ping' : IDL.Func([], [IDL.Text], ['query']),
     'processMessage' : IDL.Func(
         [IDL.Text, IDL.Text, MessageContent],
-        [Result_5],
+        [Result_6],
         [],
       ),
-    'processScheduledJobs' : IDL.Func([], [Result_4], []),
+    'processScheduledJobs' : IDL.Func([], [Result_5], []),
     'registerUsername' : IDL.Func([IDL.Text], [Result], []),
     'removeAuthorizedSelf' : IDL.Func([], [Result], []),
+    'requestEmailVerification' : IDL.Func(
+        [IDL.Text, IDL.Opt(IDL.Bool)],
+        [Result_3],
+        [],
+      ),
     'requestTelegramVerification' : IDL.Func(
         [IDL.Opt(IDL.Bool)],
         [Result_3],
