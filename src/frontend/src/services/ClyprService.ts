@@ -907,6 +907,94 @@ export class ClyprService {
       }
     }
   }
+
+  // Email verification helpers
+  async requestEmailVerification(email: string, createPlaceholder: boolean = true): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
+    if (!this.actor) throw new Error('Actor not initialized');
+
+    // Fallback: if backend declarations don't include requestEmailVerification, create channel directly
+    if (typeof this.actor.requestEmailVerification !== 'function') {
+      console.warn('Actor does not expose requestEmailVerification; falling back to createChannel (no on-chain verification)');
+      try {
+        const channelId = await this.createChannel({
+          name: `Email: ${email}`,
+          description: '',
+          channelType: { email: null },
+          config: { email: { provider: 'smtp', fromAddress: email, smtp: [] as any[] } },
+          retryConfig: { maxAttempts: 3, backoffMs: 1000, timeoutMs: 5000 },
+          validationConfig: {
+            contentLimits: { maxTitleLength: 200, maxBodyLength: 5000, maxMetadataCount: 10, allowedContentTypes: ['text/plain'] },
+            rateLimit: { windowMs: 60000, maxRequests: 100, perChannel: true }
+          },
+          isActive: false
+        } as any);
+        return { token: '', expiresAt: Date.now(), channelId: channelId ?? undefined };
+      } catch (err) {
+        console.error('Fallback email channel creation failed:', err);
+        return undefined;
+      }
+    }
+
+    const parse = (payload: any) => {
+      if (!payload) return undefined;
+      if (typeof payload === 'string') return { token: payload, expiresAt: Date.now() + 15 * 60 * 1000 };
+      if (payload.ok) return parse(payload.ok);
+      if (payload.token) {
+        const token = String(payload.token);
+        const expiresAtRaw = payload.expiresAt ?? Date.now() + 15 * 60 * 1000;
+        const expiresAt = typeof expiresAtRaw === 'bigint' ? Number(expiresAtRaw) : Number(expiresAtRaw);
+        let channelId: number | undefined;
+        if (Array.isArray(payload.channelId) && payload.channelId.length > 0) channelId = Number(payload.channelId[0]);
+        if (typeof payload.channelId === 'number') channelId = payload.channelId;
+        return { token, expiresAt, channelId };
+      }
+      if (Array.isArray(payload) && payload.length > 0) return parse(payload[0]);
+      return undefined;
+    };
+
+    const call = async (opt?: boolean) => {
+      // actor.requestEmailVerification(email, Opt(Bool))
+      if (typeof opt === 'undefined') return await this.actor.requestEmailVerification(email);
+      return await this.actor.requestEmailVerification(email, [opt]);
+    };
+
+    try {
+      const res = await call(createPlaceholder);
+      if (res && 'ok' in res) return parse(res.ok as any);
+      if (res && 'err' in res) { console.error('requestEmailVerification err:', res.err); return undefined; }
+      return parse(res as any);
+    } catch (e) {
+      try {
+        const f = await call();
+        if (f && 'ok' in f) return parse(f.ok as any);
+        if (f && 'err' in f) { console.error('requestEmailVerification fallback err:', f.err); return undefined; }
+        return parse(f as any);
+      } catch (e2) {
+        console.error('requestEmailVerification failed:', e, e2);
+        return undefined;
+      }
+    }
+  }
+
+  async confirmEmailVerification(token: string): Promise<boolean> {
+    if (!this.actor) throw new Error('Actor not initialized');
+
+    if (typeof this.actor.confirmEmailVerification !== 'function') {
+      console.warn('Actor does not expose confirmEmailVerification; cannot confirm token on-chain');
+      return false;
+    }
+
+    try {
+      const res = await this.actor.confirmEmailVerification(token);
+      if (!res) return false;
+      if ('ok' in res) return !!res.ok;
+      if ('err' in res) { console.error('confirmEmailVerification err:', res.err); return false; }
+      return !!res;
+    } catch (err) {
+      console.error('confirmEmailVerification error:', err);
+      return false;
+    }
+  }
   
   async getChannel(channelId: number): Promise<Channel | undefined> {
     const result = await this.actor.getChannel(channelId);

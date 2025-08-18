@@ -13,7 +13,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
     // Derive channel type robustly from backend variant (e.g. { email: null } or { custom: "x" })
     (() => {
       const ct = initialChannel?.channelType;
-      if (!ct) return 'email';
+      if (!ct) return 'telegram';
       if (typeof ct === 'string') return ct;
       if (typeof ct === 'object') {
         const keys = Object.keys(ct);
@@ -77,6 +77,10 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
   const { service, loadChannels } = useClypr() as any;
   const [telegramToken, setTelegramToken] = (React as any).useState<string | null>(null);
   const [telegramLoading, setTelegramLoading] = (React as any).useState(false);
+  // Email verification state (simple flow)
+  const [emailAddress, setEmailAddress] = (React as any).useState(initialChannel?.config?.email?.fromAddress || '');
+  const [emailToken, setEmailToken] = (React as any).useState<string | null>(null);
+  const [emailLoading, setEmailLoading] = (React as any).useState(false);
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
@@ -84,7 +88,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       ? { custom: customType }
       : { [channelType]: null };
 
-        // If Telegram selected, start verification flow instead of creating channel on-chain here.
+    // If Telegram selected, start verification flow instead of creating channel on-chain here.
     if (channelType === 'telegram') {
       // Trigger the same connect flow as the dedicated button
       (async () => {
@@ -102,7 +106,34 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
       return;
     }
 
-        // Normalize optionals and variants to avoid double-wrapping
+    // If Email selected, use verification flow instead of collecting SMTP details.
+    if (channelType === 'email') {
+      (async () => {
+        try {
+          if (!service) return;
+          if (typeof service.requestEmailVerification !== 'function') {
+            console.error('Actor method requestEmailVerification not available. Regenerate backend declarations and rebuild the frontend.');
+            return;
+          }
+          setEmailLoading(true);
+          const resp = await service.requestEmailVerification(emailAddress, true);
+          if (resp) {
+            // Show token locally if returned and reload channels if placeholder created
+            setEmailToken(resp.token);
+            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
+              await loadChannels();
+            }
+          }
+        } catch (err) {
+          console.error('Failed to request email verification', err);
+        } finally {
+          setEmailLoading(false);
+        }
+      })();
+      return;
+    }
+
+    // Normalize optionals and variants to avoid double-wrapping
     const smtpRaw = config.email?.smtp;
     // Convert smtp object back to opt array for backend
     const smtpOpt = smtpRaw && !Array.isArray(smtpRaw) ? [smtpRaw] : (Array.isArray(smtpRaw) ? smtpRaw : []);
@@ -251,11 +282,11 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                   value={channelType}
                   onChange={(e) => handleChannelTypeChange((e as any).target.value)}
                 >
-                  {/* <option value="email">Email (SMTP)</option> */}
-                  {/* <option value="sms">SMS</option> */}
+                  {/* <option value="email">Email (SMTP)</option>
+                  <option value="sms">SMS</option> */}
                   <option value="telegram">Telegram</option>
                   <option value="webhook">Webhook</option>
-                  <option value="mail">Email</option>
+                  <option value="email">Email</option>
                   {/* <option value="push">Push Notification</option> */}
                   {/* <option value="custom">Custom</option> */}
                 </select>
@@ -295,88 +326,67 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
               {channelType === 'email' && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block mb-2 font-medium">From Address *</label>
+                    <label className="block mb-2 font-medium">Email Address *</label>
                     <Input
-                      value={config.email?.fromAddress || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        email: { ...config.email, fromAddress: e.target.value }
-                      })}
-                      placeholder="noreply@yourdomain.com"
+                      value={emailAddress}
+                      onChange={(e: any) => setEmailAddress(e.target.value)}
+                      placeholder="you@domain.com"
                     />
                   </div>
-                  {/* <div>
-                    <label className="block mb-2 font-medium">Reply To (Optional)</label>
-                    <Input
-                      value={config.email?.replyTo || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        email: { ...config.email, replyTo: e.target.value }
-                      })}
-                      placeholder="support@yourdomain.com"
-                    />
-                  </div> */}
-                  <div className="p-4 bg-neutral-950 rounded-md">
-                    <h4 className="font-medium mb-3">SMTP Settings</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block mb-1 text-sm">Host *</label>
-                        <Input
-                          value={config.email?.smtp?.host || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            email: {
-                              ...config.email,
-                              smtp: { ...config.email?.smtp, host: e.target.value }
+
+                  <div>
+                    <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-2 block">
+                      We'll send a short-lived verification token to this address. Once you receive it, paste it below to confirm and activate the channel.
+                    </Text>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={async () => {
+                        if (!service || typeof service.requestEmailVerification !== 'function') return;
+                        try {
+                          setEmailLoading(true);
+                          const resp = await service.requestEmailVerification(emailAddress, true);
+                          if (resp) {
+                            setEmailToken(resp.token);
+                            // If placeholder channel was created, reload channels
+                            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
+                              await loadChannels();
                             }
-                          })}
-                          placeholder="smtp.gmail.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-sm">Port *</label>
-                        <Input
-                          value={config.email?.smtp?.port || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            email: {
-                              ...config.email,
-                              smtp: { ...config.email?.smtp, port: parseInt(e.target.value) || 587 }
-                            }
-                          })}
-                          type="number"
-                          placeholder="587"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-sm">Username *</label>
-                        <Input
-                          value={config.email?.smtp?.username || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            email: {
-                              ...config.email,
-                              smtp: { ...config.email?.smtp, username: e.target.value }
-                            }
-                          })}
-                          placeholder="username@gmail.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-sm">Password *</label>
-                        <Input
-                          value={config.email?.smtp?.password || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            email: {
-                              ...config.email,
-                              smtp: { ...config.email?.smtp, password: e.target.value }
-                            }
-                          })}
-                          type="password"
-                          placeholder="••••••••"
-                        />
-                      </div>
+                          }
+                        } catch (err) {
+                          console.error('Failed to request email verification', err);
+                        } finally {
+                          setEmailLoading(false);
+                        }
+                      }} disabled={emailLoading || !emailAddress}>{emailLoading ? 'Sending...' : 'Send Verification'}</Button>
+
+                      {emailToken && (
+                        <div className="flex items-center gap-2">
+                          <input aria-label="email-token" className="font-mono p-2 bg-neutral-950 rounded-md" readOnly value={emailToken} />
+                          <Button onClick={() => { navigator.clipboard.writeText(emailToken || ''); }}>Copy</Button>
+                          <Button variant="ghost" onClick={() => setEmailToken(null)}>Done</Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 font-medium">Enter verification token</label>
+                    <div className="flex items-center gap-2">
+                      <Input id="email-confirm-token" placeholder="Enter token..." />
+                      <Button onClick={async () => {
+                        const input: any = document.getElementById('email-confirm-token') as HTMLInputElement;
+                        const token = input?.value?.trim();
+                        if (!token) return;
+                        try {
+                          if (!service || typeof service.confirmEmailVerification !== 'function') return;
+                          const res = await service.confirmEmailVerification(token);
+                          if (res) {
+                            setEmailToken(null);
+                            if (typeof loadChannels === 'function') await loadChannels();
+                          }
+                        } catch (err) {
+                          console.error('Failed to confirm email token', err);
+                        }
+                      }}>Confirm</Button>
                     </div>
                   </div>
                 </div>
@@ -764,6 +774,23 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: 
                         ...validationConfig,
                         rateLimit: {
                           ...validationConfig.rateLimit,
+                          maxRequests: parseInt(e.target.value) || 100
+                        }
+                      })}
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-sm">Per Channel</label>
+                    <select
+                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
+                      value={validationConfig.rateLimit.perChannel ? 'true' : 'false'}
+                      onChange={(e) => setValidationConfig({
+                        ...validationConfig,
+                        rateLimit: {
+                          ...validationConfig.rateLimit,
+                          perChannel: e.target.value === 'true'
+                        }
                           maxRequests: parseInt(e.target.value) || 100
                         }
                       })}
