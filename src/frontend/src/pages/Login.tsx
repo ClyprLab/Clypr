@@ -108,9 +108,11 @@ const Login = () => {
             size="lg"
             className="mb-6"
           >
-            <Lock className="mr-2 h-5 w-5" />
-            Login with Internet Identity
-            <ArrowRight className="ml-2 h-5 w-5" />
+            <div className="flex">
+              <Lock className="mr-2 h-5 w-5" />
+              Login with Internet Identity
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </div>
           </Button>
           
           {/* Info */}

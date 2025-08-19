@@ -85,10 +85,13 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
     <aside
       className={cn(
         'h-full border-r border-neutral-800/50 py-4 flex flex-col overflow-hidden z-50',
-        'bg-gradient-to-b from-neutral-950 to-neutral-900/50 backdrop-blur-sm',
-        collapsed
-          ? 'fixed top-0 left-0 bottom-0 w-[280px] -translate-x-full shadow-none md:w-[240px] md:translate-x-0'
-          : 'fixed top-0 left-0 bottom-0 w-[280px] translate-x-0 shadow-xl md:w-[240px] md:translate-x-0'
+        'bg-gradient-to-b from-neutral-950 to-neutral-900/50 backdrop-blur-sm transition-all duration-200 flex-shrink-0',
+        // Width: collapsed -> narrow on desktop; expanded -> full width
+        collapsed ? 'w-16 md:w-20' : 'w-[280px] md:w-[240px]',
+        // Mobile behavior: when collapsed hide off-canvas, when open show
+        collapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0',
+        // Add shadow when expanded on desktop
+        !collapsed && 'shadow-xl'
       )}
     >
       {/* Logo Section */}
@@ -132,29 +135,33 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                     : 'text-neutral-400 hover:border-neutral-700'
                 )}
               >
-                <Icon className={cn(
-                  'flex-shrink-0 transition-all duration-200',
-                  collapsed ? 'h-5 w-5' : 'h-5 w-5 mr-3',
-                  (isActive || item.isActive) && 'text-cyan-400'
-                )} />
-                
-                {!collapsed && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate">{item.label}</span>
-                      {(isActive || item.isActive) && (
-                        <ChevronRight className="h-4 w-4 text-cyan-400" />
-                      )}
-                    </div>
-                    <p className="text-xs text-neutral-500 truncate">
-                      {item.description}
-                    </p>
-                  </div>
-                )}
+                {({ isActive }) => (
+                  <>
+                    <Icon className={cn(
+                      'flex-shrink-0 transition-all duration-200',
+                      collapsed ? 'h-5 w-5' : 'h-5 w-5 mr-3',
+                      (isActive || item.isActive) && 'text-cyan-400'
+                    )} />
 
-                {/* Active indicator */}
-                {(isActive || item.isActive) && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-cyan-400 to-fuchsia-500 rounded-r-full" />
+                    {!collapsed && (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{item.label}</span>
+                          {(isActive || item.isActive) && (
+                            <ChevronRight className="h-4 w-4 text-cyan-400" />
+                          )}
+                        </div>
+                        <p className="text-xs text-neutral-500 truncate">
+                          {item.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Active indicator */}
+                    {(isActive || item.isActive) && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-cyan-400 to-fuchsia-500 rounded-r-full" />
+                    )}
+                  </>
                 )}
               </NavLink>
             );
@@ -162,7 +169,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
         </div>
 
         {/* Quick Actions */}
-        {!collapsed && (
+        {/* {!collapsed && (
           <div className="mt-6 px-3">
             <div className="rounded-lg bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 border border-cyan-500/20 p-3">
               <div className="flex items-center mb-2">
@@ -182,7 +189,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
               </div>
             </div>
           </div>
-        )}
+        )} */}
       </nav>
 
       {/* User Profile */}

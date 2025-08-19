@@ -1,836 +1,539 @@
-import React from 'react';
+import * as React from 'react';
+import { Mail, MessageSquare, Globe, Smartphone, Check, X, Loader2 } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
-import Text from '../UI/Text';
 import Input from '../UI/Input';
-import { ChannelConfig, ValidationConfig } from '../../services/ClyprService';
 import { useClypr } from '../../hooks/useClypr';
+import { cn } from '../../utils/cn';
 
-const ChannelForm = ({ initialChannel, onSubmit, onCancel, isLoading = false }: any) => {
-  const [name, setName] = (React as any).useState(initialChannel?.name || '');
-  const [description, setDescription] = (React as any).useState(initialChannel?.description || '');
-  const [channelType, setChannelType] = (React as any).useState(
-    // Derive channel type robustly from backend variant (e.g. { email: null } or { custom: "x" })
-    (() => {
-      const ct = initialChannel?.channelType;
-      if (!ct) return 'telegram';
-      if (typeof ct === 'string') return ct;
-      if (typeof ct === 'object') {
-        const keys = Object.keys(ct);
-        if (keys.length > 0) return keys[0] === 'custom' ? 'custom' : keys[0];
-      }
-      return 'email';
-    })()
-  );
-  const [customType, setCustomType] = (React as any).useState(
-    // If backend provided a custom variant like { custom: "mytype" }
-    (initialChannel && typeof initialChannel.channelType === 'object' && 'custom' in initialChannel.channelType)
-      ? (initialChannel.channelType as any).custom || ''
-      : ''
-  );
-  const [isActive, setIsActive] = (React as any).useState(initialChannel?.isActive ?? true);
-  const [config, setConfig] = (React as any).useState(() => {
-    // Expect backend to return a ChannelConfig variant (e.g. { email: {...} })
-    const base = initialChannel?.config || {
-      email: {
-        provider: 'smtp',
-        fromAddress: '',
-        apiKey: [],
-        replyTo: [],
-        smtp: {
-          host: '',
-          port: 587,
-          username: '',
-          password: '',
-          useTLS: true
-        }
-      }
+type ChannelType = 'email' | 'telegram' | 'webhook' | 'sms' | 'push' | 'custom';
+
+interface ChannelConfig {
+  email?: {
+    fromAddress: string;
+    provider?: string;
+    apiKey?: string;
+    smtp?: {
+      host: string;
+      port: number;
+      username: string;
+      password: string;
+      useTLS: boolean;
     };
-    // If smtp is coming as an opt array from backend, unwrap it
-    if (base?.email?.smtp && Array.isArray(base.email.smtp)) {
-      base.email.smtp = base.email.smtp[0] || {
-        host: '',
-        port: 587,
-        username: '',
-        password: '',
-        useTLS: true
+  };
+  webhook?: {
+    url: string;
+    method?: string;
+    headers?: [string, string][];
+    authType?: {
+      none?: null;
+      basic?: { username: string; password: string };
+      bearer?: string;
+    };
+    secret?: string;
+  };
+  telegram?: {
+    chatId?: string;
+  };
+  sms?: {
+    provider: string;
+    apiKey: string;
+    fromNumber: string;
+    webhookUrl?: string;
+  };
+  [key: string]: any;
+}
+
+interface ChannelFormData {
+  name: string;
+  description: string;
+  channelType: ChannelType;
+  config: ChannelConfig;
+  isActive: boolean;
+}
+
+interface ChannelFormProps {
+  initialChannel?: ChannelFormData & { id?: number; createdAt?: Date; updatedAt?: Date };
+  onSubmit?: (data: ChannelFormData) => Promise<boolean>;
+  onCancel: () => void;
+  onSuccess?: () => void;
+}
+
+const CHANNEL_TYPES = [
+  { id: 'email' as ChannelType, label: 'Email', icon: Mail },
+  { id: 'telegram' as ChannelType, label: 'Telegram', icon: MessageSquare },
+  { id: 'webhook' as ChannelType, label: 'Webhook', icon: Globe },
+  { id: 'sms' as ChannelType, label: 'SMS', icon: Smartphone },
+];
+
+const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => {
+   const { service } = useClypr();
+   
+   // Form state
+   const [formData, setFormData] = (React as any).useState({
+    name: initialChannel?.name || '',
+    description: initialChannel?.description || '',
+    channelType: initialChannel?.channelType || 'email',
+    isActive: initialChannel?.isActive ?? true,
+    config: initialChannel?.config || {},
+  });
+   
+   // UI State
+   const [isSubmitting, setIsSubmitting] = (React as any).useState(false);
+   const [status, setStatus] = (React as any).useState({ type: 'idle' as any });
+   const [placeholderChannelId, setPlaceholderChannelId] = (React as any).useState(initialChannel && !initialChannel.isActive ? initialChannel.id : null as number | null);
+
+  // Derived flags for existing/unverified channels
+  const hasEmailConfig = !!(formData?.config && (formData.config as any).email && (formData.config as any).email.fromAddress);
+  const channelTypeIsTelegram = (typeof formData.channelType === 'string' && formData.channelType === 'telegram') || (typeof formData.channelType === 'object' && formData.channelType && Object.keys(formData.channelType)[0] === 'telegram');
+  const editingUnverified = initialChannel && !initialChannel.isActive && (hasEmailConfig || channelTypeIsTelegram);
+
+  // Allow resending verification for an existing placeholder (don't create a new placeholder)
+  const resendEmailVerification = async () => {
+    const from = formData.config?.email?.fromAddress || '';
+    if (!service?.requestEmailVerification) {
+      setStatus({ type: 'error', message: 'Email service not available' });
+      return;
+    }
+    if (!from) {
+      setStatus({ type: 'error', message: 'No email configured to resend to' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Resending verification...' });
+    try {
+      const resp = await service.requestEmailVerification(from, false);
+      if (!resp) throw new Error('Failed to resend verification');
+      setStatus({ type: 'success', message: 'Verification email resent. Check the inbox.' });
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: err?.message || 'Failed to resend verification' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const reconnectTelegram = async () => {
+    if (!service?.requestTelegramVerification) {
+      setStatus({ type: 'error', message: 'Telegram service not available' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Preparing Telegram connection...' });
+    try {
+      const resp = await service.requestTelegramVerification(false);
+      if (!resp?.token) throw new Error('Failed to get Telegram token');
+      window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+      setStatus({ type: 'success', message: 'Telegram connect link opened. Complete the flow in the Telegram app.' });
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: err?.message || 'Failed to reconnect Telegram' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Refresh the placeholder channel status from the server. If activated, notify parent to close.
+  const refreshPlaceholderStatus = async () => {
+    const id = placeholderChannelId || initialChannel?.id;
+    if (!id) return;
+    if (!service?.getChannel) {
+      setStatus({ type: 'error', message: 'Service unavailable' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Checking channel status...' });
+    try {
+      const ch = await service.getChannel(Number(id));
+      if (!ch) throw new Error('Channel not found');
+      if (ch.isActive) {
+        setStatus({ type: 'success', message: 'Channel verified and active.' });
+        // Notify parent to reload and close
+        onSuccess?.(true);
+        return;
+      }
+      // still pending
+      setStatus({ type: 'verifying', message: 'Still pending verification. Check your inbox or Telegram.' });
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: err?.message || 'Failed to refresh channel status' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Note: do not auto-close the overlay on success for verification flows.
+  // Parent is informed via onSuccess(shouldClose?: boolean)
+
+  const handleSubmit = async (e: any) => {
+     e.preventDefault();
+     if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Saving channel...' });
+
+    try {
+      const { channelType, ...rest } = formData;
+      const channelPayload = {
+        ...rest,
+        channelType: { [channelType]: null },
       };
-    }
-    return base;
-  });
 
-  const [validationConfig, setValidationConfig] = (React as any).useState({
-    contentLimits: {
-      maxTitleLength: 200,
-      maxBodyLength: 5000,
-      maxMetadataCount: 10,
-      allowedContentTypes: ['text/plain', 'text/html', 'application/json']
-    },
-    rateLimit: {
-      windowMs: 60000,
-      maxRequests: 100,
-      perChannel: true
-    }
-  });
+      // Handle special channel types
+      if (channelType === 'email') {
+        if (!service?.requestEmailVerification) throw new Error('Email service not available');
+        const resp = await service.requestEmailVerification(formData.config.email?.fromAddress || '', true);
+        if (!resp) throw new Error('Failed to initiate email verification');
 
-  // Telegram verification state
-  const { service, loadChannels } = useClypr() as any;
-  const [telegramToken, setTelegramToken] = (React as any).useState<string | null>(null);
-  const [telegramLoading, setTelegramLoading] = (React as any).useState(false);
-  // Email verification state (simple flow)
-  const [emailAddress, setEmailAddress] = (React as any).useState(initialChannel?.config?.email?.fromAddress || '');
-  const [emailToken, setEmailToken] = (React as any).useState<string | null>(null);
-  const [emailLoading, setEmailLoading] = (React as any).useState(false);
-
-  const handleSubmit = (e: any) => {
-    e.preventDefault();
-    const finalChannelType = channelType === 'custom' 
-      ? { custom: customType }
-      : { [channelType]: null };
-
-    // If Telegram selected, start verification flow instead of creating channel on-chain here.
-    if (channelType === 'telegram') {
-      // Trigger the same connect flow as the dedicated button
-      (async () => {
-        if (!service || typeof service.requestTelegramVerification !== 'function') return;
-        try {
-          setTelegramLoading(true);
-          const token = await service.requestTelegramVerification();
-          if (token) setTelegramToken(token);
-        } catch (err) {
-          console.error('Failed to request telegram verification', err);
-        } finally {
-          setTelegramLoading(false);
+        // If the service created a placeholder channel, keep it visible and inform parent not to close
+        if (resp.channelId) {
+          setPlaceholderChannelId(Number(resp.channelId));
+          setStatus({ type: 'verifying', message: 'Email verification sent. Pending activation.' });
+          onSuccess?.(false);
+          return;
         }
-      })();
+
+        setStatus({ type: 'success', message: 'Email verification sent! Check your inbox to complete setup.' });
+        onSuccess?.(true);
+        return;
+      }
+
+      if (channelType === 'telegram') {
+        if (!service?.requestTelegramVerification) throw new Error('Telegram service not available');
+        const resp = await service.requestTelegramVerification(true);
+        if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
+
+        // Open Telegram bot in new tab
+        window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+
+        // If server created a placeholder channel, keep it visible and inform parent not to close
+        if (resp.channelId) {
+          setPlaceholderChannelId(Number(resp.channelId));
+          setStatus({ type: 'verifying', message: 'Telegram verification started. Pending activation.' });
+          onSuccess?.(false);
+          return;
+        }
+
+        setStatus({ type: 'success', message: 'Telegram verification started! Complete the setup in the Telegram app.' });
+        onSuccess?.(true);
+        return;
+      }
+
+      // For other channel types, use the provided onSubmit
+      if (onSubmit) {
+        const result = await onSubmit(channelPayload);
+        if (result?.error) throw new Error(result.error);
+      }
+
+      setStatus({
+        type: 'success',
+        message: 'Channel saved successfully!'
+      });
+
+      onSuccess?.(true);
+
+    } catch (error: any) {
+      console.error('Channel save error:', error);
+      setStatus({
+        type: 'error',
+        message: error?.message || 'Failed to save channel'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle form field changes
+  const handleChange = (field: string, value: any) => {
+     setFormData(prev => ({
+       ...prev,
+       [field]: value
+     }));
+   };
+  
+  // Handle config changes
+  const handleConfigChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      config: {
+        ...prev.config,
+        [field]: value
+      }
+    }));
+  };
+  
+  // Helper to initiate email verification directly from the form
+  const initiateEmailVerification = async () => {
+    if (!service?.requestEmailVerification) {
+      setStatus({ type: 'error', message: 'Email service not available' });
+      return;
+    }
+    const from = formData.config.email?.fromAddress || '';
+    if (!from) {
+      setStatus({ type: 'error', message: 'Please provide an email address' });
       return;
     }
 
-    // If Email selected, use verification flow instead of collecting SMTP details.
-    if (channelType === 'email') {
-      (async () => {
-        try {
-          if (!service) return;
-          if (typeof service.requestEmailVerification !== 'function') {
-            console.error('Actor method requestEmailVerification not available. Regenerate backend declarations and rebuild the frontend.');
-            return;
-          }
-          setEmailLoading(true);
-          const resp = await service.requestEmailVerification(emailAddress, true);
-          if (resp) {
-            // Show token locally if returned and reload channels if placeholder created
-            setEmailToken(resp.token);
-            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
-              await loadChannels();
-            }
-          }
-        } catch (err) {
-          console.error('Failed to request email verification', err);
-        } finally {
-          setEmailLoading(false);
-        }
-      })();
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Sending verification...' });
+    try {
+      const resp = await service.requestEmailVerification(from, true);
+      if (!resp) throw new Error('Failed to initiate email verification');
+      if (resp.channelId) {
+        setPlaceholderChannelId(Number(resp.channelId));
+        setStatus({ type: 'verifying', message: 'Email verification sent. Pending activation.' });
+        onSuccess?.(false);
+        return;
+      }
+      setStatus({ type: 'success', message: 'Email verification sent.' });
+      onSuccess?.(true);
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: err?.message || 'Failed to send verification' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Helper to initiate telegram verification
+  const initiateTelegramVerification = async () => {
+    if (!service?.requestTelegramVerification) {
+      setStatus({ type: 'error', message: 'Telegram service not available' });
       return;
     }
 
-    // Normalize optionals and variants to avoid double-wrapping
-    const smtpRaw = config.email?.smtp;
-    // Convert smtp object back to opt array for backend
-    const smtpOpt = smtpRaw && !Array.isArray(smtpRaw) ? [smtpRaw] : (Array.isArray(smtpRaw) ? smtpRaw : []);
-    const apiKeyRaw = config.email?.apiKey;
-    const apiKeyOpt = Array.isArray(apiKeyRaw) ? apiKeyRaw : apiKeyRaw ? [apiKeyRaw] : [];
-    const replyToRaw = config.email?.replyTo;
-    const replyToOpt = Array.isArray(replyToRaw) ? replyToRaw : replyToRaw ? [replyToRaw] : [];
-    const webhookUrlRaw = config.sms?.webhookUrl;
-    const webhookUrlOpt = Array.isArray(webhookUrlRaw) ? webhookUrlRaw : webhookUrlRaw ? [webhookUrlRaw] : [];
-    const pushPlatformRaw = config.push?.platform as any;
-    const pushPlatform = (pushPlatformRaw && typeof pushPlatformRaw === 'object')
-      ? pushPlatformRaw
-      : { [(pushPlatformRaw || 'fcm') as string]: null } as any;
-
-    // Create channel-specific config based on type
-    const processedConfig = channelType === 'email' ? {
-      email: {
-        provider: config.email?.provider || 'smtp',
-        apiKey: apiKeyOpt,
-        fromAddress: config.email?.fromAddress || '',
-        replyTo: replyToOpt,
-        smtp: smtpOpt.length ? smtpOpt : []
+    setIsSubmitting(true);
+    setStatus({ type: 'loading', message: 'Preparing Telegram connection...' });
+    try {
+      const resp = await service.requestTelegramVerification(true);
+      if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
+      // Open Telegram bot in new tab
+      window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+      if (resp.channelId) {
+        setPlaceholderChannelId(Number(resp.channelId));
+        setStatus({ type: 'verifying', message: 'Telegram verification started. Pending activation.' });
+        onSuccess?.(false);
+        return;
       }
-    } : channelType === 'sms' ? {
-      sms: {
-        provider: config.sms?.provider || '',
-        apiKey: config.sms?.apiKey || '',
-        fromNumber: config.sms?.fromNumber || '',
-        webhookUrl: webhookUrlOpt
-      }
-    } : channelType === 'webhook' ? {
-      webhook: {
-        url: config.webhook?.url || '',
-        method: config.webhook?.method || 'POST',
-        headers: config.webhook?.headers || [],
-        authType: config.webhook?.authType || { none: null },
-        retryCount: config.webhook?.retryCount || 3
-      }
-    } : channelType === 'push' ? {
-      push: {
-        provider: config.push?.provider || '',
-        apiKey: config.push?.apiKey || '',
-        appId: config.push?.appId || '',
-        platform: pushPlatform
-      }
-    } : {
-      custom: config.custom || []
-    };
-
-    onSubmit({
-      name,
-      description: description || undefined,
-      channelType: finalChannelType,
-      config: processedConfig,
-      validationConfig,
-      isActive
-    });
+      setStatus({ type: 'success', message: 'Telegram verification started.' });
+      onSuccess?.(true);
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: err?.message || 'Failed to start Telegram verification' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const addConfigItem = () => setConfig([...config, ['', '']]);
-  const removeConfigItem = (index: number) => setConfig(config.filter((_: any, i: number) => i !== index));
-  const updateConfigItem = (index: number, keyOrValue: 0 | 1, value: string) => {
-    const updated = [...config];
-    updated[index][keyOrValue] = value;
-    setConfig(updated);
-  };
+  // Render config block for the selected channel type
+  const getChannelConfig = () => {
+     const { channelType, config } = formData;
 
-  const getChannelTypeInfo = () => {
     switch (channelType) {
       case 'email':
-        return 'Configure SMTP settings for email delivery. Required: host, port, username, password.';
-      case 'sms':
-        return 'Configure SMS gateway settings. Required: api_key, phone_number, service_url.';
-      case 'webhook':
-        return 'Configure webhook endpoint. Required: url, method, headers (optional).';
-      case 'push':
-        return 'Configure push notification service. Required: api_key, app_id, service_url.';
-      case 'custom':
-        return 'Configure custom channel with your own parameters.';
+        return (
+          <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Email Address</label>
+              <Input aria-label="email-address" value={config.email?.fromAddress || ''} onChange={(e: any) => handleNestedConfigChange('email', 'fromAddress', e.target.value)} placeholder="you@domain.com" disabled={isSubmitting} />
+            </div>
+            <div>
+              <Button type="button" variant="outline" className="w-full" onClick={initiateEmailVerification} disabled={isSubmitting || !config.email?.fromAddress}>{status.type === 'loading' ? 'Sending...' : 'Send Verification'}</Button>
+              <div className="text-xs text-neutral-400 mt-2">When you send verification a placeholder channel will be created. Confirm the token to activate.</div>
+            </div>
+          </div>
+        );
+
       case 'telegram':
-        return 'Connect and configure Telegram bot for messaging.';
+        return (
+          <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/20 rounded-lg">
+                <MessageSquare className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <h4 className="font-medium text-white">Connect Telegram</h4>
+                <p className="text-sm text-neutral-400">Link your Telegram account to receive notifications</p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" className="w-full" disabled={isSubmitting} onClick={initiateTelegramVerification}>{status.type === 'loading' ? 'Connecting...' : 'Connect Telegram'}</Button>
+          </div>
+        );
+
+      case 'webhook':
+        return (
+          <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Webhook URL</label>
+              <Input aria-label="webhook-url" value={config.webhook?.url || ''} onChange={(e: any) => handleNestedConfigChange('webhook', 'url', e.target.value)} placeholder="https://your-host/api/webhook" disabled={isSubmitting} />
+            </div>
+          </div>
+        );
+
       default:
-        return '';
+        return null;
     }
   };
+  
+  // Add this function to handle nested config changes
+  const handleNestedConfigChange = (channelType: any, field: string, value: any) => {
+     setFormData(prev => ({
+       ...prev,
+       config: {
+         ...prev.config,
+         [channelType]: {
+           ...(prev.config as any)[channelType],
+           [field]: value
+         }
+       }
+     }));
+   };
+  
+  // Status message component
+  const StatusMessage = () => {
+     if (status.type === 'idle') return null;
 
-  const getDefaultConfig = (type: string) => {
-    // Return object-shaped ChannelConfig matching the runtime code above
-    switch (type) {
-      case 'email':
-        return {
-          email: {
-            provider: 'smtp',
-            apiKey: [],
-            fromAddress: '',
-            replyTo: [],
-            smtp: { host: '', port: 587, username: '', password: '', useTLS: true }
-          }
-        };
-      case 'sms':
-        return { sms: { provider: '', apiKey: '', fromNumber: '', webhookUrl: '' } };
-      case 'webhook':
-        return { webhook: { url: '', method: 'POST', headers: [], authType: { none: null }, retryCount: 3 } };
-      case 'push':
-        return { push: { provider: '', apiKey: '', appId: '', platform: 'fcm' } };
-      case 'telegram':
-        return { telegram: { botToken: '', chatId: '' } };
-      default:
-        return { custom: [] };
-    }
-  };
+    const statusIcons = {
+      loading: <Loader2 className="h-4 w-4 animate-spin" />,
+      success: <Check className="h-4 w-4 text-green-500" />,
+      error: <X className="h-4 w-4 text-red-500" />,
+    } as any;
 
-  const handleChannelTypeChange = (newType: string) => {
-    setChannelType(newType);
-    // Only replace config when switching between concrete types; keep existing config for custom edits
-    if (newType !== 'custom') setConfig(getDefaultConfig(newType));
+    return (
+      <div className={cn(
+        'p-3 rounded-md text-sm flex items-start gap-2',
+        status.type === 'error' ? 'bg-red-900/20 text-red-400' : 
+        status.type === 'success' || status.type === 'verifying' ? 'bg-green-900/20 text-green-400' :
+        'bg-blue-900/20 text-blue-400'
+      )}>
+        <div className="mt-0.5">
+          {statusIcons[status.type]}
+        </div>
+        <div className="flex-1">
+          {status.message || 
+            (status.type === 'success' ? 'Operation completed successfully' : 
+             status.type === 'error' ? 'An error occurred' : 'Processing...')}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="max-w-[600px] mx-auto">
-      <Card className="p-4 md:p-6">
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <h3 className="text-lg mb-4">Basic Information</h3>
-
-            <div className="mb-4">
-              <label className="block mb-2 font-medium">Channel Name *</label>
-              <Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="e.g., Primary Email Gateway" required />
-            </div>
-
-            <div className="mb-4">
-              <label className="block mb-2 font-medium">Description</label>
-              <textarea
-                className="w-full h-24 rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
-                value={description}
-                onChange={(e) => setDescription((e as any).target.value)}
-                placeholder="Describe this channel's purpose..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-2 font-medium">Channel Type *</label>
-                <select
-                  className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                  value={channelType}
-                  onChange={(e) => handleChannelTypeChange((e as any).target.value)}
-                >
-                  {/* <option value="email">Email (SMTP)</option>
-                  <option value="sms">SMS</option> */}
-                  <option value="telegram">Telegram</option>
-                  <option value="webhook">Webhook</option>
-                  <option value="email">Email</option>
-                  {/* <option value="push">Push Notification</option> */}
-                  {/* <option value="custom">Custom</option> */}
-                </select>
-
-                {channelType === 'custom' && (
-                  <div className="mt-2">
-                    <Input value={customType} onChange={(e: any) => setCustomType(e.target.value)} placeholder="Custom channel type..." required />
-                  </div>
-                )}
+    <div className="max-w-3xl mx-auto p-4 md:p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white mb-1">
+          {initialChannel ? 'Edit Channel' : 'Create Channel'}
+        </h1>
+        <p className="text-neutral-400">
+          Configure how you want to receive notifications
+        </p>
+      </div>
+      
+      {/* Guidance for editing an existing unverified/placeholder channel or newly-created placeholder */}
+      {(editingUnverified || placeholderChannelId) && (
+        <div className="mb-4 p-4 rounded-md bg-yellow-900/10 border border-yellow-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm text-yellow-300 font-medium">
+                {formData.channelType === 'email' || hasEmailConfig
+                  ? `Verification email sent to ${formData.config?.email?.fromAddress || 'your address'}`
+                  : 'Telegram verification initiated'}
+                { (placeholderChannelId || initialChannel?.id) ? ` — ID: ${placeholderChannelId || initialChannel?.id}` : '' }
               </div>
-
-              <div>
-                <label className="block mb-2 font-medium">Status</label>
-                <select
-                  className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                  value={isActive ? 'active' : 'inactive'}
-                  onChange={(e) => setIsActive(((e as any).target.value) === 'active')}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+              <div className="text-xs text-neutral-400 mt-1">
+                {formData.channelType === 'email' || hasEmailConfig
+                  ? 'A placeholder channel has been created while you confirm the verification token. After verifying, click Refresh.'
+                  : 'Open Telegram and complete the bot flow. After completing, click Refresh.'}
               </div>
             </div>
-
-            <div className="mt-3 p-3 rounded-md bg-neutral-900/50 text-sm text-neutral-300">
-              {getChannelTypeInfo()}
+            <div className="flex items-center gap-2">
+              { (formData.channelType === 'email' || hasEmailConfig) && (
+                <Button variant="ghost" size="sm" onClick={resendEmailVerification} disabled={isSubmitting}>Resend Email</Button>
+              )}
+              { channelTypeIsTelegram && (
+                <Button variant="ghost" size="sm" onClick={reconnectTelegram} disabled={isSubmitting}>Open Telegram</Button>
+              )}
+              <Button variant="secondary" size="sm" onClick={refreshPlaceholderStatus} disabled={isSubmitting}>Refresh</Button>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="mb-6">
-            <h3 className="text-lg mb-2">Channel Configuration</h3>
-            <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
-              Configure the connection parameters for this channel.
-            </Text>
-
-            <div className="rounded-md border border-neutral-800 p-3 bg-neutral-900/30">
-              {channelType === 'email' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 font-medium">Email Address *</label>
-                    <Input
-                      value={emailAddress}
-                      onChange={(e: any) => setEmailAddress(e.target.value)}
-                      placeholder="you@domain.com"
-                    />
-                  </div>
-
-                  <div>
-                    <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-2 block">
-                      We'll send a short-lived verification token to this address. Once you receive it, paste it below to confirm and activate the channel.
-                    </Text>
-                    <div className="flex items-center gap-2">
-                      <Button onClick={async () => {
-                        if (!service || typeof service.requestEmailVerification !== 'function') return;
-                        try {
-                          setEmailLoading(true);
-                          const resp = await service.requestEmailVerification(emailAddress, true);
-                          if (resp) {
-                            setEmailToken(resp.token);
-                            // If placeholder channel was created, reload channels
-                            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
-                              await loadChannels();
-                            }
-                          }
-                        } catch (err) {
-                          console.error('Failed to request email verification', err);
-                        } finally {
-                          setEmailLoading(false);
-                        }
-                      }} disabled={emailLoading || !emailAddress}>{emailLoading ? 'Sending...' : 'Send Verification'}</Button>
-
-                      {emailToken && (
-                        <div className="flex items-center gap-2">
-                          <input aria-label="email-token" className="font-mono p-2 bg-neutral-950 rounded-md" readOnly value={emailToken} />
-                          <Button onClick={() => { navigator.clipboard.writeText(emailToken || ''); }}>Copy</Button>
-                          <Button variant="ghost" onClick={() => setEmailToken(null)}>Done</Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block mb-2 font-medium">Enter verification token</label>
-                    <div className="flex items-center gap-2">
-                      <Input id="email-confirm-token" placeholder="Enter token..." />
-                      <Button onClick={async () => {
-                        const input: any = document.getElementById('email-confirm-token') as HTMLInputElement;
-                        const token = input?.value?.trim();
-                        if (!token) return;
-                        try {
-                          if (!service || typeof service.confirmEmailVerification !== 'function') return;
-                          const res = await service.confirmEmailVerification(token);
-                          if (res) {
-                            setEmailToken(null);
-                            if (typeof loadChannels === 'function') await loadChannels();
-                          }
-                        } catch (err) {
-                          console.error('Failed to confirm email token', err);
-                        }
-                      }}>Confirm</Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {channelType === 'sms' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 font-medium">Provider *</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={config.sms?.provider || ''}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        sms: { ...config.sms, provider: e.target.value }
-                      })}
-                    >
-                      <option value="">Select Provider</option>
-                      <option value="twilio">Twilio</option>
-                      <option value="messagebird">MessageBird</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">API Key *</label>
-                    <Input
-                      value={config.sms?.apiKey || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        sms: { ...config.sms, apiKey: e.target.value }
-                      })}
-                      type="password"
-                      placeholder="Your API Key"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">From Number *</label>
-                    <Input
-                      value={config.sms?.fromNumber || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        sms: { ...config.sms, fromNumber: e.target.value }
-                      })}
-                      placeholder="+1234567890"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Webhook URL (Optional)</label>
-                    <Input
-                      value={config.sms?.webhookUrl || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        sms: { ...config.sms, webhookUrl: e.target.value }
-                      })}
-                      placeholder="https://your-webhook.com/sms-status"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {channelType === 'webhook' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 font-medium">URL *</label>
-                    <Input
-                      value={config.webhook?.url || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        webhook: { ...config.webhook, url: e.target.value }
-                      })}
-                      placeholder="https://your-api.com/webhook"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Method *</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={config.webhook?.method || 'POST'}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        webhook: { ...config.webhook, method: e.target.value }
-                      })}
-                    >
-                      <option value="POST">POST</option>
-                      <option value="PUT">PUT</option>
-                      <option value="PATCH">PATCH</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Authentication</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm mb-3"
-                      value={Object.keys(config.webhook?.authType || { none: null })[0]}
-                      onChange={(e) => {
-                        const authType = e.target.value;
-                        setConfig({
-                          ...config,
-                          webhook: {
-                            ...config.webhook,
-                            authType: authType === 'none' ? { none: null } :
-                                     authType === 'basic' ? { basic: { username: '', password: '' } } :
-                                     authType === 'bearer' ? { bearer: '' } : { none: null }
-                          }
-                        });
-                      }}
-                    >
-                      <option value="none">None</option>
-                      <option value="basic">Basic Auth</option>
-                      <option value="bearer">Bearer Token</option>
-                    </select>
-
-                    {config.webhook?.authType?.basic && (
-                      <div className="space-y-3 p-3 bg-neutral-950 rounded-md">
-                        <Input
-                          value={config.webhook.authType.basic.username || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            webhook: {
-                              ...config.webhook,
-                              authType: {
-                                basic: {
-                                  ...config.webhook.authType.basic,
-                                  username: e.target.value
-                                }
-                              }
-                            }
-                          })}
-                          placeholder="Username"
-                        />
-                        <Input
-                          value={config.webhook.authType.basic.password || ''}
-                          onChange={(e: any) => setConfig({
-                            ...config,
-                            webhook: {
-                              ...config.webhook,
-                              authType: {
-                                basic: {
-                                  ...config.webhook.authType.basic,
-                                  password: e.target.value
-                                }
-                              }
-                            }
-                          })}
-                          type="password"
-                          placeholder="Password"
-                        />
-                      </div>
-                    )}
-
-                    {config.webhook?.authType?.bearer !== undefined && (
-                      <Input
-                        value={config.webhook.authType.bearer || ''}
-                        onChange={(e: any) => setConfig({
-                          ...config,
-                          webhook: {
-                            ...config.webhook,
-                            authType: { bearer: e.target.value }
-                          }
-                        })}
-                        placeholder="Bearer Token"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {channelType === 'push' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 font-medium">Provider *</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={config.push?.provider || ''}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        push: { ...config.push, provider: e.target.value }
-                      })}
-                    >
-                      <option value="">Select Provider</option>
-                      <option value="fcm">Firebase Cloud Messaging</option>
-                      <option value="apn">Apple Push Notification</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">API Key *</label>
-                    <Input
-                      value={config.push?.apiKey || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        push: { ...config.push, apiKey: e.target.value }
-                      })}
-                      type="password"
-                      placeholder="Your API Key"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">App ID *</label>
-                    <Input
-                      value={config.push?.appId || ''}
-                      onChange={(e: any) => setConfig({
-                        ...config,
-                        push: { ...config.push, appId: e.target.value }
-                      })}
-                      placeholder="com.example.app"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Platform *</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={config.push?.platform || 'fcm'}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        push: { ...config.push, platform: e.target.value as 'fcm' | 'apn' | 'webpush' }
-                      })}
-                    >
-                      <option value="fcm">Firebase Cloud Messaging</option>
-                      <option value="apn">Apple Push Notification</option>
-                      <option value="webpush">Web Push</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {channelType === 'custom' && (
-                <div>
-                  {(config.custom || []).map((item: [string, string], index: number) => (
-                    <div key={index} className="flex items-center gap-2 mb-2 p-2 rounded-md bg-neutral-950">
-                      <Input
-                        value={item[0]}
-                        onChange={(e: any) => {
-                          const newCustom = [...(config.custom || [])];
-                          newCustom[index][0] = e.target.value;
-                          setConfig({ ...config, custom: newCustom });
-                        }}
-                        placeholder="Parameter name..."
-                      />
-                      <Input
-                        value={item[1]}
-                        onChange={(e: any) => {
-                          const newCustom = [...(config.custom || [])];
-                          newCustom[index][1] = e.target.value;
-                          setConfig({ ...config, custom: newCustom });
-                        }}
-                        placeholder="Value..."
-                        type={item[0].toLowerCase().includes('password') ? 'password' : 'text'}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newCustom = [...(config.custom || [])];
-                          newCustom.splice(index, 1);
-                          setConfig({ ...config, custom: newCustom });
-                        }}
-                        className="bg-red-500 text-white rounded px-2 py-1 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-
-                  <Button
-                    onClick={() => setConfig({
-                      ...config,
-                      custom: [...(config.custom || []), ['', '']]
-                    })}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Add Parameter
-                  </Button>
-                </div>
-              )}
-
-              {channelType === 'telegram' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block mb-2 font-medium">Connect Telegram</label>
-                    <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
-                      Click Connect to request a short-lived verification token. Open the Clypr bot and start it using the link to complete verification.
-                    </Text>
-                    <div className="flex items-center gap-2">
-                      <Button onClick={async () => {
-                        if (!service || typeof service.requestTelegramVerification !== 'function') return;
-                        try {
-                          setTelegramLoading(true);
-                          const resp = await service.requestTelegramVerification(true);
-                          if (resp) {
-                            setTelegramToken(resp.token);
-                            // If placeholder channel was created, reload channels so it appears in the list
-                            if (typeof resp.channelId === 'number' && typeof loadChannels === 'function') {
-                              await loadChannels();
-                            }
-                          }
-                        } catch (err) {
-                          console.error('Failed to request telegram verification', err);
-                        } finally {
-                          setTelegramLoading(false);
-                        }
-                      }} disabled={telegramLoading}>{telegramLoading ? 'Preparing...' : 'Connect Telegram'}</Button>
-                      {telegramToken && (
-                        <div className="flex items-center gap-2">
-                          <a className="font-mono underline" href={`https://t.me/Clypr_bot?start=${encodeURIComponent(telegramToken)}`} target="_blank" rel="noreferrer">Open Clypr Bot</a>
-                          <input aria-label="telegram-token" className="font-mono p-2 bg-neutral-950 rounded-md" readOnly value={telegramToken} />
-                          <Button onClick={() => { navigator.clipboard.writeText(telegramToken || ''); }}>Copy</Button>
-                          <Button variant="ghost" onClick={() => { setTelegramToken(null); if (typeof loadChannels === 'function') loadChannels(); }}>Done</Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <StatusMessage />
+        
+        <Card className="p-6">
+          <div className="space-y-6">
+            {/* Channel Name */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">Channel Name *</label>
+              <Input value={formData.name} onChange={(e: any) => handleChange('name', e.target.value)} placeholder="e.g., Primary Email Gateway" required aria-label="Channel name" disabled={isSubmitting} />
             </div>
-          </div>
 
-          {/* Validation Configuration */}
-          {/* <div className="mb-6">
-            <h3 className="text-lg mb-2">Validation Configuration</h3>
-            <Text variant="body-sm" color="var(--color-text-secondary)" className="mb-3 block">
-              Configure content validation and rate limiting.
-            </Text>
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">Description (optional)</label>
+              <textarea className="w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 min-h-[80px]" value={formData.description} onChange={(e: any) => handleChange('description', e.target.value)} placeholder="What's this channel for?" disabled={isSubmitting} />
+            </div>
 
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-3">Content Limits</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-sm">Max Title Length</label>
-                    <Input
-                      type="number"
-                      value={validationConfig.contentLimits.maxTitleLength}
-                      onChange={(e: any) => setValidationConfig({
-                        ...validationConfig,
-                        contentLimits: {
-                          ...validationConfig.contentLimits,
-                          maxTitleLength: parseInt(e.target.value) || 200
-                        }
-                      })}
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">Max Body Length</label>
-                    <Input
-                      type="number"
-                      value={validationConfig.contentLimits.maxBodyLength}
-                      onChange={(e: any) => setValidationConfig({
-                        ...validationConfig,
-                        contentLimits: {
-                          ...validationConfig.contentLimits,
-                          maxBodyLength: parseInt(e.target.value) || 5000
-                        }
-                      })}
-                      min="1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-3">Rate Limiting</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block mb-2 text-sm">Window (ms)</label>
-                    <Input
-                      type="number"
-                      value={validationConfig.rateLimit.windowMs}
-                      onChange={(e: any) => setValidationConfig({
-                        ...validationConfig,
-                        rateLimit: {
-                          ...validationConfig.rateLimit,
-                          windowMs: parseInt(e.target.value) || 60000
-                        }
-                      })}
-                      min="1000"
-                      step="1000"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">Max Requests</label>
-                    <Input
-                      type="number"
-                      value={validationConfig.rateLimit.maxRequests}
-                      onChange={(e: any) => setValidationConfig({
-                        ...validationConfig,
-                        rateLimit: {
-                          ...validationConfig.rateLimit,
-                          maxRequests: parseInt(e.target.value) || 100
-                        }
-                      })}
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">Per Channel</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={validationConfig.rateLimit.perChannel ? 'true' : 'false'}
-                      onChange={(e) => setValidationConfig({
-                        ...validationConfig,
-                        rateLimit: {
-                          ...validationConfig.rateLimit,
-                          perChannel: e.target.value === 'true'
-                        }
-                          maxRequests: parseInt(e.target.value) || 100
-                        }
-                      })}
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">Per Channel</label>
-                    <select
-                      className="w-full h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"
-                      value={validationConfig.rateLimit.perChannel ? 'true' : 'false'}
-                      onChange={(e) => setValidationConfig({
-                        ...validationConfig,
-                        rateLimit: {
-                          ...validationConfig.rateLimit,
-                          perChannel: e.target.value === 'true'
-                        }
-                      })}
-                    >
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </select>
-                  </div>
-                </div>
+            {/* Channel Type */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-3">Channel Type <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-2 gap-3">
+                {CHANNEL_TYPES.map((type) => (
+                  <button key={type.id} type="button" onClick={() => handleChange('channelType', type.id)} className={cn('flex items-center gap-2 p-3 rounded-md border transition-colors', formData.channelType === type.id ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-800 hover:border-neutral-700', isSubmitting && 'opacity-50 cursor-not-allowed')} disabled={isSubmitting}>
+                    <div className={cn('p-2 rounded-md', formData.channelType === type.id ? 'bg-blue-500/20 text-blue-400' : 'bg-neutral-800 text-neutral-400')}>
+                      <type.icon className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </div> */}
 
-          <div className="flex justify-end gap-3 mt-6">
-            <Button type="button" variant="secondary" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || !name || (channelType === 'custom' && !customType)}>
-              {isLoading ? 'Creating...' : 'Create Channel'}
-            </Button>
+            {/* Channel-specific configuration */}
+            <div className="pt-2">
+              {getChannelConfig()}
+            </div>
+
+            {/* Status Toggle */}
+            <div className="pt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" className="sr-only" checked={formData.isActive} onChange={(e: any) => handleChange('isActive', e.target.checked)} disabled={isSubmitting} />
+                  <div className={cn('block w-10 h-6 rounded-full', formData.isActive ? 'bg-blue-600' : 'bg-neutral-700')} />
+                  <div className={cn('absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform', formData.isActive ? 'translate-x-4' : '')} />
+                </div>
+                <span className="text-sm font-medium">{formData.isActive ? 'Active' : 'Inactive'}</span>
+              </label>
+              <p className="mt-1 text-xs text-neutral-400">{formData.isActive ? 'This channel is active and will receive notifications.' : 'This channel is inactive and will not receive notifications.'}</p>
+            </div>
+           </div>
+          
+          <div className="mt-8 pt-6 border-t border-neutral-800 flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+            {placeholderChannelId || status.type === 'verifying' ? (
+              <Button type="button" onClick={onCancel} disabled={isSubmitting}>Close</Button>
+            ) : (
+              <Button type="submit" disabled={isSubmitting || status.type === 'loading'}>
+                 {isSubmitting || status.type === 'loading' ? (
+                   <>
+                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                     {formData.channelType === 'telegram' ? 'Connecting...' : 'Saving...'}
+                   </>
+                 ) : (
+                   <>{initialChannel ? 'Save Changes' : 'Create Channel'}</>
+                 )}
+               </Button>
+            )}
           </div>
-        </form>
-      </Card>
-    </div>
-  );
-};
-
-export default ChannelForm;
+         </Card>
+       </form>
+     </div>
+   );
+ };
+ 
+ export default ChannelForm;
