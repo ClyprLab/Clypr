@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Bell, HelpCircle, LogOut, Plus, Zap } from 'lucide-react';
+import { Bell, HelpCircle, LogOut } from 'lucide-react';
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -51,29 +51,7 @@ const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
         <h2 className="text-lg font-semibold m-0">{getPageTitle()}</h2>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center bg-neutral-900/20 rounded-md px-2 py-1 gap-2">
-          <button
-            onClick={() => navigate('/app/rules?create=1')}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-black px-3 py-1 rounded-md text-sm font-semibold hover:opacity-95"
-            aria-label="Create new rule"
-            title="Create new rule"
-          >
-            <Plus className="h-4 w-4" />
-            <span>New Rule</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/app/rules?test=1')}
-            className="hidden md:inline-flex items-center gap-2 border border-neutral-800 rounded-md px-3 py-1 text-sm hover:bg-neutral-900"
-            aria-label="Test rule"
-            title="Test rule"
-          >
-            <Zap className="h-4 w-4" />
-            <span>Test Rule</span>
-          </button>
-        </div>
-
+      {/* <div className="flex items-center gap-3">
         {principal && (
           <button
             onClick={() => navigate('/app/settings')}
@@ -83,25 +61,25 @@ const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
           >
             {shortPrincipal(principal)}
           </button>
-        )}
+        )} */}
 
-        <button
+        {/* <button
           aria-label="Notifications"
           title="Notifications"
           onClick={() => alert('Notifications not implemented')}
           className="w-9 h-9 rounded-md hover:bg-neutral-900 flex items-center justify-center"
         >
           <Bell className="h-4 w-4" />
-        </button>
+        </button> */}
 
-        <button
+        {/* <button
           aria-label="Help"
           title="Help & docs"
           onClick={() => window.open('/docs/USER_GUIDE.md', '_blank')}
           className="w-9 h-9 rounded-md hover:bg-neutral-900 flex items-center justify-center"
         >
           <HelpCircle className="h-4 w-4" />
-        </button>
+        </button> */}
 
         <button
           onClick={logout}
@@ -111,7 +89,6 @@ const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
         >
           <LogOut className="h-4 w-4" />
         </button>
-      </div>
     </header>
   );
 };

@@ -81,12 +81,12 @@ const Rules = () => {
     error
   } = useClypr();
 
-  const [showForm, setShowForm] = React.useState(false);
-  const [editingRule, setEditingRule] = React.useState<Rule | null>(null);
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
+  const [showForm, setShowForm] = (React as any).useState(false);
+  const [editingRule, setEditingRule] = (React as any).useState<Rule | null>(null);
+  const [searchTerm, setSearchTerm] = (React as any).useState('');
+  const [statusFilter, setStatusFilter] = (React as any).useState<'all' | 'active' | 'inactive'>('all');
 
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     if (isAuthenticated && !rulesLoading && rules.length === 0) {
       loadRules();
     }
@@ -331,69 +331,76 @@ const Rules = () => {
         ) : (
           <div className="overflow-hidden">
             <div className="grid gap-4">
-              {filteredRules.map(rule => (
-                <div 
-                  key={rule.id} 
-                  className="group p-4 rounded-lg border border-neutral-700/50 bg-neutral-800/30 hover:bg-neutral-800/50 hover:border-neutral-600/50 transition-all duration-200"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white truncate">{rule.name}</h3>
-                        <StatusBadge active={rule.isActive} />
-                        <PriorityBadge priority={rule.priority} />
-                      </div>
-                      {rule.description && (
-                        <p className="text-neutral-400 text-sm mb-3">{rule.description}</p>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-neutral-500">
-                        <div className="flex items-center gap-1">
-                          <Filter className="h-3 w-3" />
-                          {rule.conditions.length} conditions
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Settings className="h-3 w-3" />
-                          {rule.actions.length} actions
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(Number(rule.createdAt) / 1000000).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditRule(rule)}
-                        title="Edit rule"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleRule(rule.id, !rule.isActive)}
-                        title={rule.isActive ? 'Disable rule' : 'Enable rule'}
-                      >
-                        {rule.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteRule(rule.id)}
-                        title="Delete rule"
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+              {/* Add a small demo/test tool for rules on the page */}
+              <div className="p-4 rounded-md border border-neutral-700/40 bg-neutral-900/20 mb-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-neutral-300">Try a quick test message against your rules</div>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/app/test')}>Run Test</Button>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+               {filteredRules.map(rule => (
+                 <div 
+                   key={rule.id} 
+                   className="group p-4 rounded-lg border border-neutral-700/50 bg-neutral-800/30 hover:bg-neutral-800/50 hover:border-neutral-600/50 transition-all duration-200"
+                 >
+                   <div className="flex items-start justify-between mb-3">
+                     <div className="flex-1 min-w-0">
+                       <div className="flex items-center gap-3 mb-2">
+                         <h3 className="text-lg font-semibold text-white truncate">{rule.name}</h3>
+                         <StatusBadge active={rule.isActive} />
+                         <PriorityBadge priority={rule.priority} />
+                       </div>
+                       {rule.description && (
+                         <p className="text-neutral-400 text-sm mb-3">{rule.description}</p>
+                       )}
+                       <div className="flex items-center gap-4 text-xs text-neutral-500">
+                         <div className="flex items-center gap-1">
+                           <Filter className="h-3 w-3" />
+                           {rule.conditions.length} conditions
+                         </div>
+                         <div className="flex items-center gap-1">
+                           <Settings className="h-3 w-3" />
+                           {rule.actions.length} actions
+                         </div>
+                         <div className="flex items-center gap-1">
+                           <Clock className="h-3 w-3" />
+                           {new Date(Number(rule.createdAt) / 1000000).toLocaleDateString()}
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => handleEditRule(rule)}
+                         title="Edit rule"
+                       >
+                         <Edit3 className="h-4 w-4" />
+                       </Button>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => handleToggleRule(rule.id, !rule.isActive)}
+                         title={rule.isActive ? 'Disable rule' : 'Enable rule'}
+                       >
+                         {rule.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                       </Button>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => handleDeleteRule(rule.id)}
+                         title="Delete rule"
+                         className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                     </div>
+                   </div>
+                 </div>
+               ))}
+             </div>
+           </div>
         )}
       </Card>
 

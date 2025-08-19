@@ -49,6 +49,15 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // helper to clear a specific validation error
+  const clearError = (key: string) => {
+    setErrors((prev: any) => {
+      const next = { ...prev };
+      if (next && key in next) delete next[key];
+      return next;
+    });
+  };
+
   const isOperatorValueRequired = (op: string) => ['contains', 'notContains', 'equals', 'notEquals'].includes(op);
 
   const validateAll = (): boolean => {
@@ -213,13 +222,13 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
 
   return (
     <div className="p-2">
-      <Card className="w-full p-4 md:p-6">
+      <Card className="w-full p-3 md:p-4">
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">Rule Name *</label>
-                <Input disabled={isSubmitting} value={name} onChange={(e: any) => setName(e.target.value)} placeholder="e.g., Email Privacy Filter" required aria-label="Rule name" />
+                <Input disabled={isSubmitting} value={name} onChange={(e: any) => { setName(e.target.value); if (String(e.target.value).trim()) clearError('name'); }} placeholder="e.g., Email Privacy Filter" required aria-label="Rule name" />
                 {errors.name && <div className="text-xs text-red-400 mt-1">{errors.name}</div>}
               </div>
 
@@ -301,7 +310,7 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
               </div>
             </div>
 
-            <aside className="lg:col-span-1 space-y-4">
+            <aside className="space-y-4">
               <div className="bg-neutral-900/20 p-4 rounded-md">
                 <div className="flex items-center justify-between mb-3">
                   <div>
