@@ -1,5 +1,7 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { Bell, HelpCircle, LogOut, Plus, Zap } from 'lucide-react';
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -8,45 +10,107 @@ interface TopbarProps {
 
 const Topbar = ({ toggleSidebar, sidebarCollapsed = true }: TopbarProps) => {
   const { logout, principal } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const getPageTitle = () => {
-    const path = window.location.pathname;
-    if (path === '/app/dashboard') return 'Dashboard';
-    if (path === '/app/rules') return 'Privacy Rules';
-    if (path === '/app/messages') return 'Message History';
-    if (path === '/app/channels') return 'Communication Channels';
-    if (path === '/app/settings') return 'Settings';
+    const path = location.pathname;
+    if (path.startsWith('/app/dashboard')) return 'Dashboard';
+    if (path.startsWith('/app/rules')) return 'Privacy Rules';
+    if (path.startsWith('/app/messages')) return 'Message History';
+    if (path.startsWith('/app/channels')) return 'Communication Channels';
+    if (path.startsWith('/app/settings')) return 'Settings';
     return 'Clypr';
   };
 
+  const shortPrincipal = (p: any) => {
+    try {
+      return p?.toString?.().substring(0, 8) + '...';
+    } catch (e) {
+      return String(p).substring(0, 8) + '...';
+    }
+  };
+
   return (
-    <header className="h-16 border-b border-neutral-800 flex items-center justify-between px-6 md:px-4 bg-neutral-950 sticky top-0 z-50">
-      <div className="flex items-center">
+    <header className="h-16 border-b border-neutral-800 flex items-center justify-between px-4 md:px-6 bg-gradient-to-b from-neutral-950 to-neutral-900/40 sticky top-0 z-40">
+      <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          className={`relative -ml-2 p-2 w-9 h-9 rounded-md transition ${!sidebarCollapsed ? 'active' : ''} hover:bg-neutral-900 active:scale-95`}
+          aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+          aria-expanded={!sidebarCollapsed}
+          className="-ml-2 p-2 w-9 h-9 rounded-md transition hover:bg-neutral-900 active:scale-95 flex items-center justify-center"
         >
-          <span className="relative w-4 h-4 flex flex-col justify-between">
-            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
-            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
-            <span className="block w-full h-0.5 bg-neutral-100 rounded"></span>
-          </span>
+          <span className="sr-only">Toggle sidebar</span>
+          <div className="w-4 h-4 flex flex-col justify-between">
+            <span className="block w-full h-0.5 bg-neutral-100 rounded" />
+            <span className="block w-full h-0.5 bg-neutral-100 rounded" />
+            <span className="block w-full h-0.5 bg-neutral-100 rounded" />
+          </div>
         </button>
-        <h2 className="text-lg font-medium m-0 ml-2">{getPageTitle()}</h2>
+
+        <h2 className="text-lg font-semibold m-0">{getPageTitle()}</h2>
       </div>
 
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
+        <div className="hidden sm:flex items-center bg-neutral-900/20 rounded-md px-2 py-1 gap-2">
+          <button
+            onClick={() => navigate('/app/rules?create=1')}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-black px-3 py-1 rounded-md text-sm font-semibold hover:opacity-95"
+            aria-label="Create new rule"
+            title="Create new rule"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Rule</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/app/rules?test=1')}
+            className="hidden md:inline-flex items-center gap-2 border border-neutral-800 rounded-md px-3 py-1 text-sm hover:bg-neutral-900"
+            aria-label="Test rule"
+            title="Test rule"
+          >
+            <Zap className="h-4 w-4" />
+            <span>Test Rule</span>
+          </button>
+        </div>
+
         {principal && (
-          <div className="hidden md:block font-mono text-xs px-3 py-1 border border-neutral-800 rounded-full mr-3">
-            {`${principal.toString().substring(0, 8)}...`}
-          </div>
+          <button
+            onClick={() => navigate('/app/settings')}
+            className="hidden md:inline-flex font-mono text-xs px-3 py-1 border border-neutral-800 rounded-full mr-2 hover:bg-neutral-900"
+            title="Account settings"
+            aria-label="Account settings"
+          >
+            {shortPrincipal(principal)}
+          </button>
         )}
-        <button className="hidden md:inline-flex border border-neutral-800 rounded-md px-4 py-2 text-sm hover:bg-neutral-900">New Rule</button>
-        <button className="hidden md:inline-flex ml-3 bg-neutral-100 text-neutral-900 rounded-md px-4 py-2 text-sm hover:bg-neutral-200">Test Rule</button>
-        <button aria-label="Notifications" className="hidden md:inline-flex ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center">□</button>
-        <button aria-label="Help" className="hidden md:inline-flex ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center">?</button>
-        <button onClick={logout} aria-label="Logout" className="ml-2 w-9 h-9 rounded-md hover:bg-neutral-900 items-center justify-center inline-flex">⍇</button>
+
+        <button
+          aria-label="Notifications"
+          title="Notifications"
+          onClick={() => alert('Notifications not implemented')}
+          className="w-9 h-9 rounded-md hover:bg-neutral-900 flex items-center justify-center"
+        >
+          <Bell className="h-4 w-4" />
+        </button>
+
+        <button
+          aria-label="Help"
+          title="Help & docs"
+          onClick={() => window.open('/docs/USER_GUIDE.md', '_blank')}
+          className="w-9 h-9 rounded-md hover:bg-neutral-900 flex items-center justify-center"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </button>
+
+        <button
+          onClick={logout}
+          aria-label="Logout"
+          title="Logout"
+          className="w-9 h-9 rounded-md hover:bg-neutral-900 flex items-center justify-center"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     </header>
   );

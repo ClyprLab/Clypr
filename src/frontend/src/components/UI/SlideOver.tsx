@@ -3,15 +3,15 @@ import ReactDOM from 'react-dom';
 
 export default function SlideOver(props: any) {
   const { isOpen, onClose, title, children, side = 'right', width = 'w-[520px]' } = props;
-  const elRef = React.useRef<HTMLElement | null>(null);
+  const elRef = (React as any).useRef(null as HTMLElement | null);
 
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     if (typeof document !== 'undefined') {
       elRef.current = document.getElementById('modal-root') || document.body;
     }
   }, []);
 
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose && onClose();
     }
@@ -31,7 +31,7 @@ export default function SlideOver(props: any) {
 
   const content = (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/40" onClick={() => onClose && onClose()} />
+      <div className="absolute inset-0 bg-black/40" onClick={(e: any) => { if (e.target === e.currentTarget) onClose && onClose(); }} />
       <div className={`relative z-10 ${side === 'right' ? 'ml-auto' : 'mr-auto'} ${width} h-full bg-neutral-950 text-neutral-100 shadow-xl`}> 
         <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
           <div className="font-medium">{title}</div>

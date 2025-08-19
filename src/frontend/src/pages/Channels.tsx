@@ -24,8 +24,9 @@ import {
   WifiOff
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import SlideOver from '../components/UI/SlideOver';
 
-const getChannelIcon = (channelType: any): React.ReactNode => {
+const getChannelIcon = (channelType: any) => {
   if (typeof channelType === 'string') {
     switch (channelType) {
       case 'email': return <Mail className="h-5 w-5" />;
@@ -83,6 +84,10 @@ const ChannelCard = ({
   const iconColor = channel.isActive ? 'text-white' : 'text-neutral-400';
   const bgGradient = getChannelColor(channel.channelType);
 
+  const hasEmailConfig = !!(channel?.config && (channel.config as any).email && (channel.config as any).email.fromAddress);
+  const channelTypeIsTelegram = (typeof channel.channelType === 'string' && channel.channelType === 'telegram') || (typeof channel.channelType === 'object' && channel.channelType && Object.keys(channel.channelType)[0] === 'telegram');
+  const isUnverified = !channel.isActive && (hasEmailConfig || channelTypeIsTelegram);
+   
   return (
     <Card className="group hover:border-neutral-600/50 transition-all duration-200">
       <div className="flex items-start justify-between mb-4">
@@ -98,18 +103,19 @@ const ChannelCard = ({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-semibold text-white truncate">{channel.name}</h3>
+                <h3 className="text-lg font-semibold text-white truncate max-w-full" title={channel.name}>{channel.name}</h3>
                 <div className={cn(
                   "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
-                  channel.isActive 
-                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
-                    : "bg-red-500/20 text-red-400 border-red-500/30"
-                )}>
+                  isUnverified ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : (
+                    channel.isActive 
+                      ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                      : "bg-red-500/20 text-red-400 border-red-500/30"
+                ))}>
                   <div className={cn(
                     "w-1.5 h-1.5 rounded-full",
-                    channel.isActive ? "bg-green-400" : "bg-red-400"
+                    isUnverified ? "bg-yellow-400" : (channel.isActive ? "bg-green-400" : "bg-red-400")
                   )} />
-                  {channel.isActive ? 'Active' : 'Inactive'}
+                  {isUnverified ? 'Unverified' : (channel.isActive ? 'Active' : 'Inactive')}
                 </div>
               </div>
               <p className="text-sm text-neutral-400">{getChannelTypeName(channel.channelType)}</p>
@@ -120,7 +126,7 @@ const ChannelCard = ({
             <p className="text-neutral-300 text-sm mb-3">{channel.description}</p>
           )}
 
-          <div className="flex items-center gap-4 text-xs text-neutral-500 mb-3">
+          <div className="flex items-center gap-4 text-xs text-neutral-500 mb-3 flex-wrap md:flex-nowrap">
             <div className="flex items-center gap-1">
               <Settings className="h-3 w-3" />
               {channel.config.length} parameters
@@ -130,7 +136,7 @@ const ChannelCard = ({
               {new Date(Number(channel.createdAt) / 1000000).toLocaleDateString()}
             </div>
             <div className="flex items-center gap-1">
-              <span className="font-mono text-xs">ID: {channel.id}</span>
+              <span className="font-mono text-xs whitespace-nowrap">ID: {String(channel.id)}</span>
             </div>
           </div>
         </div>
@@ -148,7 +154,7 @@ const ChannelCard = ({
             variant="ghost"
             size="sm"
             onClick={() => onEdit(channel)}
-            title="Edit channel"
+            title={isUnverified ? 'Verify channel' : 'Edit channel'}
           >
             <Edit3 className="h-4 w-4" />
           </Button>
@@ -176,22 +182,23 @@ const ChannelCard = ({
         <div className="flex items-center gap-2">
           <div className={cn(
             "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
-            channel.isActive 
-              ? "bg-green-500/20 text-green-400 border-green-500/30" 
-              : "bg-neutral-500/20 text-neutral-400 border-neutral-500/30"
-          )}>
-            {channel.isActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {channel.isActive ? 'Connected' : 'Disconnected'}
+            isUnverified ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : (
+              channel.isActive 
+                ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                : "bg-neutral-500/20 text-neutral-400 border-neutral-500/30"
+           ))}>
+            {isUnverified ? <AlertTriangle className="h-3 w-3 text-yellow-400" /> : (channel.isActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />)}
+            {isUnverified ? 'Unverified' : (channel.isActive ? 'Connected' : 'Disconnected')}
           </div>
         </div>
         
         <Button
-          variant="outline"
+          variant={isUnverified ? 'secondary' : 'outline'}
           size="sm"
           rightIcon={<ArrowRight className="h-3 w-3" />}
           onClick={() => onEdit(channel)}
         >
-          Configure
+          {isUnverified ? 'Verify' : 'Configure'}
         </Button>
       </div>
     </Card>
@@ -293,63 +300,6 @@ const Channels = () => {
   const activeChannelsCount = channels.filter((c: any) => c.isActive).length;
   const totalChannelsCount = channels.length;
 
-  if (showForm) {
-    return (
-      <div className="animate-fade-in">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-white mb-2">
-              {editingChannel ? 'Edit Channel' : 'Add New Channel'}
-            </h1>
-            <p className="text-neutral-400">
-              {editingChannel ? 'Update your communication channel settings' : 'Configure a new delivery route for your messages'}
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            onClick={() => { setShowForm(false); setEditingChannel(null); }}
-          >
-            ← Back to Channels
-          </Button>
-        </div>
-
-        {error && (
-          <Card variant="danger" className="mb-6">
-            <div className="flex items-center mb-4">
-              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-              <h3 className="text-white font-medium">Error</h3>
-            </div>
-            <p className="text-red-300 mb-4">{error}</p>
-          </Card>
-        )}
-
-        <ChannelForm
-          initialChannel={editingChannel || undefined}
-          onSubmit={editingChannel ? handleUpdateChannel : handleCreateChannel}
-          onCancel={() => { setShowForm(false); setEditingChannel(null); }}
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="animate-fade-in">
-        <div className="mb-6">
-          <h1 className="text-3xl font-display font-bold text-white mb-2">Communication Channels</h1>
-          <p className="text-neutral-400">Configure how messages are delivered to you</p>
-        </div>
-        <GlassCard>
-          <div className="text-center py-8">
-            <Zap className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">Authentication Required</h3>
-            <p className="text-neutral-400 mb-4">Please log in to manage your communication channels.</p>
-          </div>
-        </GlassCard>
-      </div>
-    );
-  }
-
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -410,7 +360,7 @@ const Channels = () => {
 
       {/* Error Display */}
       {error && (
-        <Card variant="danger" className="mb-6">
+        <Card variant="outlined" className="mb-6">
           <div className="flex items-center mb-4">
             <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
             <h3 className="text-white font-medium">Error Loading Channels</h3>
@@ -468,6 +418,24 @@ const Channels = () => {
           </div>
         )}
       </Card>
+
+      {/* Slide-over overlay: right panel that appears without navigating away from the list */}
+      { /* use shared SlideOver primitive for consistent backdrop behavior */ }
+      <SlideOver
+        isOpen={showForm}
+        onClose={() => { setShowForm(false); setEditingChannel(null); }}
+        title={editingChannel ? 'Edit Channel' : 'Create Channel'}
+        width={'w-[480px]'}
+      >
+        <div className="p-4">
+          <ChannelForm
+            initialChannel={editingChannel || undefined}
+            onSubmit={editingChannel ? handleUpdateChannel : handleCreateChannel}
+            onCancel={() => { setShowForm(false); setEditingChannel(null); }}
+            onSuccess={(shouldClose?: boolean) => { loadChannels(); if (shouldClose) { setShowForm(false); setEditingChannel(null); } }}
+          />
+        </div>
+      </SlideOver>
     </div>
   );
 };
