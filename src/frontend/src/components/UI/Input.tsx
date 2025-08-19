@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react';
 import { cn } from '../../utils/cn';
 
-export type InputVariant = 'default' | 'floating' | 'glass' | 'outlined';
+export type InputVariant = 'default' | 'floating' | 'glass' | 'outlined' | 'line';
 export type InputSize = 'sm' | 'md' | 'lg';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -40,6 +40,12 @@ const variantStyles: Record<InputVariant, string> = {
     focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20
     placeholder:text-neutral-500
     transition-all duration-200
+  `,
+  line: `
+    bg-transparent border-b border-neutral-700 rounded-none
+    focus:border-cyan-500 focus:ring-0
+    placeholder:text-neutral-500
+    transition-all duration-150
   `,
 };
 
@@ -86,6 +92,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         id={inputId}
         className={cn(
+          // for 'line' variant avoid rounded-lg visual by overriding in variantStyles
           'rounded-lg text-white outline-none',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           variantStyles[variant],

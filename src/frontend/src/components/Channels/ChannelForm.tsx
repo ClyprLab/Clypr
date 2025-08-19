@@ -63,7 +63,7 @@ const CHANNEL_TYPES = [
   { id: 'email' as ChannelType, label: 'Email', icon: Mail },
   { id: 'telegram' as ChannelType, label: 'Telegram', icon: MessageSquare },
   { id: 'webhook' as ChannelType, label: 'Webhook', icon: Globe },
-  { id: 'sms' as ChannelType, label: 'SMS', icon: Smartphone },
+  { id: 'push' as ChannelType, label: 'Push', icon: Smartphone },
 ];
 
 const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => {
@@ -470,13 +470,13 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
             {/* Channel Name */}
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">Channel Name *</label>
-              <Input value={formData.name} onChange={(e: any) => handleChange('name', e.target.value)} placeholder="e.g., Primary Email Gateway" required aria-label="Channel name" disabled={isSubmitting} />
+              <Input variant="line" size="md" value={formData.name} onChange={(e: any) => handleChange('name', e.target.value)} placeholder="e.g., Primary Email Gateway" required aria-label="Channel name" disabled={isSubmitting} />
             </div>
 
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">Description (optional)</label>
-              <textarea className="w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 min-h-[80px]" value={formData.description} onChange={(e: any) => handleChange('description', e.target.value)} placeholder="What's this channel for?" disabled={isSubmitting} />
+              <textarea className="w-full bg-transparent border-b border-neutral-700 px-0 py-2 text-sm text-neutral-100 min-h-[64px]" value={formData.description} onChange={(e: any) => handleChange('description', e.target.value)} placeholder="What's this channel for?" disabled={isSubmitting} />
             </div>
 
             {/* Channel Type */}
