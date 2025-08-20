@@ -63,7 +63,7 @@ const CHANNEL_TYPES = [
   { id: 'email' as ChannelType, label: 'Email', icon: Mail },
   { id: 'telegram' as ChannelType, label: 'Telegram', icon: MessageSquare },
   { id: 'webhook' as ChannelType, label: 'Webhook', icon: Globe },
-  { id: 'push' as ChannelType, label: 'Push', icon: Smartphone },
+  // { id: 'push' as ChannelType, label: 'Push', icon: Smartphone },
 ];
 
 const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => {
