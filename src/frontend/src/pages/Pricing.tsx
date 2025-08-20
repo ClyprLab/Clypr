@@ -21,55 +21,48 @@ const Pricing = () => {
   const plans = [
     {
       name: 'Free',
-      description: 'Perfect for trying out Clypr and basic privacy protection',
+      description: 'Try Clypr with basic privacy routing',
       price: 'Free',
       features: [
-        '1 communication channel (Email, Webhook, or Telegram)',
+        '1 linked channel (Email, Telegram, or Webhook)',
         'Up to 100 messages per month',
         'Basic privacy rules (3 active rules)',
         'Community support',
-        'Standard delivery (within 5 minutes)',
-        'Basic message history (30 days)'
+        'Pay-what-you-use for overage (crypto payments supported)'
       ],
       cta: 'Get Started Free',
       popular: false
     },
     {
-      name: 'Personal',
-      description: 'For individuals who want comprehensive privacy control',
-      price: '$9',
-      period: 'per month',
+      name: 'Pay-as-you-go',
+      description: 'Usage-based pricing for individuals and projects',
+      price: 'Metered',
+      period: 'pay-for-what-you-use',
       features: [
-        '3 communication channels (Email, Webhook, Telegram)',
-        'Up to 1,000 messages per month',
+        'Any combination of Email, Telegram, Webhook channels',
+        'Metered billing per delivered message',
         'Advanced privacy rules (10 active rules)',
         'Priority support',
-        'Fast delivery (within 2 minutes)',
         'Extended message history (90 days)',
-        'Custom rule templates',
-        'Message analytics & insights'
+        'On-chain usage proofs for billing transparency'
       ],
-      cta: 'Start Personal Plan',
+      cta: 'Start Metered Plan',
       popular: true
     },
     {
-      name: 'Professional',
-      description: 'For power users and small teams',
-      price: '$29',
-      period: 'per month',
+      name: 'Enterprise',
+      description: 'High-volume teams and dApps',
+      price: 'Custom',
+      period: 'contact sales',
       features: [
-        'Unlimited communication channels',
-        'Unlimited messages per month',
-        'Unlimited privacy rules',
-        'Priority support with 24/7 response',
-        'Instant delivery (within 30 seconds)',
-        'Full message history (1 year)',
+        'SLA-backed delivery and uptime',
+        'Custom integrations and routing',
         'Advanced analytics & reporting',
-        'Custom integrations',
         'Team collaboration features',
-        'API access for automation'
+        'Dedicated support and onboarding',
+        'Flexible crypto payment options'
       ],
-      cta: 'Start Professional Plan',
+      cta: 'Contact Sales',
       popular: false
     }
   ];
@@ -89,6 +82,13 @@ const Pricing = () => {
       icon: Settings,
       title: 'Smart Rules Engine',
       description: 'Create custom rules to filter, route, and prioritize messages exactly how you want them.'
+    },
+    {
+      icon: Globe,
+      title: 'Web3 Native',
+      description: 'Built on Internet Computer Protocol for true decentralization and user control.'
+    }
+  ];
     },
     {
       icon: Globe,
