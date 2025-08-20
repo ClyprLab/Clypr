@@ -10,33 +10,78 @@ function sanitizeValue(v) {
 
 function sanitizeJob(job) {
   // shallow sanitize fields you care about; expand if you need more
-  const sanitized = {
-    id: sanitizeValue(job.id),
-    messageId: job.messageId,
-    messageType: job.messageType,
-    recipientId: job.recipientId && (sanitizeValue(job.recipientId)),
-    content: {
-      title: job.content?.title,
-      body: job.content?.body,
-      contentType: job.content?.contentType,
-      priority: sanitizeValue(job.content?.priority),
-      metadata: job.content?.metadata || [],
-    },
-    intents: job.intents || [],
-    channel: {
-      id: sanitizeValue(job.channelId),
-      name: job.channelName,
-      // channelType might be { webhook: null } — normalize to string 'webhook'
-      type: job.channelType ? Object.keys(job.channelType)[0] : null,
-      config: job.channelConfig || {},
-    },
-    createdAt: sanitizeValue(job.createdAt),
-    expiresAt: sanitizeValue(job.expiresAt),
-    attempts: sanitizeValue(job.attempts),
-    retryConfig: job.retryConfig || null,
-  };
+  try {
+    const contentBody = job.content?.body || job.content?.title || '';
+    const bodySnippet = String(contentBody).length > 200 ? String(contentBody).slice(0, 200) + '…' : String(contentBody);
 
-  return sanitized;
+    // Intents is an array of [k, v] pairs; only expose keys to avoid leaking token values
+    let intentKeys = [];
+    try {
+      if (Array.isArray(job.intents)) intentKeys = job.intents.map(([k]) => String(k));
+    } catch (e) {
+      intentKeys = [];
+    }
+
+    // Sanitize channel config to avoid leaking secrets (headers, auth credentials)
+    const rawCfg = job.channelConfig || {};
+    const cfgSafe = {};
+    if (rawCfg.webhook) {
+      const w = rawCfg.webhook;
+      cfgSafe.webhook = {
+        url: w.url ? String(w.url).replace(/:\/\/.*@/, '://REDACTED@') : undefined,
+        method: w.method || undefined,
+        headers: Array.isArray(w.headers) ? w.headers.map(([k]) => String(k)) : (w.headers && typeof w.headers === 'object' ? Object.keys(w.headers) : undefined),
+        authType: w.authType ? (w.authType.basic ? { basic: { username: w.authType.basic.username ? 'REDACTED' : undefined } } : (w.authType.bearer ? { bearer: 'REDACTED' } : { none: null })) : undefined,
+        retryCount: w.retryCount ?? undefined,
+        timeoutMs: w.timeoutMs ?? undefined,
+      };
+    } else {
+      // Generic shallow copy but redact known sensitive shapes
+      for (const k of Object.keys(rawCfg)) {
+        try {
+          const v = rawCfg[k];
+          if (k === 'apiKey' || k === 'password' || k === 'secret' || k === 'token') {
+            cfgSafe[k] = 'REDACTED';
+          } else if (typeof v === 'object') {
+            cfgSafe[k] = '[object]';
+          } else {
+            cfgSafe[k] = v;
+          }
+        } catch (e) {
+          cfgSafe[k] = 'REDACTED';
+        }
+      }
+    }
+
+    const sanitized = {
+      id: sanitizeValue(job.id),
+      messageId: job.messageId,
+      messageType: job.messageType,
+      recipientId: job.recipientId && sanitizeValue(job.recipientId),
+      content: {
+        title: job.content?.title,
+        bodySnippet,
+        contentType: job.content?.contentType,
+        priority: sanitizeValue(job.content?.priority),
+        metadataCount: Array.isArray(job.content?.metadata) ? job.content.metadata.length : undefined,
+      },
+      intents: intentKeys,
+      channel: {
+        id: job.channelId ? sanitizeValue(job.channelId) : null,
+        name: job.channelName || null,
+        type: job.channelType ? Object.keys(job.channelType)[0] : null,
+        config: cfgSafe,
+      },
+      createdAt: sanitizeValue(job.createdAt),
+      expiresAt: sanitizeValue(job.expiresAt),
+      attempts: sanitizeValue(job.attempts),
+      retryConfig: job.retryConfig || null,
+    };
+
+    return sanitized;
+  } catch (e) {
+    return { id: job?.id ? sanitizeValue(job.id) : null, error: 'sanitize_failed' };
+  }
 }
 
 const DEFAULT_TIMEOUT = 30000; // ms

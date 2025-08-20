@@ -1212,7 +1212,7 @@ if (not userExists) {
                          <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
                            <CheckCircle className="h-5 w-5 text-green-400" />
                          </div>
-                         <h4 className="text-lg font-semibold text-white">✅ Recommended Practices</h4>
+                         <h4 className="text-lg font-semibold text-white">Recommended Practices</h4>
                        </div>
                        <div className="grid gap-3 md:grid-cols-2">
                          <div className="space-y-2">
@@ -1255,7 +1255,7 @@ if (not userExists) {
                          <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
                            <Lock className="h-5 w-5 text-red-400" />
                          </div>
-                         <h4 className="text-lg font-semibold text-white">❌ Avoid These Practices</h4>
+                         <h4 className="text-lg font-semibold text-white">Avoid These Practices</h4>
                        </div>
                        <div className="grid gap-3 md:grid-cols-2">
                          <div className="space-y-2">
