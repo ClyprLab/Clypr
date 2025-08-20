@@ -26,19 +26,27 @@ const log = {
 // Add a small sanitizer to summarize jobs for logging without exposing PII/tokens
 function summarizeJob(job) {
   try {
+    const redact = String(process.env.REDACT_SENSITIVE_LOGS || '').toLowerCase() === 'true';
     const channelType = job && job.channelType ? Object.keys(job.channelType)[0] : null;
-    const contentBody = job && job.content ? (job.content.body || job.content.title || '') : '';
-    const snippet = String(contentBody).length > 200 ? String(contentBody).slice(0, 200) + '…' : String(contentBody);
     const intentKeys = Array.isArray(job?.intents) ? job.intents.map(([k]) => String(k)) : [];
-    return {
+
+    const base = {
       id: job?.id ? String(job.id) : null,
       messageType: job?.messageType || null,
       channelName: job?.channelName || null,
       channelType,
       createdAt: job?.createdAt ? String(job.createdAt) : null,
-      contentSnippet: snippet,
       intentKeys,
     };
+
+    if (redact) {
+      // Do not include any content that may contain tokens or PII
+      return { ...base, contentSnippet: '[REDACTED]' };
+    }
+
+    const contentBody = job && job.content ? (job.content.body || job.content.title || '') : '';
+    const snippet = String(contentBody).length > 200 ? String(contentBody).slice(0, 200) + '…' : String(contentBody);
+    return { ...base, contentSnippet: snippet };
   } catch (e) {
     return { id: job?.id ? String(job.id) : null, error: 'summarize_failed' };
   }

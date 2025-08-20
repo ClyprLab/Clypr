@@ -712,7 +712,7 @@ content: {
               />
               <FAQ 
                 question="What channels does Clypr support?" 
-                answer="Currently, Clypr supports email, SMS, Telegram, and webhook notifications. We're actively adding Discord, Slack, and mobile push notifications. The best part? As we add new channels, all integrated dApps automatically gain the ability to reach users on these new channels without any code changes."
+                answer="Currently, Clypr supports Email, Telegram, and Webhook notifications. We are focusing on these channels first to provide robust, privacy-preserving delivery and verification flows. Other channels (mobile push, Discord, Slack) are planned but not yet generally available." 
               />
               <FAQ 
                 question="Is Clypr only for crypto users?" 
