@@ -23,6 +23,27 @@ const log = {
   error: (...a) => console.error('[error]', ...a),
 };
 
+// Add a small sanitizer to summarize jobs for logging without exposing PII/tokens
+function summarizeJob(job) {
+  try {
+    const channelType = job && job.channelType ? Object.keys(job.channelType)[0] : null;
+    const contentBody = job && job.content ? (job.content.body || job.content.title || '') : '';
+    const snippet = String(contentBody).length > 200 ? String(contentBody).slice(0, 200) + '…' : String(contentBody);
+    const intentKeys = Array.isArray(job?.intents) ? job.intents.map(([k]) => String(k)) : [];
+    return {
+      id: job?.id ? String(job.id) : null,
+      messageType: job?.messageType || null,
+      channelName: job?.channelName || null,
+      channelType,
+      createdAt: job?.createdAt ? String(job.createdAt) : null,
+      contentSnippet: snippet,
+      intentKeys,
+    };
+  } catch (e) {
+    return { id: job?.id ? String(job.id) : null, error: 'summarize_failed' };
+  }
+}
+
 // Load the frontend-generated IDL for your backend canister
 async function loadBackendIDL() {
   try {
@@ -140,8 +161,12 @@ async function run() {
 
     for (const job of jobs) {
       log.info(`Job ${job.id} -> ${job.messageType} via ${Object.keys(job.channelType)} (${job.channelName})`);
-      console.log('Job content:', job);
-      log.debug('Job content:', { content: job.content, intents: job.intents });
+      try {
+        const summary = summarizeJob(job);
+        log.debug('Job summary:', summary);
+      } catch (e) {
+        log.debug('Job summary build failed');
+      }
 
       // If this is a telegram verification job, route to telegram adapter
       let delivered = false;

@@ -13,6 +13,7 @@ import Test from './pages/Test';
 import Demo from './pages/Demo';
 import Pricing from './pages/Pricing';
 import Docs from './pages/Docs';
+import VerifyEmail from './pages/VerifyEmail';
 import { AuthProvider } from './hooks/useAuth';
 import ClaimAlias from './pages/ClaimAlias';
 
@@ -27,6 +28,7 @@ const App = () => {
           <Route path="/demo" element={<Demo />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           
           <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />
