@@ -177,8 +177,19 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
 
     try {
       const { channelType, ...rest } = formData;
+
+      // Ensure webhook config includes 'method' key
+      let config = { ...rest.config };
+      if (channelType === 'webhook') {
+        config.webhook = {
+          ...(config.webhook || {}),
+          method: config.webhook?.method || 'POST'
+        };
+      }
+
       const channelPayload = {
         ...rest,
+        config,
         channelType: { [channelType]: null },
       };
 
