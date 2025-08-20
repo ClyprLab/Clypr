@@ -370,6 +370,28 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
               <label className="block text-sm font-medium text-neutral-300 mb-1">Webhook URL</label>
               <Input aria-label="webhook-url" value={config.webhook?.url || ''} onChange={(e: any) => handleNestedConfigChange('webhook', 'url', e.target.value)} placeholder="https://your-host/api/webhook" disabled={isSubmitting} />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Method</label>
+              <select
+                aria-label="webhook-method"
+                className="w-full bg-transparent border-b border-neutral-700 px-0 py-2 text-sm text-neutral-100"
+                value={config.webhook?.method || 'POST'}
+                onChange={(e: any) => handleNestedConfigChange('webhook', 'method', e.target.value)}
+                disabled={isSubmitting}
+              >
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Secret (optional)</label>
+              <Input aria-label="webhook-secret" value={config.webhook?.secret || ''} onChange={(e: any) => handleNestedConfigChange('webhook', 'secret', e.target.value)} placeholder="Optional secret for verifying requests" disabled={isSubmitting} />
+              <div className="text-xs text-neutral-400 mt-2">If provided, the bridge will include this secret in requests (or configure your webhook to expect it). Use this to verify incoming requests on your endpoint.</div>
+            </div>
           </div>
         );
 
