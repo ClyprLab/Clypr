@@ -163,7 +163,7 @@ await agent.fetchRootKey();
 
 const clyprActor = Actor.createActor(idlFactory, {
   agent,
-  canisterId: 'YOUR_CANISTER_ID' // Replace with actual canister ID
+  canisterId: '5elod-ciaaa-aaaag-aufgq-cai' ]
 });
 
 // 4. Send a message to a user
@@ -235,7 +235,7 @@ struct MessageContent {
 
 #[ic_cdk::update]
 async fn verify_user(alias: String) -> CallResult<bool> {
-    let clypr_principal = Principal::from_text("YOUR_CANISTER_ID")
+    let clypr_principal = Principal::from_text("5elod-ciaaa-aaaag-aufgq-cai")
         .expect("Invalid canister ID");
     
     call(clypr_principal, "verifyAlias", (alias,)).await
@@ -248,7 +248,7 @@ async fn send_notification(
     body: String,
     priority: u8,
 ) -> CallResult<String> {
-    let clypr_principal = Principal::from_text("YOUR_CANISTER_ID")
+    let clypr_principal = Principal::from_text("5elod-ciaaa-aaaag-aufgq-cai")
         .expect("Invalid canister ID");
     
     // First verify the user exists
@@ -341,7 +341,7 @@ class ClyprMessaging:
 
 # Usage example
 async def main():
-    clypr = ClyprMessaging("YOUR_CANISTER_ID")
+    clypr = ClyprMessaging("5elod-ciaaa-aaaag-aufgq-cai")
     await clypr.initialize()
     
     try:
@@ -564,9 +564,9 @@ candid = "0.10"`}
                 </p>
                                  <CodeBlock language="json">
 {`{
-  "canisterId": "YOUR_MAINNET_CANISTER_ID",
+  "canisterId": "5elod-ciaaa-aaaag-aufgq-cai",
   "api": {
-    "baseUrl": "https://YOUR_MAINNET_CANISTER_ID.ic0.app",
+    "baseUrl": "https://5nif7-uaaaa-aaaag-aufha-caiic0.app",
     "identityProvider": "https://identity.ic0.app"
   },
   "contentTypes": [
@@ -892,7 +892,7 @@ export function useClypr(canisterId: string) {
 
 // Usage in React component
 function NotificationForm() {
-  const { initialize, sendMessage, loading } = useClypr('YOUR_CANISTER_ID');
+  const { initialize, sendMessage, loading } = useClypr('5elod-ciaaa-aaaag-aufgq-cai');
   const [recipient, setRecipient] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
