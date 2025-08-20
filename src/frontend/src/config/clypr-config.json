@@ -1,10 +1,10 @@
 {
-  "canisterId": "YOUR_MAINNET_CANISTER_ID",
+  "canisterId": "5elod-ciaaa-aaaag-aufgq-cai",
   "api": {
-    "baseUrl": "https://YOUR_MAINNET_CANISTER_ID.ic0.app",
+    "baseUrl": "https://5nif7-uaaaa-aaaag-aufha-cai.ic0.app",
     "identityProvider": "https://identity.ic0.app"
   },
-  "rateLimits": {
+  "rateLimits": { 
     "perUser": 100,
     "perCanister": 1000,
     "global": 10000,
