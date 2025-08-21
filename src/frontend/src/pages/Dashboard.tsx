@@ -25,6 +25,7 @@ import {
   Bell
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -57,9 +58,10 @@ const Dashboard = () => {
   }, [isAuthenticated]);
 
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
-  const totalMessages = stats?.messagesCount || 0;
-  const deliveredMessages = stats?.deliveredCount || 0;
-  const blockedMessages = stats?.blockedCount || 0;
+  // Normalize potential BigInt stats values to numbers for safe arithmetic/rendering
+  const totalMessages = typeof stats?.messagesCount === 'bigint' ? Number(stats!.messagesCount) : (stats?.messagesCount || 0);
+  const deliveredMessages = typeof stats?.deliveredCount === 'bigint' ? Number(stats!.deliveredCount) : (stats?.deliveredCount || 0);
+  const blockedMessages = typeof stats?.blockedCount === 'bigint' ? Number(stats!.blockedCount) : (stats?.blockedCount || 0);
   const connectedChannels = channels?.length || 0;
 
   const getSystemStatus = () => {
@@ -182,7 +184,16 @@ const Dashboard = () => {
   }
 
   // Enhanced chart data processing
-  const nsToMs = (ns: bigint) => Number(ns / 1_000_000n);
+  const nsToMs = (ns: number | bigint) => {
+    if (typeof ns === 'bigint') {
+      return Number(ns / 1_000_000n);
+    }
+    // If value is very large, assume it's nanoseconds and convert to ms.
+    if (ns > 1e15) {
+      return Math.floor(ns / 1e6);
+    }
+    return Math.floor(ns);
+  };
   const startOfDay = (ms: number) => new Date(new Date(ms).setHours(0, 0, 0, 0)).getTime();
   const dayMs = 24 * 60 * 60 * 1000;
   const todayStart = startOfDay(Date.now());
@@ -191,8 +202,15 @@ const Dashboard = () => {
   type DayPoint = { day: number; delivered: number; blocked: number };
   const series: DayPoint[] = buckets.map(day => ({ day, delivered: 0, blocked: 0 }));
   
-  (messages || []).forEach(msg => {
-    const t = nsToMs(msg.timestamp);
+  // Normalize message timestamps to millisecond numbers to avoid mixing BigInt and Number
+  const normalizedMessages = (messages || []).map(msg => {
+    const ts = (msg as any).timestamp;
+    const tsMs = typeof ts === 'bigint' ? Number(ts / 1_000_000n) : (typeof ts === 'number' ? (ts > 1e15 ? Math.floor(ts / 1e6) : Math.floor(ts)) : Date.now());
+    return { ...(msg as any), timestampMs: tsMs };
+  });
+  
+  normalizedMessages.forEach(msg => {
+    const t = nsToMs((msg as any).timestamp ?? (msg as any).timestampMs);
     const d = startOfDay(t);
     const idx = buckets.indexOf(d);
     if (idx >= 0) {
@@ -207,7 +225,10 @@ const Dashboard = () => {
     .sort((a, b) => {
       if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       if (a.priority !== b.priority) return b.priority - a.priority;
-      return Number(b.createdAt - a.createdAt);
+      // Convert createdAt (likely bigint in nanoseconds) to millisecond numbers for safe subtraction
+      const aCreated = typeof a.createdAt === 'bigint' ? Number(a.createdAt / 1_000_000n) : Number(a.createdAt || 0);
+      const bCreated = typeof b.createdAt === 'bigint' ? Number(b.createdAt / 1_000_000n) : Number(b.createdAt || 0);
+      return bCreated - aCreated;
     })
     .slice(0, 4);
 
@@ -346,37 +367,24 @@ const Dashboard = () => {
             </div>
           ) : messages && messages.length > 0 ? (
             <div>
-              <div className="h-48 flex items-end justify-between gap-2 mb-4">
-                {series.map((p, i) => {
-                  const total = p.delivered + p.blocked;
-                  const hTotal = Math.max(4, Math.round((total / maxVal) * 160));
-                  const hDelivered = total > 0 ? Math.round((p.delivered / total) * hTotal) : 0;
-                  const hBlocked = hTotal - hDelivered;
-                  
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center">
-                      <div className="relative w-full max-w-8 h-40 flex flex-col justify-end">
-                        {/* Delivered segment */}
-                        {hDelivered > 0 && (
-                          <div 
-                            className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t-sm transition-all duration-300 hover:from-green-400 hover:to-green-300"
-                            style={{ height: `${hDelivered}px` }}
-                          />
-                        )}
-                        {/* Blocked segment */}
-                        {hBlocked > 0 && (
-                          <div 
-                            className="w-full bg-gradient-to-t from-red-500 to-red-400 rounded-b-sm transition-all duration-300 hover:from-red-400 hover:to-red-300"
-                            style={{ height: `${hBlocked}px` }}
-                          />
-                        )}
-                      </div>
-                      <div className="text-xs text-neutral-500 mt-2 text-center">
-                        {new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="h-48 mb-4">
+                <ResponsiveContainer width="100%" height={192}>
+                  <BarChart
+                    data={series.map(p => ({
+                      day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                      delivered: p.delivered,
+                      blocked: p.blocked
+                    }))}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                  >
+                    <XAxis dataKey="day" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                    <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} allowDecimals={false} />
+                    <Tooltip wrapperStyle={{ background: '#0b1220', borderRadius: 6, color: '#fff' }} />
+                    <Legend formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)} wrapperStyle={{ color: '#9ca3af' }} />
+                    <Bar dataKey="delivered" stackId="a" fill="#10b981" radius={[6,6,0,0]} />
+                    <Bar dataKey="blocked" stackId="a" fill="#ef4444" radius={[6,6,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
               
               <div className="flex items-center justify-center gap-6 text-sm">

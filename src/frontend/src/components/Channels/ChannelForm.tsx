@@ -178,12 +178,19 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
     try {
       const { channelType, ...rest } = formData;
 
-      // Ensure webhook config includes 'method' key
+      // Ensure webhook payload includes required keys so backend Candid variant validation succeeds
       let config = { ...rest.config };
       if (channelType === 'webhook') {
         config.webhook = {
           ...(config.webhook || {}),
-          method: config.webhook?.method || 'POST'
+          // default HTTP method
+          method: config.webhook?.method || 'POST',
+          // canister expects an authType variant; default to none
+          authType: config.webhook?.authType ?? { none: null },
+          // headers should be an array of [key,value] tuples
+          headers: Array.isArray(config.webhook?.headers) ? config.webhook.headers : [],
+          // retryCount expected as a nat8 on the backend
+          retryCount: typeof config.webhook?.retryCount === 'number' ? config.webhook.retryCount : 0,
         };
       }
 
@@ -341,7 +348,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
 
   // Render config block for the selected channel type
   const getChannelConfig = () => {
-     const { channelType, config } = formData;
+    const { channelType, config } = formData;
 
     switch (channelType) {
       case 'email':
@@ -399,6 +406,90 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Auth Type</label>
+              <select
+                aria-label="webhook-auth-type"
+                className="w-full bg-transparent border-b border-neutral-700 px-0 py-2 text-sm text-neutral-100"
+                value={
+                  config.webhook?.authType
+                    ? config.webhook.authType.none !== undefined
+                      ? 'none'
+                      : config.webhook.authType.basic
+                      ? 'basic'
+                      : config.webhook.authType.bearer
+                      ? 'bearer'
+                      : 'none'
+                    : 'none'
+                }
+                onChange={(e: any) => {
+                  const val = e.target.value;
+                  let authType: any = {};
+                  if (val === 'none') authType = { none: null };
+                  if (val === 'basic') authType = { basic: { username: '', password: '' } };
+                  if (val === 'bearer') authType = { bearer: '' };
+                  handleNestedConfigChange('webhook', 'authType', authType);
+                }}
+                disabled={isSubmitting}
+              >
+                <option value="none">None</option>
+                <option value="basic">Basic (username/password)</option>
+                <option value="bearer">Bearer Token</option>
+              </select>
+            </div>
+
+            {config.webhook?.authType?.basic && (
+              <div className="space-y-2 mt-2">
+                <Input
+                  aria-label="webhook-basic-username"
+                  value={config.webhook.authType.basic.username || ''}
+                  onChange={(e: any) =>
+                    handleNestedConfigChange('webhook', 'authType', {
+                      basic: {
+                        ...config.webhook.authType.basic,
+                        username: e.target.value,
+                        password: config.webhook.authType.basic.password,
+                      },
+                    })
+                  }
+                  placeholder="Username"
+                  disabled={isSubmitting}
+                />
+                <Input
+                  aria-label="webhook-basic-password"
+                  type="password"
+                  value={config.webhook.authType.basic.password || ''}
+                  onChange={(e: any) =>
+                    handleNestedConfigChange('webhook', 'authType', {
+                      basic: {
+                        ...config.webhook.authType.basic,
+                        username: config.webhook.authType.basic.username,
+                        password: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="Password"
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
+
+            {config.webhook?.authType?.bearer !== undefined && (
+              <div className="mt-2">
+                <Input
+                  aria-label="webhook-bearer-token"
+                  value={config.webhook.authType.bearer || ''}
+                  onChange={(e: any) =>
+                    handleNestedConfigChange('webhook', 'authType', {
+                      bearer: e.target.value,
+                    })
+                  }
+                  placeholder="Bearer token"
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
+
+            <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">Secret (optional)</label>
               <Input aria-label="webhook-secret" value={config.webhook?.secret || ''} onChange={(e: any) => handleNestedConfigChange('webhook', 'secret', e.target.value)} placeholder="Optional secret for verifying requests" disabled={isSubmitting} />
               <div className="text-xs text-neutral-400 mt-2">If provided, the bridge will include this secret in requests (or configure your webhook to expect it). Use this to verify incoming requests on your endpoint.</div>
@@ -410,7 +501,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         return null;
     }
   };
-  
+
   // Add this function to handle nested config changes
   const handleNestedConfigChange = (channelType: any, field: string, value: any) => {
      setFormData(prev => ({

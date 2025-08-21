@@ -38,6 +38,7 @@ export default function DefiSwap() {
         title,
         body,
         priority: 0,
+        contentType:'text/plain', 
         metadata,
       };
 
