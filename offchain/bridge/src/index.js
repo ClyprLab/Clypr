@@ -181,16 +181,16 @@ async function run() {
       try {
         const intents = job.intents || [];
         const intentMap = Object.fromEntries(intents.map(([k, v]) => [k, v]));
+
+        // Special-case verification intents
         if (intentMap.intentType === 'telegram_verification') {
           const r = await telegramAdapter.handleVerificationJob(job);
-          // adapter returns 'deferred' to indicate it will ack later via webhook -> confirm
           if (r === 'deferred') {
             log.info(`Job ${job.id} deferred to telegram adapter for webhook confirmation`);
             continue; // do not ack here
           }
           delivered = !!r;
         } else if (intentMap.intentType === 'email_verification') {
-          // Send verification email via email adapter (no webhook, ack immediately)
           try {
             const r = await emailAdapter.handleVerificationJob(job);
             delivered = !!r;
@@ -198,9 +198,26 @@ async function run() {
             log.error('email verification adapter error:', e);
             delivered = false;
           }
-         } else {
-           delivered = await deliverJob(job);
-         }
+        } else {
+          // Route by channel type for normal messages
+          const channelType = job.channelType ? Object.keys(job.channelType)[0] : null;
+          if (channelType === 'email') {
+            try {
+              delivered = await emailAdapter.handleMessageJob(job);
+            } catch (e) {
+              log.error('email message adapter error:', e);
+              delivered = false;
+            }
+          } else if (channelType === 'telegramContact' || channelType === 'telegram') {
+            // Telegram delivery path (non-verification)
+            delivered = await deliverJob(job);
+          } else if (channelType === 'webhook') {
+            delivered = await deliverJob(job);
+          } else {
+            // Fallback to generic delivery for unknown channel types
+            delivered = await deliverJob(job);
+          }
+        }
        } catch (e) {
          console.error('Job delivery routing error:', e);
          delivered = false;
