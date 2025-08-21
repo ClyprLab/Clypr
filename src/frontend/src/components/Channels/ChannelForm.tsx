@@ -137,33 +137,65 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
 
   // Refresh the placeholder channel status from the server. If activated, notify parent to close.
   const refreshPlaceholderStatus = async () => {
-    const id = placeholderChannelId || initialChannel?.id;
-    if (!id) return;
-    if (!service?.getChannel) {
-      setStatus({ type: 'error', message: 'Service unavailable' });
-      return;
-    }
+     const id = placeholderChannelId || initialChannel?.id;
+     if (!id) return;
+     if (!service?.getChannel) {
+       setStatus({ type: 'error', message: 'Service unavailable' });
+       return;
+     }
 
-    setIsSubmitting(true);
-    setStatus({ type: 'loading', message: 'Checking channel status...' });
-    try {
-      const ch = await service.getChannel(Number(id));
-      if (!ch) throw new Error('Channel not found');
-      if (ch.isActive) {
-        setStatus({ type: 'success', message: 'Channel verified and active.' });
-        // Notify parent to reload and close
-        onSuccess?.(true);
-        return;
-      }
-      // still pending
-      setStatus({ type: 'verifying', message: 'Still pending verification. Check your inbox or Telegram.' });
-    } catch (err: any) {
-      console.error(err);
-      setStatus({ type: 'error', message: err?.message || 'Failed to refresh channel status' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+     setIsSubmitting(true);
+     setStatus({ type: 'loading', message: 'Checking channel status...' });
+     try {
+       const ch = await service.getChannel(Number(id));
+       if (!ch) throw new Error('Channel not found');
+       if (ch.isActive) {
+         setStatus({ type: 'success', message: 'Channel verified and active.' });
+         // Notify parent to reload and close
+         onSuccess?.(true);
+         return;
+       }
+
+       // If placeholder still not active, try scanning all channels for an active one that matches the contact
+       try {
+         const all = await service.getAllChannels();
+         const emailAddr = formData.config?.email?.fromAddress;
+         if (emailAddr && Array.isArray(all)) {
+           const match = all.find((c: any) => {
+             try {
+               const cfg = (c.config && (c.config as any).email) || (c.config && c.config.email);
+               const addr = cfg && (cfg.fromAddress || cfg.from_address || cfg.from);
+               return c.isActive && addr && String(addr).toLowerCase() === String(emailAddr).toLowerCase();
+             } catch (e) { return false; }
+           });
+           if (match) {
+             // Found an activated channel matching the verified email. Treat as success.
+             setStatus({ type: 'success', message: 'Channel verified and active.' });
+             // Optionally remove the old placeholder to avoid duplicates
+             try {
+               if (placeholderChannelId && placeholderChannelId !== match.id && typeof service.deleteChannel === 'function') {
+                 await service.deleteChannel(Number(placeholderChannelId));
+               }
+             } catch (delErr) {
+               console.warn('Failed to delete placeholder channel:', delErr);
+             }
+             onSuccess?.(true);
+             return;
+           }
+         }
+       } catch (scanErr) {
+         console.debug('Failed to scan channels for matching active contact:', scanErr);
+       }
+
+       // still pending
+       setStatus({ type: 'verifying', message: 'Still pending verification. Check your inbox or Telegram.' });
+     } catch (err: any) {
+       console.error(err);
+       setStatus({ type: 'error', message: err?.message || 'Failed to refresh channel status' });
+     } finally {
+       setIsSubmitting(false);
+     }
+   };
 
   // Note: do not auto-close the overlay on success for verification flows.
   // Parent is informed via onSuccess(shouldClose?: boolean)
