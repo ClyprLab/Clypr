@@ -1928,49 +1928,156 @@ persistent actor ClyprCanister {
           if (r.token == token and r.expiresAt >= Time.now()) {
             matched := true;
 
-            // Create a new Email channel for this verified contact
-            let cid = nextChannelId;
-            nextChannelId += 1;
-            let now = Time.now();
+            // If a placeholder channel was created earlier, activate/update it instead of creating a new one
+            switch (r.channelId) {
+              case (?cid) {
+                let userChannelsMap = getUserChannels(owner);
+                switch (userChannelsMap.get(cid)) {
+                  case (?existingChannel) {
+                    // Update the existing placeholder channel to be active and set the verified contact
+                    let now = Time.now();
+                    let updatedChannel : Channel = {
+                      id = existingChannel.id;
+                      name = existingChannel.name;
+                      description = existingChannel.description;
+                      channelType = existingChannel.channelType;
+                      // replace fromAddress with verified contact
+                      config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
+                      retryConfig = existingChannel.retryConfig;
+                      validationConfig = existingChannel.validationConfig;
+                      isActive = true;
+                      createdAt = existingChannel.createdAt;
+                      updatedAt = now;
+                    };
+                    userChannelsMap.put(cid, updatedChannel);
 
-            let newChannel : Channel = {
-              id = cid;
-              name = "Email";
-              description = null;
-              channelType = #email;
-              config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
-              retryConfig = { maxAttempts = 3; backoffMs = 60000; timeoutMs = 30000 };
-              validationConfig = { contentLimits = { maxTitleLength = 256; maxBodyLength = 10240; maxMetadataCount = 10; allowedContentTypes = ["text/plain"] }; rateLimit = { windowMs = 60000; maxRequests = 100; perChannel = true } };
-              isActive = true;
-              createdAt = now;
-              updatedAt = now;
+                    let updatedRec : Types.VerificationRecord = {
+                      method = r.method;
+                      token = r.token;
+                      chatId = r.chatId;
+                      contact = r.contact;
+                      expiresAt = r.expiresAt;
+                      verified = true;
+                      channelId = ?cid;
+                    };
+
+                    outArr := Array.append(outArr, [updatedRec]);
+                  };
+                  case (null) {
+                    // Placeholder id referenced but channel missing: create new channel with that id
+                    let targetId = cid;
+                    let now = Time.now();
+                    let defaultRetry : RetryConfig = {
+                      maxAttempts = 3;
+                      backoffMs = 60_000;
+                      timeoutMs = 30_000;
+                    };
+                    let defaultValidationConfig : Types.ValidationConfig = {
+                      contentLimits = {
+                        maxTitleLength = 256;
+                        maxBodyLength = 10240;
+                        maxMetadataCount = 10;
+                        allowedContentTypes = ["text/plain"]; 
+                      };
+                      rateLimit = {
+                        windowMs = 60_000;
+                        maxRequests = 100;
+                        perChannel = true;
+                      };
+                    };
+
+                    let newChannel : Channel = {
+                      id = targetId;
+                      name = "Email";
+                      description = null;
+                      channelType = #email;
+                      config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
+                      retryConfig = defaultRetry;
+                      validationConfig = defaultValidationConfig;
+                      isActive = true;
+                      createdAt = now;
+                      updatedAt = now;
+                    };
+                    userChannelsMap.put(targetId, newChannel);
+
+                    let updatedRec : Types.VerificationRecord = {
+                      method = r.method;
+                      token = r.token;
+                      chatId = r.chatId;
+                      contact = r.contact;
+                      expiresAt = r.expiresAt;
+                      verified = true;
+                      channelId = ?targetId;
+                    };
+
+                    outArr := Array.append(outArr, [updatedRec]);
+                  };
+                };
+              };
+              case (null) {
+                // No placeholder was created earlier - create a new channel
+                let cid = nextChannelId;
+                nextChannelId += 1;
+                let now = Time.now();
+
+                let defaultRetry : RetryConfig = {
+                  maxAttempts = 3;
+                  backoffMs = 60_000;
+                  timeoutMs = 30_000;
+                };
+                let defaultValidationConfig : Types.ValidationConfig = {
+                  contentLimits = {
+                    maxTitleLength = 256;
+                    maxBodyLength = 10240;
+                    maxMetadataCount = 10;
+                    allowedContentTypes = ["text/plain"];
+                  };
+                  rateLimit = {
+                    windowMs = 60_000;
+                    maxRequests = 100;
+                    perChannel = true;
+                  };
+                };
+
+                let newChannel : Channel = {
+                  id = cid;
+                  name = "Email";
+                  description = null;
+                  channelType = #email;
+                  config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
+                  retryConfig = defaultRetry;
+                  validationConfig = defaultValidationConfig;
+                  isActive = true;
+                  createdAt = now;
+                  updatedAt = now;
+                };
+                let updatedRec : Types.VerificationRecord = {
+                  method = r.method;
+                  token = r.token;
+                  chatId = r.chatId;
+                  contact = r.contact;
+                  expiresAt = r.expiresAt;
+                  verified = true;
+                  channelId = ?cid;
+                };
+                let userChannelsMap = getUserChannels(owner);
+                userChannelsMap.put(cid, newChannel);
+                outArr := Array.append(outArr, [updatedRec]);
+              };
             };
-
-            let userChannelsMap = getUserChannels(owner);
-            userChannelsMap.put(cid, newChannel);
-
-            let updatedRec : Types.VerificationRecord = {
-              method = r.method;
-              token = r.token;
-              chatId = r.chatId;
-              contact = r.contact;
-              expiresAt = r.expiresAt;
-              verified = true;
-              channelId = ?cid;
-            };
-
-            outArr := Array.append(outArr, [updatedRec]);
           } else {
             outArr := Array.append(outArr, [r]);
           };
         };
 
-        if (not matched) { return #err(#NotFound); };
-
-        userVerifications.put(owner, outArr);
-        ignore tokenToUser.remove(token);
-        return #ok();
-      };
-    };
-  };
-}
+                if (matched) {
+                  userVerifications.put(owner, outArr);
+                  ignore tokenToUser.remove(token);
+                  return #ok();
+                } else {
+                  return #err(#NotFound);
+                }
+              };
+            };
+          };
+        }
