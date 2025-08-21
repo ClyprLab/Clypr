@@ -16,6 +16,7 @@ import Docs from './pages/Docs';
 import VerifyEmail from './pages/VerifyEmail';
 import { AuthProvider } from './hooks/useAuth';
 import ClaimAlias from './pages/ClaimAlias';
+import DefiSwap from './pages/DefiSwap';
 
 const App = () => {
   return (
@@ -29,6 +30,7 @@ const App = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/defiSwap" element={<DefiSwap />} />
           
           <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />
