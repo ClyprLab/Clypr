@@ -204,21 +204,42 @@ const Dashboard = () => {
   
   // Normalize message timestamps to millisecond numbers to avoid mixing BigInt and Number
   const normalizedMessages = (messages || []).map(msg => {
-    const ts = (msg as any).timestamp;
-    const tsMs = typeof ts === 'bigint' ? Number(ts / 1_000_000n) : (typeof ts === 'number' ? (ts > 1e15 ? Math.floor(ts / 1e6) : Math.floor(ts)) : Date.now());
-    return { ...(msg as any), timestampMs: tsMs };
+    const m: any = msg ?? {};
+
+    // Normalize timestamp
+    const ts = m.timestamp ?? m.timestampMs;
+    let tsMs: number;
+    if (typeof ts === 'bigint') {
+      tsMs = Number(ts / 1_000_000n);
+    } else if (typeof ts === 'number') {
+      tsMs = ts > 1e15 ? Math.floor(ts / 1e6) : Math.floor(ts);
+    } else {
+      tsMs = Date.now();
+    }
+
+    // Normalize status: backend may return variant objects like { delivered: null } or strings
+    let statusStr = 'received';
+    if (typeof m.status === 'string') {
+      statusStr = m.status;
+    } else if (m.status && typeof m.status === 'object') {
+      const keys = Object.keys(m.status);
+      if (keys.length > 0) statusStr = keys[0];
+    }
+
+    return { ...m, timestampMs: tsMs, status: statusStr };
   });
-  
+
   normalizedMessages.forEach(msg => {
     const t = nsToMs((msg as any).timestamp ?? (msg as any).timestampMs);
     const d = startOfDay(t);
     const idx = buckets.indexOf(d);
     if (idx >= 0) {
-      if (msg.status === 'delivered') series[idx].delivered += 1;
-      if (msg.status === 'blocked') series[idx].blocked += 1;
+      const status = (msg as any).status;
+      if (status === 'delivered') series[idx].delivered += 1;
+      if (status === 'blocked') series[idx].blocked += 1;
     }
   });
-  
+
   const maxVal = Math.max(1, ...series.map(p => p.delivered + p.blocked));
 
   const topRules = rules
@@ -365,7 +386,7 @@ const Dashboard = () => {
             <div className="h-64 flex items-center justify-center">
               <div className="text-neutral-400">Loading activity data...</div>
             </div>
-          ) : messages && messages.length > 0 ? (
+          ) : normalizedMessages && normalizedMessages.length > 0 ? (
             <div>
               <div className="h-48 mb-4">
                 <ResponsiveContainer width="100%" height={192}>
