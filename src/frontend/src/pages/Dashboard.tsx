@@ -386,54 +386,174 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          {messagesLoading ? (
-            <div className="h-64 flex items-center justify-center">
-              <div className="text-neutral-400">Loading activity data...</div>
-            </div>
-          ) : (messagesAttempted && messages && messages.length > 0) ? (
-             <div>
-               <div className="h-48 mb-4">
-                 <ResponsiveContainer width="100%" height={192}>
-                   <BarChart
-                     data={series.map(p => ({
-                       day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                       delivered: p.delivered,
-                       blocked: p.blocked
-                     }))}
-                     margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                   >
-                     <XAxis dataKey="day" tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                     <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} allowDecimals={false} />
-                     <Tooltip wrapperStyle={{ background: '#0b1220', borderRadius: 6, color: '#fff' }} />
-                     <Legend formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)} wrapperStyle={{ color: '#9ca3af' }} />
-                     <Bar dataKey="delivered" stackId="a" fill="#10b981" radius={[6,6,0,0]} />
-                     <Bar dataKey="blocked" stackId="a" fill="#ef4444" radius={[6,6,0,0]} />
-                   </BarChart>
-                 </ResponsiveContainer>
+                     {messagesLoading ? (
+             <div className="h-64 flex flex-col items-center justify-center">
+               <div className="relative mb-4">
+                 <div className="w-12 h-12 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                 <div className="absolute inset-0 w-12 h-12 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
                </div>
-              
-              <div className="flex items-center justify-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-gradient-to-t from-green-500 to-green-400 rounded-sm" />
-                  <span className="text-neutral-300">Delivered</span>
+               <div className="text-neutral-400 text-sm">Loading activity data...</div>
+               <div className="mt-2 text-xs text-neutral-500">Preparing your communication insights</div>
+             </div>
+           ) : (messagesAttempted && messages && messages.length > 0) ? (
+              <div>
+                <div className="h-64 mb-6">
+                  <ResponsiveContainer width="100%" height={256}>
+                    <BarChart
+                      data={series.map(p => ({
+                        day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                        delivered: p.delivered,
+                        blocked: p.blocked,
+                        total: p.delivered + p.blocked
+                      }))}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <defs>
+                        <linearGradient id="deliveredGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+                        </linearGradient>
+                        <linearGradient id="blockedGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#dc2626" stopOpacity={0.6} />
+                        </linearGradient>
+                        <filter id="glow">
+                          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                          <feMerge> 
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                        </filter>
+                      </defs>
+                      
+                      <XAxis 
+                        dataKey="day" 
+                        tick={{ fill: '#9ca3af', fontSize: 11, fontWeight: 500 }} 
+                        axisLine={{ stroke: '#374151', strokeWidth: 1 }}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        tick={{ fill: '#9ca3af', fontSize: 11, fontWeight: 500 }} 
+                        allowDecimals={false}
+                        axisLine={{ stroke: '#374151', strokeWidth: 1 }}
+                        tickLine={false}
+                        grid={{ stroke: '#374151', strokeWidth: 0.5, strokeDasharray: '3 3' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'rgba(11, 18, 32, 0.95)', 
+                          border: '1px solid #374151',
+                          borderRadius: '12px', 
+                          color: '#fff',
+                          backdropFilter: 'blur(10px)',
+                          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+                        }}
+                        labelStyle={{ color: '#9ca3af', fontWeight: 600 }}
+                        formatter={(value, name) => [
+                          <span style={{ color: name === 'delivered' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                            {value}
+                          </span>,
+                          name === 'delivered' ? 'Delivered' : 'Blocked'
+                        ]}
+                      />
+                      <Bar 
+                        dataKey="delivered" 
+                        fill="url(#deliveredGradient)" 
+                        radius={[8, 8, 0, 0]}
+                        stroke="#10b981"
+                        strokeWidth={1}
+                        filter="url(#glow)"
+                      />
+                      <Bar 
+                        dataKey="blocked" 
+                        fill="url(#blockedGradient)" 
+                        radius={[8, 8, 0, 0]}
+                        stroke="#ef4444"
+                        strokeWidth={1}
+                        filter="url(#glow)"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-gradient-to-t from-red-500 to-red-400 rounded-sm" />
-                  <span className="text-neutral-300">Blocked</span>
+               
+               <div className="flex items-center justify-center gap-8 text-sm">
+                 <div className="flex items-center gap-3">
+                   <div className="relative">
+                     <div className="w-4 h-4 bg-gradient-to-br from-green-400 to-green-600 rounded-full shadow-lg shadow-green-500/25" />
+                     <div className="absolute inset-0 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-75" />
+                   </div>
+                   <span className="text-neutral-200 font-medium">Delivered</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <div className="relative">
+                     <div className="w-4 h-4 bg-gradient-to-br from-red-400 to-red-600 rounded-full shadow-lg shadow-red-500/25" />
+                     <div className="absolute inset-0 w-4 h-4 bg-red-400 rounded-full animate-ping opacity-75" />
+                   </div>
+                   <span className="text-neutral-200 font-medium">Blocked</span>
+                 </div>
+               </div>
+               
+               {/* Activity Summary */}
+               <div className="mt-6 p-4 bg-gradient-to-r from-neutral-800/50 to-neutral-700/50 rounded-xl border border-neutral-600/30">
+                 <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 bg-gradient-to-br from-cyan-400/20 to-fuchsia-500/20 rounded-lg flex items-center justify-center">
+                       <Activity className="h-4 w-4 text-cyan-400" />
+                     </div>
+                     <div>
+                       <div className="text-sm font-medium text-neutral-300">Activity Summary</div>
+                       <div className="text-xs text-neutral-400">Last 7 days</div>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-lg font-bold text-white">
+                       {series.reduce((sum, day) => sum + day.delivered + day.blocked, 0)}
+                     </div>
+                     <div className="text-xs text-neutral-400">Total Messages</div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           ) : (
+                           <div className="h-64 flex flex-col items-center justify-center text-center">
+                <div className="relative mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-cyan-400/10 to-fuchsia-500/10 rounded-full flex items-center justify-center border border-neutral-700/50">
+                    <Activity className="h-8 w-8 text-neutral-500" />
+                  </div>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-cyan-400 to-fuchsia-500 rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  </div>
+                </div>
+                <h4 className="text-white font-semibold mb-3 text-lg">No Activity Yet</h4>
+                <p className="text-neutral-400 text-sm mb-6 max-w-sm">
+                  Your message activity chart will appear here once you start receiving communications through your connected channels
+                </p>
+                <div className="flex items-center gap-4">
+                  <Button 
+                    variant="gradient" 
+                    size="sm" 
+                    onClick={handleConnectChannel}
+                    className="shadow-lg shadow-cyan-500/25"
+                  >
+                    Connect Channel
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleCreateRule}
+                  >
+                    Create Rule
+                  </Button>
+                </div>
+                
+                {/* Decorative elements */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-8 left-8 w-2 h-2 bg-cyan-400/20 rounded-full animate-pulse" />
+                  <div className="absolute top-16 right-12 w-1 h-1 bg-fuchsia-500/30 rounded-full animate-pulse delay-1000" />
+                  <div className="absolute bottom-20 left-16 w-1.5 h-1.5 bg-cyan-400/15 rounded-full animate-pulse delay-500" />
+                  <div className="absolute bottom-12 right-8 w-1 h-1 bg-fuchsia-500/25 rounded-full animate-pulse delay-1500" />
                 </div>
               </div>
-            </div>
-          ) : (
-             <div className="h-64 flex flex-col items-center justify-center text-center">
-               <Activity className="h-12 w-12 text-neutral-600 mb-4" />
-               <h4 className="text-white font-medium mb-2">No Activity Yet</h4>
-               <p className="text-neutral-400 text-sm mb-4">
-                 Your message activity will appear here once you start receiving communications
-               </p>
-               <Button variant="outline" size="sm" onClick={handleConnectChannel}>
-                 Connect Your First Channel
-               </Button>
-             </div>
            )}
          </Card>
 
