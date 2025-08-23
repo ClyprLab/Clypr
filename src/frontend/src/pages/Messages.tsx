@@ -350,7 +350,7 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
 };
 
 const Messages = () => {
-  const { messages, messagesLoading, loadMessages, isAuthenticated, error } = useClypr();
+  const { messages, messagesLoading, messagesAttempted, loadMessages, isAuthenticated, error, isDataReady } = useClypr();
   const [searchTerm, setSearchTerm] = (React as any).useState('');
   const [statusFilter, setStatusFilter] = (React as any).useState('all');
 
@@ -380,6 +380,26 @@ const Messages = () => {
       return status === 'all' || messageStatus === status;
     }).length;
   };
+
+  // Show loading state if data is not ready yet or if actively loading
+  if (!isDataReady() || messagesLoading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-display font-bold text-white mb-2">Messages & Logs</h1>
+          <p className="text-neutral-400">Loading your message history...</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map(i => (
+            <Card key={i} className="animate-pulse">
+              <div className="h-20 bg-neutral-800 rounded-lg mb-3" />
+              <div className="h-4 bg-neutral-800 rounded w-3/4" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">

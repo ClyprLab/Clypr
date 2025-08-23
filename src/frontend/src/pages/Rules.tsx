@@ -78,7 +78,8 @@ const Rules = () => {
     updateRule,
     deleteRule,
     isAuthenticated,
-    error
+    error,
+    isDataReady
   } = useClypr();
 
   const [showForm, setShowForm] = (React as any).useState(false);
@@ -87,9 +88,8 @@ const Rules = () => {
   const [statusFilter, setStatusFilter] = (React as any).useState<'all' | 'active' | 'inactive'>('all');
 
   (React as any).useEffect(() => {
-    if (isAuthenticated && !rulesLoading && rules.length === 0) {
-      loadRules();
-    }
+    // Rules are loaded automatically by useClypr hook
+    // No need to manually trigger loading here
   }, [isAuthenticated]);
 
   const handleCreateRule = async (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -183,6 +183,26 @@ const Rules = () => {
 
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
   const totalRulesCount = rules.length;
+
+  // Show loading state if data is not ready yet or if actively loading
+  if (!isDataReady() || rulesLoading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-display font-bold text-white mb-2">Privacy Rules</h1>
+          <p className="text-neutral-400">Loading your privacy rules...</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0, 1, 2].map(i => (
+            <Card key={i} className="animate-pulse">
+              <div className="h-20 bg-neutral-800 rounded-lg mb-3" />
+              <div className="h-4 bg-neutral-800 rounded w-3/4" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">

@@ -44,7 +44,9 @@ const Dashboard = () => {
     channelsLoading,
     messages,
     messagesLoading,
-    loadMessages
+    messagesAttempted,
+    loadMessages,
+    isDataReady
   } = useClypr();
 
   (React as any).useEffect(() => {
@@ -52,11 +54,11 @@ const Dashboard = () => {
 
     // Load messages for dashboard activity visualization only when we don't already have messages
     // (useClypr.loadMessages is safe to call and will no-op if the service isn't ready)
-    if (!messagesLoading && (!messages || messages.length === 0)) {
+    if (!messagesLoading && !messagesAttempted && (!messages || messages.length === 0)) {
       loadMessages().catch(() => {});
     }
   // Re-run when auth or relevant loaders/functions change so we catch service initialization timing
-  }, [isAuthenticated, messagesLoading, messages?.length, loadMessages]);
+  }, [isAuthenticated, messagesLoading, messagesAttempted, messages?.length, loadMessages]);
 
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
   // Normalize potential BigInt stats values to numbers for safe arithmetic/rendering
@@ -100,8 +102,8 @@ const Dashboard = () => {
     );
   }
 
-  if (statsLoading || rulesLoading) {
-    console.log('Dashboard loading state:', { statsLoading, rulesLoading, stats, rules: rules.length });
+  // Show loading state if data is not ready yet or if actively loading
+  if (!isDataReady() || statsLoading || rulesLoading) {
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
@@ -388,7 +390,7 @@ const Dashboard = () => {
             <div className="h-64 flex items-center justify-center">
               <div className="text-neutral-400">Loading activity data...</div>
             </div>
-          ) : (normalizedMessages && normalizedMessages.length > 0) ? (
+          ) : (messagesAttempted && messages && messages.length > 0) ? (
              <div>
                <div className="h-48 mb-4">
                  <ResponsiveContainer width="100%" height={192}>

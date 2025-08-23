@@ -118,11 +118,13 @@ export function useClypr() {
   // Rule-related functions
   const [rules, setRules] = useState<Rule[]>([]);
   const [rulesLoading, setRulesLoading] = useState<boolean>(false);
+  const [rulesAttempted, setRulesAttempted] = useState<boolean>(false);
 
   const loadRules = useCallback(async () => {
     if (!service || !isAuthenticated) return;
     try {
       setRulesLoading(true);
+      setRulesAttempted(true);
       const result = await service.getAllRules();
       setRules(result || []);
     } catch (err) {
@@ -194,12 +196,14 @@ export function useClypr() {
   // Channel-related functions
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState<boolean>(false);
+  const [channelsAttempted, setChannelsAttempted] = useState<boolean>(false);
 
   const loadChannels = useCallback(async () => {
     if (!service || !isAuthenticated) return;
 
     try {
       setChannelsLoading(true);
+      setChannelsAttempted(true);
       const result = await service.getAllChannels();
       setChannels(result || []);
     } catch (err) {
@@ -272,12 +276,14 @@ export function useClypr() {
   // Message-related functions
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
+  const [messagesAttempted, setMessagesAttempted] = useState<boolean>(false);
 
   const loadMessages = useCallback(async () => {
     if (!service || !isAuthenticated) return;
 
     try {
       setMessagesLoading(true);
+      setMessagesAttempted(true);
       const result = await service.getAllMessages();
       setMessages(result || []);
     } catch (err) {
@@ -312,18 +318,17 @@ export function useClypr() {
   // Stats function
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
+  const [statsAttempted, setStatsAttempted] = useState<boolean>(false);
 
   const loadStats = useCallback(async () => {
     if (!service || !isAuthenticated) {
-      console.log('loadStats: skipping - service or auth not ready', { service: !!service, isAuthenticated });
       return;
     }
 
     try {
-      console.log('loadStats: starting...');
       setStatsLoading(true);
+      setStatsAttempted(true);
       const result = await service.getStats();
-      console.log('loadStats: result received', result);
       setStats(result || null);
     } catch (err) {
       if (isNotAuthorized(err)) {
@@ -334,16 +339,13 @@ export function useClypr() {
         setError('Failed to load stats: ' + String(err));
       }
     } finally {
-      console.log('loadStats: finished, setting loading to false');
       setStatsLoading(false);
     }
   }, [service, isAuthenticated]);
 
   // Load initial data when authenticated — avoid auto-loading messages (owner-only on some deployments)
   useEffect(() => {
-    console.log('useClypr: auto-loading effect triggered', { isAuthenticated, service: !!service });
     if (isAuthenticated && service) {
-      console.log('useClypr: starting auto-load of stats, rules, and channels');
       // Run safe loads in parallel and ignore per-call NotAuthorized errors
       loadStats().catch(() => {});
       loadRules().catch(() => {});
@@ -364,6 +366,12 @@ export function useClypr() {
     }
   };
 
+  // Helper to check if data is ready (either loaded or attempted to load)
+  const isDataReady = () => {
+    if (!isAuthenticated || !service) return false;
+    return statsAttempted && rulesAttempted && channelsAttempted;
+  };
+
   return {
     isAuthenticated,
     principal,
@@ -381,6 +389,7 @@ export function useClypr() {
     // rules
     rules,
     rulesLoading,
+    rulesAttempted,
     loadRules,
     createRule,
     updateRule,
@@ -388,6 +397,7 @@ export function useClypr() {
     // channels
     channels,
     channelsLoading,
+    channelsAttempted,
     loadChannels,
     createChannel,
     updateChannel,
@@ -395,12 +405,16 @@ export function useClypr() {
     // messages
     messages,
     messagesLoading,
+    messagesAttempted,
     loadMessages,
     sendMessage,
     // stats
     stats,
     statsLoading,
+    statsAttempted,
     loadStats,
+    // data readiness
+    isDataReady,
     loading,
     error,
     clearError: () => setError(null)
