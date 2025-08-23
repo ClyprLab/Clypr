@@ -114,8 +114,28 @@ function startHttpServer(actor) {
 
   app.get('/', (req, res) => res.send('Bridge running'));
 
+  // Debug endpoint to check registered tokens (remove in production)
+  app.get('/debug/tokens', (req, res) => {
+    try {
+      const tokens = Array.from(telegramAdapter.tokenMap.entries()).map(([token, info]) => ({
+        token: token.substring(0, 8) + '...' + token.substring(token.length - 4),
+        jobId: info.jobId,
+        expiresAt: new Date(info.expiresAtMs).toISOString(),
+        expiresInMs: info.expiresAtMs - Date.now()
+      }));
+      res.json({ 
+        tokenCount: tokens.length, 
+        tokens,
+        now: new Date().toISOString()
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.listen(PORT, () => {
     console.info(`HTTP server listening on port ${PORT}, telegram webhook path ${TELEGRAM_WEBHOOK_PATH}`);
+    console.info(`Debug endpoint available at http://localhost:${PORT}/debug/tokens`);
   });
 }
 

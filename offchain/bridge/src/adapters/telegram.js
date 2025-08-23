@@ -11,8 +11,11 @@ const REDACT_SENSITIVE_LOGS = process.env.REDACT_SENSITIVE_LOGS === 'true';
 
 let actorRef = null;
 const tokenMap = new Map(); // token -> { jobId, expiresAtMs }
-const CLEANUP_INTERVAL_MS = 60_000;
+const CLEANUP_INTERVAL_MS = 30_000; // Clean up every 30 seconds instead of 60
 let cleanupHandle = null;
+
+// Export tokenMap for debugging (remove in production)
+export { tokenMap };
 
 // Telegram bot token for sending confirmation messages back to users
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || null;
@@ -88,6 +91,9 @@ export async function handleVerificationJob(job) {
   const intents = parseIntents(job.intents || []);
   const token = intents.token || (job.content && job.content.body);
   const expiresAtStr = intents.expiresAt || (job.expiresAt ? String(job.expiresAt) : null);
+  
+  logInfo('Processing verification job', job.id, 'intents:', Object.keys(intents));
+  
   if (!token) {
     console.warn('[telegram] job has no token, skipping', job.id);
     // Acknowledge as failed immediately to avoid dangling jobs
@@ -101,13 +107,22 @@ export async function handleVerificationJob(job) {
     if (expiresAtStr) {
       const asBig = BigInt(expiresAtStr.toString());
       expiresAtMs = Number(asBig / 1000000n);
+    } else {
+      // Default to 15 minutes if no expiry provided
+      expiresAtMs = Date.now() + 15 * 60 * 1000;
     }
   } catch (e) {
+    console.warn('[telegram] Failed to parse expiresAt, using default 15 minutes:', e);
     expiresAtMs = Date.now() + 15 * 60 * 1000;
   }
 
+  // Check if token already exists (shouldn't happen, but just in case)
+  if (tokenMap.has(token)) {
+    console.warn('[telegram] Token already registered, replacing:', redact(token));
+  }
+
   tokenMap.set(token, { jobId: Number(job.id), expiresAtMs });
-  logInfo('registered token for job', job.id, 'token', redact(token), 'expiresMs', expiresAtMs);
+  logInfo('registered token for job', job.id, 'token', redact(token), 'expiresMs', expiresAtMs, 'expiresAt', new Date(expiresAtMs).toISOString());
 
   // Defer acknowledgement until we receive the webhook and confirm
   return 'deferred';
@@ -132,8 +147,13 @@ async function ackJob(jobId, delivered = true) {
 export async function handleWebhookUpdate(update) {
   // Accept update object from Telegram
   try {
+    logInfo('Received webhook update:', JSON.stringify(update, null, 2));
+    
     const msg = update.message || update.edited_message || update.channel_post || (update.callback_query && update.callback_query.message);
-    if (!msg && !update.callback_query) return { ok: false, status: 400, reason: 'no message' };
+    if (!msg && !update.callback_query) {
+      logInfo('No message or callback_query found in update');
+      return { ok: false, status: 400, reason: 'no message' };
+    }
 
     // Extract different token sources
     let text = msg && (msg.text || msg.caption) ? String(msg.text || msg.caption) : '';
@@ -142,11 +162,14 @@ export async function handleWebhookUpdate(update) {
     // callback_query.data can contain the token directly (deep-link callback)
     const callbackData = update.callback_query && update.callback_query.data ? String(update.callback_query.data) : null;
 
+    logInfo('Extracted chatId:', chatId, 'text:', text ? text.substring(0, 50) + '...' : 'empty', 'callbackData:', callbackData ? callbackData.substring(0, 50) + '...' : 'null');
+
     if (!chatId) {
       // Best-effort: try to use callback_query.from.id
       if (update.callback_query && update.callback_query.from && update.callback_query.from.id) {
         // ok
       } else {
+        logInfo('No chat ID found in update');
         return { ok: false, status: 400, reason: 'no chat id' };
       }
     }
@@ -155,30 +178,40 @@ export async function handleWebhookUpdate(update) {
     let tokenCandidate = null;
 
     // 1) callback_data as token
-    if (callbackData) tokenCandidate = callbackData.trim();
+    if (callbackData) {
+      tokenCandidate = callbackData.trim();
+      logInfo('Found token in callback_data:', redact(tokenCandidate));
+    }
 
     // 2) /start <token> command
     if (!tokenCandidate && text) {
       const parts = text.trim().split(/\s+/);
       if (parts.length >= 2 && parts[0].startsWith('/start')) {
         tokenCandidate = parts.slice(1).join(' ');
+        logInfo('Found token in /start command:', redact(tokenCandidate));
       }
     }
 
     // 3) plain token: if the entire message looks like a token (no spaces) use it
     if (!tokenCandidate && text && text.trim().length > 0 && !text.includes(' ')) {
       tokenCandidate = text.trim();
+      logInfo('Found token as plain message:', redact(tokenCandidate));
     }
 
     // 4) fallback: find any registered token substring in the text (case-sensitive match)
     if (!tokenCandidate && text) {
       for (const t of tokenMap.keys()) {
-        if (text.includes(t)) { tokenCandidate = t; break; }
+        if (text.includes(t)) { 
+          tokenCandidate = t; 
+          logInfo('Found token as substring in text:', redact(tokenCandidate));
+          break; 
+        }
       }
     }
 
     // If still no token, always reply with helpful instructions
     if (!tokenCandidate) {
+      logInfo('No token found in message. Available tokens:', Array.from(tokenMap.keys()).map(redact));
       try {
         await sendTelegramMessage(chatId, "I couldn't find a verification token in your message. Please use the link in the app or paste the token directly (or use /start <token>). If you pasted the token, make sure it's the full token string.");
       } catch (e) {}
@@ -188,18 +221,25 @@ export async function handleWebhookUpdate(update) {
     const entry = tokenMap.get(tokenCandidate);
     if (!entry) {
       // Token unknown or expired — tell the user and advise re-request
-      try { await sendTelegramMessage(chatId, "That verification token is unknown or has expired. Request a new verification in the app and try again."); } catch (e) {}
+      logInfo('Token not found in map:', redact(tokenCandidate), 'Available tokens:', Array.from(tokenMap.keys()).map(redact));
+      try { 
+        await sendTelegramMessage(chatId, "That verification token is unknown or has expired. Request a new verification in the app and try again. If you just requested verification, please wait a moment and try again."); 
+      } catch (e) {}
       return { ok: false, status: 404, reason: 'unknown token or expired' };
     }
 
     // Check expiry
-    if (entry.expiresAtMs <= Date.now()) {
+    const now = Date.now();
+    if (entry.expiresAtMs <= now) {
+      logInfo('Token expired:', redact(tokenCandidate), 'expired at:', new Date(entry.expiresAtMs).toISOString(), 'now:', new Date(now).toISOString());
       tokenMap.delete(tokenCandidate);
       // Ack failed due to expiry
       await ackJob(entry.jobId, false);
       try { await sendTelegramMessage(chatId, "This verification token has expired. Please request a new verification from the app."); } catch (e) {}
       return { ok: false, status: 410, reason: 'token expired' };
     }
+
+    logInfo('Token validated successfully:', redact(tokenCandidate), 'expires at:', new Date(entry.expiresAtMs).toISOString());
 
     // Call canister confirm
     try {
