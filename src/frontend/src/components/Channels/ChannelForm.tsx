@@ -137,7 +137,8 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
       if (!resp?.token) throw new Error('Failed to get Telegram token');
       if (resp.token) setVerificationToken(resp.token);
       // Open bot and present options in the form (don't auto-close)
-      window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+      const botStartUrl = getTelegramBotStartUrl(resp.token);
+      window.open(botStartUrl, '_blank');
       setStatus({ type: 'verifying', message: 'Telegram connect link opened. Complete the flow in the Telegram app.' });
        
       // If backend provided a placeholder channel id, keep it and inform parent not to close
@@ -231,20 +232,16 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
       const resp = await service.requestTelegramVerification(true);
       if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
       
+      // Store the verification token and channel ID
       if (resp.token) {
         setVerificationToken(resp.token);
-        setVerificationLink(`${window.location.origin}/verify-email?token=${encodeURIComponent(resp.token)}`);
       }
-      
-      // Use configurable bot URL
-      const botStartUrl = getTelegramBotStartUrl(resp.token);
-      window.open(botStartUrl, '_blank');
-      
-      // Keep the form open and show verification options. If backend created placeholder, keep it.
       if (resp.channelId) {
         setPlaceholderChannelId(Number(resp.channelId));
       }
-      setStatus({ type: 'verifying', message: 'Telegram verification started. Complete the bot flow and then click Refresh.' });
+      
+      // Keep the form open and show verification options
+      setStatus({ type: 'verifying', message: 'Telegram verification started! Choose your verification method below.' });
       onSuccess?.(false);
       return;
     } catch (err: any) {
@@ -267,10 +264,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
     }
   };
 
-  const openTelegramBot = () => {
-    const telegramConfig = getTelegramConfig();
-    window.open(`https://t.me/${telegramConfig.botUsername}`, '_blank');
-  };
+
   
    // Refresh the placeholder channel status from the server. If activated, notify parent to close.
    const refreshPlaceholderStatus = async () => {
@@ -296,6 +290,8 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         // If placeholder still not active, try scanning all channels for an active one that matches the contact
         try {
           const all = await service.getAllChannels();
+          
+          // Check for email channels
           const emailAddr = formData.config?.email?.fromAddress;
           if (emailAddr && Array.isArray(all)) {
             const match = all.find((c: any) => {
@@ -320,12 +316,44 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
               return;
             }
           }
+          
+          // Check for Telegram channels
+          if (formData.channelType === 'telegram' && Array.isArray(all)) {
+            const match = all.find((c: any) => {
+              try {
+                // Look for active Telegram channels
+                const isTelegram = c.channelType && (
+                  (typeof c.channelType === 'string' && c.channelType === 'telegram') ||
+                  (typeof c.channelType === 'object' && c.channelType && Object.keys(c.channelType)[0] === 'telegram')
+                );
+                return c.isActive && isTelegram;
+              } catch (e) { return false; }
+            });
+            if (match) {
+              // Found an activated Telegram channel. Treat as success.
+              setStatus({ type: 'success', message: 'Telegram channel verified and active!' });
+              // Optionally remove the old placeholder to avoid duplicates
+              try {
+                if (placeholderChannelId && placeholderChannelId !== match.id && typeof service.deleteChannel === 'function') {
+                  await service.deleteChannel(Number(placeholderChannelId));
+                }
+              } catch (delErr) {
+                console.warn('Failed to delete placeholder channel:', delErr);
+              }
+              onSuccess?.(true);
+              return;
+            }
+          }
         } catch (scanErr) {
           console.debug('Failed to scan channels for matching active contact:', scanErr);
         }
 
         // still pending
-        setStatus({ type: 'verifying', message: 'Still pending verification. Check your inbox or Telegram.' });
+        if (formData.channelType === 'telegram') {
+          setStatus({ type: 'verifying', message: 'Still pending Telegram verification. Complete the verification in Telegram and click Check Status again.' });
+        } else {
+          setStatus({ type: 'verifying', message: 'Still pending verification. Check your inbox or Telegram.' });
+        }
       } catch (err: any) {
         console.error(err);
         setStatus({ type: 'error', message: err?.message || 'Failed to refresh channel status' });
@@ -397,21 +425,16 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         const resp = await service.requestTelegramVerification(true);
         if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
 
-        // Use configurable bot URL
-        const botStartUrl = getTelegramBotStartUrl(resp.token);
-        window.open(botStartUrl, '_blank');
-
-        // If server created a placeholder channel, keep it visible and inform parent not to close
+        // Store the verification token and channel ID
         if (resp.token) {
           setVerificationToken(resp.token);
-          setVerificationLink(`${window.location.origin}/verify-email?token=${encodeURIComponent(resp.token)}`);
         }
         if (resp.channelId) {
           setPlaceholderChannelId(Number(resp.channelId));
         }
 
-        // Keep the form open and instruct the user to complete the bot flow
-        setStatus({ type: 'verifying', message: 'Telegram verification started. Complete the bot flow and then click Refresh.' });
+        // Keep the form open and show verification options
+        setStatus({ type: 'verifying', message: 'Telegram verification started! Choose your verification method below.' });
         onSuccess?.(false);
         return;
       }
@@ -648,6 +671,92 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
                 }
                 if (channelType === 'telegram') {
                   const telegramConfig = getTelegramConfig();
+                  
+                  // If we have a verification token, show the verification options
+                  if (verificationToken) {
+                    return (
+                      <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-500/20 rounded-lg">
+                            <MessageSquare className="h-5 w-5 text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-white">Verify with {telegramConfig.botName}</h4>
+                            <p className="text-sm text-neutral-400">Choose how you want to verify your identity</p>
+                          </div>
+                        </div>
+                        
+                        {/* Verification Options */}
+                        <div className="space-y-3">
+                          {/* Option 1: Copy Token */}
+                          <div className="p-3 bg-neutral-800/50 rounded-md border border-neutral-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-neutral-300">Option 1: Copy & Paste Token</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(verificationToken)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                            <div className="text-xs text-neutral-400 break-all font-mono bg-neutral-900/50 p-2 rounded">
+                              {verificationToken}
+                            </div>
+                            <p className="text-xs text-neutral-500 mt-2">
+                              Copy this token and paste it directly in the Telegram chat with {telegramConfig.botName}
+                            </p>
+                          </div>
+                          
+                          {/* Option 2: Magic Link */}
+                          <div className="p-3 bg-neutral-800/50 rounded-md border border-neutral-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-neutral-300">Option 2: Use Magic Link</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => {
+                                const botStartUrl = getTelegramBotStartUrl(verificationToken);
+                                window.open(botStartUrl, '_blank');
+                              }}
+                            >
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Open {telegramConfig.botName} with Token
+                            </Button>
+                            <p className="text-xs text-neutral-500 mt-2">
+                              This will open Telegram and automatically start the verification process
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Status and Refresh */}
+                        <div className="pt-3 border-t border-neutral-700">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-neutral-400">
+                              Channel: <span className="font-mono text-xs">{formData.name || 'Telegram'}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={refreshPlaceholderStatus}
+                              disabled={isSubmitting}
+                              className="text-xs h-8 px-3"
+                            >
+                              <Loader2 className="mr-1 h-3 w-3" />
+                              Check Status
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Initial connection UI
                   return (
                     <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
                       <div className="flex items-center gap-3">
@@ -659,30 +768,6 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
                           <p className="text-sm text-neutral-400">{telegramConfig.botDescription}</p>
                         </div>
                       </div>
-                      
-                      {/* Show verification token if available */}
-                      {verificationToken && (
-                        <div className="p-3 bg-neutral-800/50 rounded-md border border-neutral-700">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-neutral-300">Verification Token</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(verificationToken)}
-                              className="h-6 px-2 text-xs"
-                            >
-                              {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                          <div className="text-xs text-neutral-400 break-all font-mono bg-neutral-900/50 p-2 rounded">
-                            {verificationToken}
-                          </div>
-                          <p className="text-xs text-neutral-500 mt-2">
-                            You can paste this token directly in the Telegram chat with {telegramConfig.botName}
-                          </p>
-                        </div>
-                      )}
                       
                       <div className="space-y-3">
                         <Button 
@@ -706,21 +791,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
                         </Button>
                         
                         <div className="text-xs text-neutral-400 text-center">
-                          This will open Telegram and start the verification process
-                        </div>
-                        
-                        <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
-                          <span>Or</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={openTelegramBot}
-                            className="h-6 px-2 text-xs text-blue-400 hover:text-blue-300"
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Open {telegramConfig.botName} directly
-                          </Button>
+                          This will create a placeholder channel and generate a verification token
                         </div>
                       </div>
                     </div>

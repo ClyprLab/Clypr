@@ -386,7 +386,7 @@ const Dashboard = () => {
             </Button>
           </div>
 
-                     {messagesLoading ? (
+          {messagesLoading ? (
              <div className="h-64 flex flex-col items-center justify-center">
                <div className="relative mb-4">
                  <div className="w-12 h-12 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -394,15 +394,15 @@ const Dashboard = () => {
                </div>
                <div className="text-neutral-400 text-sm">Loading activity data...</div>
                <div className="mt-2 text-xs text-neutral-500">Preparing your communication insights</div>
-             </div>
+            </div>
            ) : (messagesAttempted && messages && messages.length > 0) ? (
-              <div>
+             <div>
                 <div className="h-64 mb-6">
                   <ResponsiveContainer width="100%" height={256}>
-                    <BarChart
-                      data={series.map(p => ({
-                        day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                        delivered: p.delivered,
+                   <BarChart
+                     data={series.map(p => ({
+                       day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                       delivered: p.delivered,
                         blocked: p.blocked,
                         total: p.delivered + p.blocked
                       }))}
@@ -472,10 +472,10 @@ const Dashboard = () => {
                         strokeWidth={1}
                         filter="url(#glow)"
                       />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-               
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
+              
                <div className="flex items-center justify-center gap-8 text-sm">
                  <div className="flex items-center gap-3">
                    <div className="relative">
@@ -510,12 +510,12 @@ const Dashboard = () => {
                        {series.reduce((sum, day) => sum + day.delivered + day.blocked, 0)}
                      </div>
                      <div className="text-xs text-neutral-400">Total Messages</div>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           ) : (
-                           <div className="h-64 flex flex-col items-center justify-center text-center">
+                </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+             <div className="h-64 flex flex-col items-center justify-center text-center">
                 <div className="relative mb-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-cyan-400/10 to-fuchsia-500/10 rounded-full flex items-center justify-center border border-neutral-700/50">
                     <Activity className="h-8 w-8 text-neutral-500" />
@@ -543,7 +543,7 @@ const Dashboard = () => {
                     onClick={handleCreateRule}
                   >
                     Create Rule
-                  </Button>
+               </Button>
                 </div>
                 
                 {/* Decorative elements */}
@@ -553,7 +553,7 @@ const Dashboard = () => {
                   <div className="absolute bottom-20 left-16 w-1.5 h-1.5 bg-cyan-400/15 rounded-full animate-pulse delay-500" />
                   <div className="absolute bottom-12 right-8 w-1 h-1 bg-fuchsia-500/25 rounded-full animate-pulse delay-1500" />
                 </div>
-              </div>
+             </div>
            )}
          </Card>
 
