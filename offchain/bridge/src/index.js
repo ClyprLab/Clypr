@@ -104,11 +104,13 @@ function startHttpServer(actor) {
   app.post(TELEGRAM_WEBHOOK_PATH, async (req, res) => {
     try {
       const result = await telegramAdapter.handleWebhookUpdate(req.body);
-      if (result && result.ok) return res.status(result.status).send('OK');
-      return res.status(result.status || 500).send(result.reason || 'error');
+      // Always return 200 OK to Telegram to acknowledge the webhook
+      // This prevents Telegram from retrying the webhook
+      return res.status(200).send('OK');
     } catch (e) {
       console.error('Telegram webhook handler error:', e);
-      return res.status(500).send('internal error');
+      // Even on error, return 200 OK to prevent webhook retries
+      return res.status(200).send('OK');
     }
   });
 

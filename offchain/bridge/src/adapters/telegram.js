@@ -11,6 +11,7 @@ const REDACT_SENSITIVE_LOGS = process.env.REDACT_SENSITIVE_LOGS === 'true';
 
 let actorRef = null;
 const tokenMap = new Map(); // token -> { jobId, expiresAtMs }
+const processedMessages = new Set(); // message_id -> timestamp to prevent duplicates
 const CLEANUP_INTERVAL_MS = 30_000; // Clean up every 30 seconds instead of 60
 let cleanupHandle = null;
 
@@ -70,8 +71,13 @@ export function init(actor) {
   if (!cleanupHandle) {
     cleanupHandle = setInterval(() => {
       const now = Date.now();
+      // Clean up expired tokens
       for (const [token, info] of tokenMap.entries()) {
         if (info.expiresAtMs <= now) tokenMap.delete(token);
+      }
+      // Clean up old processed messages (older than 1 hour)
+      for (const [messageId, timestamp] of processedMessages.entries()) {
+        if (now - timestamp > 60 * 60 * 1000) processedMessages.delete(messageId);
       }
     }, CLEANUP_INTERVAL_MS);
   }
@@ -152,14 +158,26 @@ export async function handleWebhookUpdate(update) {
     const msg = update.message || update.edited_message || update.channel_post || (update.callback_query && update.callback_query.message);
     if (!msg && !update.callback_query) {
       logInfo('No message or callback_query found in update');
-      return { ok: false, status: 400, reason: 'no message' };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
+    }
+
+    // Generate a unique message identifier to prevent duplicate processing
+    const messageId = msg ? msg.message_id : (update.callback_query ? `cb_${update.callback_query.id}` : null);
+    const chatId = (msg && msg.chat && (msg.chat.id || (msg.chat && msg.chat.id))) || (update.callback_query && update.callback_query.from && update.callback_query.from.id);
+    
+    // Check for duplicate message processing
+    if (messageId && processedMessages.has(messageId)) {
+      logInfo('Duplicate message detected, skipping:', messageId);
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
+    }
+
+    // Mark message as processed
+    if (messageId) {
+      processedMessages.add(messageId);
     }
 
     // Extract different token sources
     let text = msg && (msg.text || msg.caption) ? String(msg.text || msg.caption) : '';
-    const chatId = (msg && msg.chat && (msg.chat.id || (msg.chat && msg.chat.id))) || (update.callback_query && update.callback_query.from && update.callback_query.from.id);
-
-    // callback_query.data can contain the token directly (deep-link callback)
     const callbackData = update.callback_query && update.callback_query.data ? String(update.callback_query.data) : null;
 
     logInfo('Extracted chatId:', chatId, 'text:', text ? text.substring(0, 50) + '...' : 'empty', 'callbackData:', callbackData ? callbackData.substring(0, 50) + '...' : 'null');
@@ -170,7 +188,7 @@ export async function handleWebhookUpdate(update) {
         // ok
       } else {
         logInfo('No chat ID found in update');
-        return { ok: false, status: 400, reason: 'no chat id' };
+        return { ok: true, status: 200 }; // Return OK to acknowledge webhook
       }
     }
 
@@ -215,7 +233,7 @@ export async function handleWebhookUpdate(update) {
       try {
         await sendTelegramMessage(chatId, "I couldn't find a verification token in your message. Please use the link in the app or paste the token directly (or use /start <token>). If you pasted the token, make sure it's the full token string.");
       } catch (e) {}
-      return { ok: false, status: 404, reason: 'token not found in message' };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
 
     const entry = tokenMap.get(tokenCandidate);
@@ -225,7 +243,7 @@ export async function handleWebhookUpdate(update) {
       try { 
         await sendTelegramMessage(chatId, "That verification token is unknown or has expired. Request a new verification in the app and try again. If you just requested verification, please wait a moment and try again."); 
       } catch (e) {}
-      return { ok: false, status: 404, reason: 'unknown token or expired' };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
 
     // Check expiry
@@ -236,7 +254,7 @@ export async function handleWebhookUpdate(update) {
       // Ack failed due to expiry
       await ackJob(entry.jobId, false);
       try { await sendTelegramMessage(chatId, "This verification token has expired. Please request a new verification from the app."); } catch (e) {}
-      return { ok: false, status: 410, reason: 'token expired' };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
 
     logInfo('Token validated successfully:', redact(tokenCandidate), 'expires at:', new Date(entry.expiresAtMs).toISOString());
@@ -250,7 +268,7 @@ export async function handleWebhookUpdate(update) {
         await ackJob(entry.jobId, false);
         tokenMap.delete(tokenCandidate);
         try { await sendTelegramMessage(chatId, "Verification failed due to a backend error. Please try again later."); } catch (e) {}
-        return { ok: false, status: 500, reason: 'canister err' };
+        return { ok: true, status: 200 }; // Return OK to acknowledge webhook
       }
 
       // Success: ack delivered
@@ -258,16 +276,16 @@ export async function handleWebhookUpdate(update) {
       tokenMap.delete(tokenCandidate);
       // Notify the user in Telegram that verification succeeded
       try { await sendTelegramMessage(chatId, "✅ You're verified with Clypr. You can now return to the app."); } catch (e) {}
-      return { ok: true, status: 200 };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     } catch (e) {
       console.error('[telegram] bridgeConfirmVerification threw:', e);
       await ackJob(entry.jobId, false);
       tokenMap.delete(tokenCandidate);
       try { await sendTelegramMessage(chatId, "Verification failed due to an internal error. Please try again later."); } catch (e) {}
-      return { ok: false, status: 500, reason: 'exception' };
+      return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
   } catch (e) {
     console.error('[telegram] handleWebhookUpdate error:', e);
-    return { ok: false, status: 500, reason: 'internal' };
+    return { ok: true, status: 200 }; // Return OK to acknowledge webhook even on error
   }
 }
