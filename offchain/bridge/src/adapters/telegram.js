@@ -179,17 +179,17 @@ export async function handleWebhookUpdate(update) {
     // Handle help command
     if (text && text.trim().toLowerCase() === '/help') {
       try {
-        await sendTelegramMessage(chatId, "🤖 *Clypr Verification Bot*\n\n" +
-          "This bot helps you verify your identity with Clypr.\n\n" +
-          "*Available Commands:*\n" +
+        await sendTelegramMessage(chatId, "👋 *Your Clypr Agent*\n\n" +
+          "I'm here to help you verify your identity and manage your Clypr account.\n\n" +
+          "*What I can do:*\n" +
           "• `/help` - Show this help message\n" +
-          "• `/verify <token>` - Verify with a token\n" +
+          "• `/verify <token>` - Verify your identity with a token\n" +
           "• `/start <token>` - Start and verify with a token\n\n" +
-          "*How to use:*\n" +
-          "1. Request verification in the Clypr app\n" +
+          "*How to verify:*\n" +
+          "1. Request verification in your Clypr app\n" +
           "2. Copy the verification token\n" +
           "3. Paste it here or use `/verify <token>`\n\n" +
-          "You can also paste the token directly without any command.");
+          "You can also just paste the token directly - I'll recognize it!");
       } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
@@ -225,18 +225,19 @@ export async function handleWebhookUpdate(update) {
       if (parts.length >= 2 && parts[0].startsWith('/start')) {
         tokenCandidate = parts.slice(1).join(' ');
         logInfo('Found token in /start command:', redact(tokenCandidate));
-      } else if (parts.length === 1 && parts[0].startsWith('/start')) {
-        // /start without token - send welcome message
-        try {
-          await sendTelegramMessage(chatId, "👋 *Welcome to Clypr Verification Bot!*\n\n" +
-            "To verify your identity with Clypr:\n\n" +
-            "1. **Request verification** in the Clypr app\n" +
-            "2. **Copy the verification token** from the app\n" +
-            "3. **Paste it here** or use `/verify <token>`\n\n" +
-            "You can also use `/help` for more information.");
-        } catch (e) {}
-        return { ok: true, status: 200 }; // Return OK to acknowledge webhook
-      }
+             } else if (parts.length === 1 && parts[0].startsWith('/start')) {
+         // /start without token - send welcome message
+         try {
+           await sendTelegramMessage(chatId, "👋 *Welcome! I'm your Clypr Agent*\n\n" +
+             "I'm here to help you verify your identity and manage your Clypr account.\n\n" +
+             "To get started:\n" +
+             "1. **Request verification** in your Clypr app\n" +
+             "2. **Copy the verification token** from the app\n" +
+             "3. **Paste it here** or use `/verify <token>`\n\n" +
+             "Need help? Just type `/help` and I'll show you what I can do!");
+         } catch (e) {}
+         return { ok: true, status: 200 }; // Return OK to acknowledge webhook
+       }
     }
 
     // 3) plain token: if the entire message looks like a token (no spaces) use it
@@ -269,11 +270,11 @@ export async function handleWebhookUpdate(update) {
     if (!tokenCandidate) {
       logInfo('No token found in message. Available tokens:', Array.from(tokenMap.keys()).map(redact));
       try {
-        await sendTelegramMessage(chatId, "I couldn't find a verification token in your message. Please use one of these methods:\n\n" +
-          "• Paste the token directly\n" +
-          "• Use /verify <token>\n" +
-          "• Use /start <token>\n\n" +
-          "Make sure you're using the complete token from the Clypr app.");
+        await sendTelegramMessage(chatId, "I don't see a verification token in your message. Here's how you can share it with me:\n\n" +
+          "• **Just paste the token directly** (I'll recognize it!)\n" +
+          "• Use `/verify <token>`\n" +
+          "• Use `/start <token>`\n\n" +
+          "Make sure you're using the complete token from your Clypr app. If you need help, just type `/help`!");
       } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
@@ -283,10 +284,11 @@ export async function handleWebhookUpdate(update) {
       // Token unknown or expired — tell the user and advise re-request
       logInfo('Token not found in map:', redact(tokenCandidate), 'Available tokens:', Array.from(tokenMap.keys()).map(redact));
       try { 
-        await sendTelegramMessage(chatId, "That verification token is unknown or has expired. Please request a new verification in the Clypr app and try again.\n\n" +
-          "You can paste the new token directly or use:\n" +
-          "• /verify <token>\n" +
-          "• /start <token>"); 
+        await sendTelegramMessage(chatId, "I don't recognize that verification token - it might be expired or invalid. Please request a new verification in your Clypr app and try again.\n\n" +
+          "You can share the new token with me by:\n" +
+          "• **Pasting it directly**\n" +
+          "• Using `/verify <token>`\n" +
+          "• Using `/start <token>`"); 
       } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
@@ -298,10 +300,11 @@ export async function handleWebhookUpdate(update) {
         tokenMap.delete(tokenCandidate);
         // Ack failed due to expiry
         await ackJob(entry.jobId, false);
-        try { await sendTelegramMessage(chatId, "This verification token has expired. Please request a new verification from the Clypr app.\n\n" +
-          "You can paste the new token directly or use:\n" +
-          "• /verify <token>\n" +
-          "• /start <token>"); } catch (e) {}
+        try { await sendTelegramMessage(chatId, "That verification token has expired. Please request a new verification from your Clypr app.\n\n" +
+          "You can share the new token with me by:\n" +
+          "• **Pasting it directly**\n" +
+          "• Using `/verify <token>`\n" +
+          "• Using `/start <token>`"); } catch (e) {}
         return { ok: true, status: 200 }; // Return OK to acknowledge webhook
       }
 
@@ -315,7 +318,7 @@ export async function handleWebhookUpdate(update) {
         // Ack job as failed
         await ackJob(entry.jobId, false);
         tokenMap.delete(tokenCandidate);
-        try { await sendTelegramMessage(chatId, "Verification failed due to a backend error. Please try again later."); } catch (e) {}
+        try { await sendTelegramMessage(chatId, "I'm having trouble processing your verification right now. Please try again in a few moments, or contact support if the issue persists."); } catch (e) {}
         return { ok: true, status: 200 }; // Return OK to acknowledge webhook
       }
 
@@ -323,16 +326,16 @@ export async function handleWebhookUpdate(update) {
       await ackJob(entry.jobId, true);
       tokenMap.delete(tokenCandidate);
       // Notify the user in Telegram that verification succeeded
-      try { await sendTelegramMessage(chatId, "✅ *Verification Successful!*\n\n" +
-        "You have been successfully verified with Clypr.\n\n" +
-        "You can now return to the Clypr app and continue using the service.\n\n" +
-        "Thank you for using Clypr! 🚀"); } catch (e) {}
+      try { await sendTelegramMessage(chatId, "✅ *Perfect! You're all set!*\n\n" +
+        "Your identity has been successfully verified with Clypr.\n\n" +
+        "You can now return to your Clypr app and continue using all the features.\n\n" +
+        "Is there anything else I can help you with? 🚀"); } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     } catch (e) {
       console.error('[telegram] bridgeConfirmVerification threw:', e);
       await ackJob(entry.jobId, false);
       tokenMap.delete(tokenCandidate);
-      try { await sendTelegramMessage(chatId, "Verification failed due to an internal error. Please try again later."); } catch (e) {}
+      try { await sendTelegramMessage(chatId, "I encountered an unexpected error while processing your verification. Please try again, and if the problem continues, reach out to our support team."); } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
   } catch (e) {
