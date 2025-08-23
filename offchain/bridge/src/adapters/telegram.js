@@ -176,6 +176,10 @@ export async function handleWebhookUpdate(update) {
       processedMessages.add(messageId);
     }
 
+    // Extract different token sources
+    let text = msg && (msg.text || msg.caption) ? String(msg.text || msg.caption) : '';
+    const callbackData = update.callback_query && update.callback_query.data ? String(update.callback_query.data) : null;
+
     // Handle help command
     if (text && text.trim().toLowerCase() === '/help') {
       try {
@@ -193,10 +197,6 @@ export async function handleWebhookUpdate(update) {
       } catch (e) {}
       return { ok: true, status: 200 }; // Return OK to acknowledge webhook
     }
-
-    // Extract different token sources
-    let text = msg && (msg.text || msg.caption) ? String(msg.text || msg.caption) : '';
-    const callbackData = update.callback_query && update.callback_query.data ? String(update.callback_query.data) : null;
 
     logInfo('Extracted chatId:', chatId, 'text:', text ? text.substring(0, 50) + '...' : 'empty', 'callbackData:', callbackData ? callbackData.substring(0, 50) + '...' : 'null');
 
