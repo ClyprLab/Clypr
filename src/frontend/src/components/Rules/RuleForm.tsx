@@ -90,7 +90,9 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
     const actionErrors: (string | null)[] = [];
     (actions || []).forEach((a: any, idx: number) => {
       if (a.actionType === 'route') {
-        if (a.channelId === undefined || a.channelId === null || Number.isNaN(Number(a.channelId)) || Number(a.channelId) <= 0) {
+        // Accept numbers or numeric strings. Coerce safely and validate positive integer
+        const parsedId = a.channelId === undefined || a.channelId === null ? NaN : Number(a.channelId);
+        if (!Number.isFinite(parsedId) || parsedId <= 0) {
           actionErrors[idx] = 'Channel ID must be a positive number for route actions';
         } else {
           actionErrors[idx] = null;
@@ -292,7 +294,7 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
                       </select>
 
                       {action.actionType === 'route' && (
-                        <Input disabled={isSubmitting} aria-label={`action-channel-${idx}`} type="number" value={action.channelId || ''} onChange={(e: any) => updateAction(idx, 'channelId', e.target.value ? Number(e.target.value) : undefined)} placeholder="Channel ID" />
+                        <Input disabled={isSubmitting} aria-label={`action-channel-${idx}`} type="number" value={action.channelId || ''} onChange={(e: any) => updateAction(idx, 'channelId', e.target.value === '' ? undefined : Number(e.target.value))} placeholder="Channel ID" />
                       )}
 
                       <div className="flex-1 text-xs text-neutral-400">{action.actionType === 'route' ? 'Route to a communication channel by ID' : 'Standard action'}</div>
