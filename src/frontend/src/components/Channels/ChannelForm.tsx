@@ -136,8 +136,15 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
       const resp = await service.requestTelegramVerification(false);
       if (!resp?.token) throw new Error('Failed to get Telegram token');
       if (resp.token) setVerificationToken(resp.token);
+      // Open bot and present options in the form (don't auto-close)
       window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
-      setStatus({ type: 'success', message: 'Telegram connect link opened. Complete the flow in the Telegram app.' });
+      setStatus({ type: 'verifying', message: 'Telegram connect link opened. Complete the flow in the Telegram app.' });
+       
+      // If backend provided a placeholder channel id, keep it and inform parent not to close
+      if (resp.channelId) {
+        setPlaceholderChannelId(Number(resp.channelId));
+        onSuccess?.(false);
+      }
     } catch (err: any) {
       console.error(err);
       setStatus({ type: 'error', message: err?.message || 'Failed to reconnect Telegram' });
@@ -233,14 +240,13 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
       const botStartUrl = getTelegramBotStartUrl(resp.token);
       window.open(botStartUrl, '_blank');
       
+      // Keep the form open and show verification options. If backend created placeholder, keep it.
       if (resp.channelId) {
         setPlaceholderChannelId(Number(resp.channelId));
-        setStatus({ type: 'verifying', message: 'Telegram verification started. Pending activation.' });
-        onSuccess?.(false);
-        return;
       }
-      setStatus({ type: 'success', message: 'Telegram verification started.' });
-      onSuccess?.(true);
+      setStatus({ type: 'verifying', message: 'Telegram verification started. Complete the bot flow and then click Refresh.' });
+      onSuccess?.(false);
+      return;
     } catch (err: any) {
       console.error(err);
       setStatus({ type: 'error', message: err?.message || 'Failed to start Telegram verification' });
@@ -402,13 +408,11 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         }
         if (resp.channelId) {
           setPlaceholderChannelId(Number(resp.channelId));
-          setStatus({ type: 'verifying', message: 'Telegram verification started. Pending activation.' });
-          onSuccess?.(false);
-          return;
         }
 
-        setStatus({ type: 'success', message: 'Telegram verification started! Complete the setup in the Telegram app.' });
-        onSuccess?.(true);
+        // Keep the form open and instruct the user to complete the bot flow
+        setStatus({ type: 'verifying', message: 'Telegram verification started. Complete the bot flow and then click Refresh.' });
+        onSuccess?.(false);
         return;
       }
 
