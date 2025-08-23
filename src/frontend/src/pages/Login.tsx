@@ -9,25 +9,27 @@ import {
   Lock, 
   ArrowRight, 
   Sparkles,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 
 const Login = () => {
   const { login, isAuthenticated, authReady } = useAuth();
+  const [loggingIn, setLoggingIn] = (React as any).useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { aliasChecked, hasAlias, checkMyAlias } = useClypr();
   // preserved redirect path (if Layout redirected to login); fallback to sessionStorage to survive external redirects
   const redirectTo = (location.state as any)?.from || sessionStorage.getItem('clypr.postLoginRedirect') || '/app/dashboard';
   
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     if (isAuthenticated) {
       // ensure alias status is checked
       checkMyAlias();
     }
   }, [isAuthenticated]);
 
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     // Wait for auth to be initialized and alias check to complete before navigating
     if (!authReady) return;
     if (!isAuthenticated || !aliasChecked) return;
@@ -44,7 +46,14 @@ const Login = () => {
   }, [authReady, isAuthenticated, aliasChecked, hasAlias, navigate, redirectTo]);
   
   const handleLogin = async () => {
-    await login();
+    try {
+      setLoggingIn(true);
+      await login();
+    } catch (err) {
+      console.error('Login error:', err);
+    } finally {
+      setLoggingIn(false);
+    }
   };
   
   return (
@@ -107,11 +116,21 @@ const Login = () => {
             variant="gradient"
             size="lg"
             className="mb-6"
+            disabled={loggingIn}
           >
-            <div className="flex">
-              <Lock className="mr-2 h-5 w-5" />
-              Login with Internet Identity
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <div className="flex items-center gap-2">
+              {loggingIn ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-2 h-5 w-5" />
+                  Login with Internet Identity
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </div>
           </Button>
           

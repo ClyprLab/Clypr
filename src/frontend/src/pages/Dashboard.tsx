@@ -43,16 +43,21 @@ const Dashboard = () => {
     channels,
     channelsLoading,
     messages,
-    messagesLoading
+    messagesLoading,
+    loadMessages
   } = useClypr();
 
-  React.useEffect(() => {
+  (React as any).useEffect(() => {
     if (isAuthenticated) {
       if (!statsLoading && !stats) {
         loadStats();
       }
       if (!rulesLoading && rules.length === 0) {
         loadRules();
+      }
+      // Load messages for dashboard activity visualization; safe because useClypr handles NotAuthorized internally
+      if (!messagesLoading) {
+        loadMessages().catch(() => {});
       }
     }
   }, [isAuthenticated]);
@@ -152,7 +157,7 @@ const Dashboard = () => {
                 <div>
                   <div className="text-sm text-neutral-400 mb-1">Your Clypr Identity</div>
                   <div className="text-xl font-mono font-semibold text-white">@{myUsername}</div>
-                  <div className="text-xs text-cyan-400 mt-1">Active Privacy Agent</div>
+                  <div className="text-sm text-cyan-400">Active Privacy Agent • {connectedChannels} channels connected</div>
                 </div>
                 <Button 
                   variant="secondary" 
@@ -166,7 +171,7 @@ const Dashboard = () => {
           </div>
         )}
         
-        <Card variant="danger">
+        <Card variant="outlined">
           <div className="flex items-center mb-4">
             <XCircle className="h-5 w-5 text-red-400 mr-2" />
             <h3 className="text-white font-medium">Connection Error</h3>
@@ -386,27 +391,27 @@ const Dashboard = () => {
             <div className="h-64 flex items-center justify-center">
               <div className="text-neutral-400">Loading activity data...</div>
             </div>
-          ) : normalizedMessages && normalizedMessages.length > 0 ? (
-            <div>
-              <div className="h-48 mb-4">
-                <ResponsiveContainer width="100%" height={192}>
-                  <BarChart
-                    data={series.map(p => ({
-                      day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                      delivered: p.delivered,
-                      blocked: p.blocked
-                    }))}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                  >
-                    <XAxis dataKey="day" tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                    <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} allowDecimals={false} />
-                    <Tooltip wrapperStyle={{ background: '#0b1220', borderRadius: 6, color: '#fff' }} />
-                    <Legend formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)} wrapperStyle={{ color: '#9ca3af' }} />
-                    <Bar dataKey="delivered" stackId="a" fill="#10b981" radius={[6,6,0,0]} />
-                    <Bar dataKey="blocked" stackId="a" fill="#ef4444" radius={[6,6,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          ) : (normalizedMessages && normalizedMessages.length > 0) ? (
+             <div>
+               <div className="h-48 mb-4">
+                 <ResponsiveContainer width="100%" height={192}>
+                   <BarChart
+                     data={series.map(p => ({
+                       day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                       delivered: p.delivered,
+                       blocked: p.blocked
+                     }))}
+                     margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                   >
+                     <XAxis dataKey="day" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                     <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} allowDecimals={false} />
+                     <Tooltip wrapperStyle={{ background: '#0b1220', borderRadius: 6, color: '#fff' }} />
+                     <Legend formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)} wrapperStyle={{ color: '#9ca3af' }} />
+                     <Bar dataKey="delivered" stackId="a" fill="#10b981" radius={[6,6,0,0]} />
+                     <Bar dataKey="blocked" stackId="a" fill="#ef4444" radius={[6,6,0,0]} />
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
               
               <div className="flex items-center justify-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
@@ -420,18 +425,18 @@ const Dashboard = () => {
               </div>
             </div>
           ) : (
-            <div className="h-64 flex flex-col items-center justify-center text-center">
-              <Activity className="h-12 w-12 text-neutral-600 mb-4" />
-              <h4 className="text-white font-medium mb-2">No Activity Yet</h4>
-              <p className="text-neutral-400 text-sm mb-4">
-                Your message activity will appear here once you start receiving communications
-              </p>
-              <Button variant="outline" size="sm" onClick={handleConnectChannel}>
-                Connect Your First Channel
-              </Button>
-            </div>
-          )}
-        </Card>
+             <div className="h-64 flex flex-col items-center justify-center text-center">
+               <Activity className="h-12 w-12 text-neutral-600 mb-4" />
+               <h4 className="text-white font-medium mb-2">No Activity Yet</h4>
+               <p className="text-neutral-400 text-sm mb-4">
+                 Your message activity will appear here once you start receiving communications
+               </p>
+               <Button variant="outline" size="sm" onClick={handleConnectChannel}>
+                 Connect Your First Channel
+               </Button>
+             </div>
+           )}
+         </Card>
 
         {/* Quick Actions & Rules */}
         <div className="space-y-6">

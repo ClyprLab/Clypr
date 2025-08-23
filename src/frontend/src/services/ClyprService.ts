@@ -995,7 +995,8 @@ export class ClyprService {
     try {
       const res = await this.actor.confirmEmailVerification(token);
       if (!res) return false;
-      if ('ok' in res) return !!res.ok;
+      // Motoko may return #ok() with no payload (undefined). Treat presence of 'ok' as success.
+      if ('ok' in res) return true;
       if ('err' in res) { console.error('confirmEmailVerification err:', res.err); return false; }
       return !!res;
     } catch (err) {
