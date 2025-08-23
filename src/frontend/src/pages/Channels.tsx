@@ -223,16 +223,17 @@ const AddChannelCard = ({ onAddNew }: { onAddNew: () => void }) => (
 );
 
 const Channels = () => {
-  const { 
-     channels, 
-     channelsLoading,
-     createChannel,
-     updateChannel,
-     deleteChannel,
-     loadChannels,
-     isAuthenticated,
-     error
-   } = useClypr() as any;
+    const { 
+    channels, 
+    channelsLoading,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+    loadChannels,
+    isAuthenticated,
+    error,
+    isDataReady
+  } = useClypr() as any;
 
   const [showForm, setShowForm] = (React as any).useState(false);
   const [editingChannel, setEditingChannel] = (React as any).useState(null);
@@ -299,6 +300,26 @@ const Channels = () => {
 
   const activeChannelsCount = channels.filter((c: any) => c.isActive).length;
   const totalChannelsCount = channels.length;
+
+  // Show loading state if data is not ready yet or if actively loading
+  if (!isDataReady() || channelsLoading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-display font-bold text-white mb-2">Communication Channels</h1>
+          <p className="text-neutral-400">Loading your communication channels...</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0, 1, 2].map(i => (
+            <Card key={i} className="animate-pulse">
+              <div className="h-20 bg-neutral-800 rounded-lg mb-3" />
+              <div className="h-4 bg-neutral-800 rounded w-3/4" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
