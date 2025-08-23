@@ -1,4 +1,9 @@
-import { useEffect, useState } from 'react';
+import React from 'react';
+// Workspace workaround: some IDE/TS configs don't expose named hooks; alias via React to avoid type errors in TSX files
+const useEffect = (React as any).useEffect;
+const useState = (React as any).useState;
+const useCallback = (React as any).useCallback;
+
 import { Principal } from '@dfinity/principal';
 import ClyprService, { Rule, Channel, Message, Stats } from '../services/ClyprService';
 import { useAuth } from './useAuth';
@@ -114,7 +119,7 @@ export function useClypr() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [rulesLoading, setRulesLoading] = useState<boolean>(false);
 
-  const loadRules = async () => {
+  const loadRules = useCallback(async () => {
     if (!service || !isAuthenticated) return;
     try {
       setRulesLoading(true);
@@ -131,7 +136,7 @@ export function useClypr() {
     } finally {
       setRulesLoading(false);
     }
-  };
+  }, [service, isAuthenticated]);
 
   const createRule = async (
     ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>
@@ -190,7 +195,7 @@ export function useClypr() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState<boolean>(false);
 
-  const loadChannels = async () => {
+  const loadChannels = useCallback(async () => {
     if (!service || !isAuthenticated) return;
 
     try {
@@ -208,7 +213,7 @@ export function useClypr() {
     } finally {
       setChannelsLoading(false);
     }
-  };
+  }, [service, isAuthenticated]);
 
   const createChannel = async (
     channelData: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'>
@@ -268,7 +273,7 @@ export function useClypr() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     if (!service || !isAuthenticated) return;
 
     try {
@@ -287,7 +292,7 @@ export function useClypr() {
     } finally {
       setMessagesLoading(false);
     }
-  };
+  }, [service, isAuthenticated]);
 
   const sendMessage = async (
     messageType: string,
@@ -308,7 +313,7 @@ export function useClypr() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!service || !isAuthenticated) return;
 
     try {
@@ -326,7 +331,7 @@ export function useClypr() {
     } finally {
       setStatsLoading(false);
     }
-  };
+  }, [service, isAuthenticated]);
 
   // Load initial data when authenticated — avoid auto-loading messages (owner-only on some deployments)
   useEffect(() => {
