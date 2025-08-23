@@ -4,6 +4,12 @@
     "baseUrl": "https://5nif7-uaaaa-aaaag-aufha-cai.ic0.app",
     "identityProvider": "https://identity.ic0.app"
   },
+  "telegram": {
+    "botUsername": "Clypr_bot",
+    "botName": "Clypr Agent",
+    "botDescription": "Your personal Clypr Agent for identity verification and notifications",
+    "webhookUrl": "https://your-domain.com/telegram/webhook"
+  },
   "rateLimits": { 
     "perUser": 100,
     "perCanister": 1000,

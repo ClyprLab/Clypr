@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { Mail, MessageSquare, Globe, Smartphone, Check, X, Loader2 } from 'lucide-react';
+import { Mail, MessageSquare, Globe, Smartphone, Check, X, Loader2, ExternalLink, Copy, CheckCircle } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import Input from '../UI/Input';
 import { useClypr } from '../../hooks/useClypr';
 import { cn } from '../../utils/cn';
+import { getTelegramConfig, getTelegramBotStartUrl } from '../../utils/config';
 
 type ChannelType = 'email' | 'telegram' | 'webhook' | 'sms' | 'push' | 'custom';
 
@@ -222,11 +223,16 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
     try {
       const resp = await service.requestTelegramVerification(true);
       if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
+      
       if (resp.token) {
         setVerificationToken(resp.token);
         setVerificationLink(`${window.location.origin}/verify-email?token=${encodeURIComponent(resp.token)}`);
       }
-      window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+      
+      // Use configurable bot URL
+      const botStartUrl = getTelegramBotStartUrl(resp.token);
+      window.open(botStartUrl, '_blank');
+      
       if (resp.channelId) {
         setPlaceholderChannelId(Number(resp.channelId));
         setStatus({ type: 'verifying', message: 'Telegram verification started. Pending activation.' });
@@ -253,6 +259,11 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
     } catch (e) {
       console.warn('Copy failed', e);
     }
+  };
+
+  const openTelegramBot = () => {
+    const telegramConfig = getTelegramConfig();
+    window.open(`https://t.me/${telegramConfig.botUsername}`, '_blank');
   };
   
    // Refresh the placeholder channel status from the server. If activated, notify parent to close.
@@ -380,8 +391,9 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         const resp = await service.requestTelegramVerification(true);
         if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
 
-        // Open Telegram bot in new tab
-        window.open(`https://t.me/Clypr_bot?start=${encodeURIComponent(resp.token)}`, '_blank');
+        // Use configurable bot URL
+        const botStartUrl = getTelegramBotStartUrl(resp.token);
+        window.open(botStartUrl, '_blank');
 
         // If server created a placeholder channel, keep it visible and inform parent not to close
         if (resp.token) {
@@ -465,13 +477,17 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
       loading: <Loader2 className="h-4 w-4 animate-spin" />,
       success: <Check className="h-4 w-4 text-green-500" />,
       error: <X className="h-4 w-4 text-red-500" />,
+      verifying: <Loader2 className="h-4 w-4 animate-spin text-blue-400" />,
     } as any;
+
+    const telegramConfig = getTelegramConfig();
 
     return (
       <div className={cn(
         'p-3 rounded-md text-sm flex items-start gap-2',
         status.type === 'error' ? 'bg-red-900/20 text-red-400' :
-        status.type === 'success' || status.type === 'verifying' ? 'bg-green-900/20 text-green-400' :
+        status.type === 'success' ? 'bg-green-900/20 text-green-400' :
+        status.type === 'verifying' ? 'bg-blue-900/20 text-blue-400' :
         'bg-blue-900/20 text-blue-400'
       )}>
         <div className="mt-0.5">
@@ -480,8 +496,31 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
         <div className="flex-1">
           {status.message ||
             (status.type === 'success' ? 'Operation completed successfully' :
-             status.type === 'error' ? 'An error occurred' : 'Processing...')}
+             status.type === 'error' ? 'An error occurred' : 
+             status.type === 'verifying' ? 'Verification in progress...' : 'Processing...')}
+          
+          {/* Additional guidance for Telegram verification */}
+          {status.type === 'verifying' && formData.channelType === 'telegram' && (
+            <div className="mt-2 text-xs">
+              <p>1. Complete verification in the Telegram chat with {telegramConfig.botName}</p>
+              <p>2. Return here and click "Refresh Status" to check if verification is complete</p>
+            </div>
+          )}
         </div>
+        
+        {/* Refresh button for verifying status */}
+        {status.type === 'verifying' && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={refreshPlaceholderStatus}
+            disabled={isSubmitting}
+            className="text-xs h-6 px-2"
+          >
+            Refresh
+          </Button>
+        )}
       </div>
     );
   };
@@ -604,6 +643,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
                   );
                 }
                 if (channelType === 'telegram') {
+                  const telegramConfig = getTelegramConfig();
                   return (
                     <div className="space-y-4 p-4 bg-neutral-900/20 rounded-md">
                       <div className="flex items-center gap-3">
@@ -611,11 +651,74 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: any) => 
                           <MessageSquare className="h-5 w-5 text-blue-400" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-white">Connect Telegram</h4>
-                          <p className="text-sm text-neutral-400">Link your Telegram account to receive notifications</p>
+                          <h4 className="font-medium text-white">Connect {telegramConfig.botName}</h4>
+                          <p className="text-sm text-neutral-400">{telegramConfig.botDescription}</p>
                         </div>
                       </div>
-                      <Button type="button" variant="outline" className="w-full" disabled={isSubmitting} onClick={initiateTelegramVerification}>{status.type === 'loading' ? 'Connecting...' : 'Connect Telegram'}</Button>
+                      
+                      {/* Show verification token if available */}
+                      {verificationToken && (
+                        <div className="p-3 bg-neutral-800/50 rounded-md border border-neutral-700">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-neutral-300">Verification Token</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(verificationToken)}
+                              className="h-6 px-2 text-xs"
+                            >
+                              {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                          <div className="text-xs text-neutral-400 break-all font-mono bg-neutral-900/50 p-2 rounded">
+                            {verificationToken}
+                          </div>
+                          <p className="text-xs text-neutral-500 mt-2">
+                            You can paste this token directly in the Telegram chat with {telegramConfig.botName}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="w-full" 
+                          disabled={isSubmitting} 
+                          onClick={initiateTelegramVerification}
+                        >
+                          {status.type === 'loading' ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Connect {telegramConfig.botName}
+                            </>
+                          )}
+                        </Button>
+                        
+                        <div className="text-xs text-neutral-400 text-center">
+                          This will open Telegram and start the verification process
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                          <span>Or</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={openTelegramBot}
+                            className="h-6 px-2 text-xs text-blue-400 hover:text-blue-300"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Open {telegramConfig.botName} directly
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   );
                 }
