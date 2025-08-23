@@ -372,6 +372,12 @@ export function useClypr() {
     return statsAttempted && rulesAttempted && channelsAttempted;
   };
 
+  // Helper to check if messages data is ready (for Messages page)
+  const isMessagesDataReady = () => {
+    if (!isAuthenticated || !service) return false;
+    return statsAttempted && rulesAttempted && channelsAttempted && messagesAttempted;
+  };
+
   return {
     isAuthenticated,
     principal,
@@ -415,6 +421,7 @@ export function useClypr() {
     loadStats,
     // data readiness
     isDataReady,
+    isMessagesDataReady,
     loading,
     error,
     clearError: () => setError(null)

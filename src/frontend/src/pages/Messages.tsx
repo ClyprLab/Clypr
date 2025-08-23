@@ -350,9 +350,16 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
 };
 
 const Messages = () => {
-  const { messages, messagesLoading, messagesAttempted, loadMessages, isAuthenticated, error, isDataReady } = useClypr();
+  const { messages, messagesLoading, messagesAttempted, loadMessages, isAuthenticated, error, isMessagesDataReady } = useClypr();
   const [searchTerm, setSearchTerm] = (React as any).useState('');
   const [statusFilter, setStatusFilter] = (React as any).useState('all');
+
+  // Load messages when component mounts and user is authenticated
+  (React as any).useEffect(() => {
+    if (isAuthenticated && !messagesLoading && !messagesAttempted) {
+      loadMessages().catch(() => {});
+    }
+  }, [isAuthenticated, messagesLoading, messagesAttempted, loadMessages]);
 
   if (!isAuthenticated) {
     return (
@@ -381,8 +388,8 @@ const Messages = () => {
     }).length;
   };
 
-  // Show loading state if data is not ready yet or if actively loading
-  if (!isDataReady() || messagesLoading) {
+  // Show loading state if data is not ready yet or if actively loading messages
+  if (!isMessagesDataReady() || messagesLoading) {
     return (
       <div className="animate-fade-in">
         <div className="mb-8">
