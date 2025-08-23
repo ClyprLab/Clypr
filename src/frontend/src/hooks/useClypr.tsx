@@ -314,11 +314,16 @@ export function useClypr() {
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
   const loadStats = useCallback(async () => {
-    if (!service || !isAuthenticated) return;
+    if (!service || !isAuthenticated) {
+      console.log('loadStats: skipping - service or auth not ready', { service: !!service, isAuthenticated });
+      return;
+    }
 
     try {
+      console.log('loadStats: starting...');
       setStatsLoading(true);
       const result = await service.getStats();
+      console.log('loadStats: result received', result);
       setStats(result || null);
     } catch (err) {
       if (isNotAuthorized(err)) {
@@ -329,20 +334,23 @@ export function useClypr() {
         setError('Failed to load stats: ' + String(err));
       }
     } finally {
+      console.log('loadStats: finished, setting loading to false');
       setStatsLoading(false);
     }
   }, [service, isAuthenticated]);
 
   // Load initial data when authenticated — avoid auto-loading messages (owner-only on some deployments)
   useEffect(() => {
+    console.log('useClypr: auto-loading effect triggered', { isAuthenticated, service: !!service });
     if (isAuthenticated && service) {
+      console.log('useClypr: starting auto-load of stats, rules, and channels');
       // Run safe loads in parallel and ignore per-call NotAuthorized errors
       loadStats().catch(() => {});
       loadRules().catch(() => {});
       loadChannels().catch(() => {});
       // do not call loadMessages() automatically to avoid owner-only calls causing noisy errors
     }
-  }, [isAuthenticated, service]);
+  }, [isAuthenticated, service, loadStats, loadRules, loadChannels]);
 
   const ping = async (): Promise<string> => {
     if (!service) {

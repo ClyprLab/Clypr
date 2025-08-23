@@ -50,21 +50,13 @@ const Dashboard = () => {
   (React as any).useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Ensure stats and rules are loaded
-    if (!statsLoading && !stats) {
-      loadStats().catch(() => {});
-    }
-    if (!rulesLoading && rules.length === 0) {
-      loadRules().catch(() => {});
-    }
-
     // Load messages for dashboard activity visualization only when we don't already have messages
     // (useClypr.loadMessages is safe to call and will no-op if the service isn't ready)
     if (!messagesLoading && (!messages || messages.length === 0)) {
       loadMessages().catch(() => {});
     }
   // Re-run when auth or relevant loaders/functions change so we catch service initialization timing
-  }, [isAuthenticated, statsLoading, rulesLoading, rules.length, messagesLoading, loadMessages]);
+  }, [isAuthenticated, messagesLoading, messages?.length, loadMessages]);
 
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
   // Normalize potential BigInt stats values to numbers for safe arithmetic/rendering
@@ -109,6 +101,7 @@ const Dashboard = () => {
   }
 
   if (statsLoading || rulesLoading) {
+    console.log('Dashboard loading state:', { statsLoading, rulesLoading, stats, rules: rules.length });
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
