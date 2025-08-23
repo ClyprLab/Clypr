@@ -1,6 +1,9 @@
 import dns from 'node:dns/promises';
 import fetch from 'node-fetch';
 
+// Respect environment flag to avoid printing sensitive tokens in logs
+const REDACT_SENSITIVE_LOGS = process.env.REDACT_SENSITIVE_LOGS === 'true';
+
 // Simple Telegram verification adapter
 // - register verification tokens from jobs
 // - expose a webhook handler to be called by Telegram
@@ -44,6 +47,21 @@ function sanitizeValue(v) {
   return v;
 }
 
+function redact(token) {
+  if (!token) return token;
+  if (!REDACT_SENSITIVE_LOGS) return token;
+  // Show only first 4 and last 4 chars
+  const s = String(token);
+  if (s.length <= 8) return '****';
+  return `${s.slice(0,4)}...${s.slice(-4)}`;
+}
+
+function logInfo(...args) {
+  // If token appears in args, redact it
+  const out = args.map(a => (typeof a === 'string' ? a.replace(/token\s*[:=]?\s*([A-Za-z0-9_-]+)/gi, (m, p1) => `token=${redact(p1)}`) : a));
+  console.info('[telegram]', ...out);
+}
+
 export function init(actor) {
   actorRef = actor;
   if (!cleanupHandle) {
@@ -72,6 +90,8 @@ export async function handleVerificationJob(job) {
   const expiresAtStr = intents.expiresAt || (job.expiresAt ? String(job.expiresAt) : null);
   if (!token) {
     console.warn('[telegram] job has no token, skipping', job.id);
+    // Acknowledge as failed immediately to avoid dangling jobs
+    try { await ackJob(Number(job.id), false); } catch (e) {}
     return false; // immediate failure
   }
 
@@ -87,7 +107,7 @@ export async function handleVerificationJob(job) {
   }
 
   tokenMap.set(token, { jobId: Number(job.id), expiresAtMs });
-  console.info('[telegram] registered token for job', job.id, 'token', token, 'expiresMs', expiresAtMs);
+  logInfo('registered token for job', job.id, 'token', redact(token), 'expiresMs', expiresAtMs);
 
   // Defer acknowledgement until we receive the webhook and confirm
   return 'deferred';
@@ -112,34 +132,62 @@ async function ackJob(jobId, delivered = true) {
 export async function handleWebhookUpdate(update) {
   // Accept update object from Telegram
   try {
-    const msg = update.message || update.edited_message || update.channel_post || update.callback_query && update.callback_query.message;
-    if (!msg) return { ok: false, status: 400, reason: 'no message' };
+    const msg = update.message || update.edited_message || update.channel_post || (update.callback_query && update.callback_query.message);
+    if (!msg && !update.callback_query) return { ok: false, status: 400, reason: 'no message' };
 
-    const text = msg.text || (msg.caption) || '';
-    const chatId = msg.chat && (msg.chat.id || (msg.chat && msg.chat.id));
-    if (!chatId) return { ok: false, status: 400, reason: 'no chat id' };
+    // Extract different token sources
+    let text = msg && (msg.text || msg.caption) ? String(msg.text || msg.caption) : '';
+    const chatId = (msg && msg.chat && (msg.chat.id || (msg.chat && msg.chat.id))) || (update.callback_query && update.callback_query.from && update.callback_query.from.id);
 
-    // Token is usually last word in /start <token> or entire text after /start
-    const parts = String(text || '').trim().split(/\s+/);
+    // callback_query.data can contain the token directly (deep-link callback)
+    const callbackData = update.callback_query && update.callback_query.data ? String(update.callback_query.data) : null;
+
+    if (!chatId) {
+      // Best-effort: try to use callback_query.from.id
+      if (update.callback_query && update.callback_query.from && update.callback_query.from.id) {
+        // ok
+      } else {
+        return { ok: false, status: 400, reason: 'no chat id' };
+      }
+    }
+
+    // Helper to try find a token in text via exact match or registered substrings
     let tokenCandidate = null;
-    if (parts.length >= 2 && parts[0].startsWith('/start')) {
-      tokenCandidate = parts.slice(1).join(' ');
-    } else {
-      // fallback: find any registered token substring in the text
+
+    // 1) callback_data as token
+    if (callbackData) tokenCandidate = callbackData.trim();
+
+    // 2) /start <token> command
+    if (!tokenCandidate && text) {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length >= 2 && parts[0].startsWith('/start')) {
+        tokenCandidate = parts.slice(1).join(' ');
+      }
+    }
+
+    // 3) plain token: if the entire message looks like a token (no spaces) use it
+    if (!tokenCandidate && text && text.trim().length > 0 && !text.includes(' ')) {
+      tokenCandidate = text.trim();
+    }
+
+    // 4) fallback: find any registered token substring in the text (case-sensitive match)
+    if (!tokenCandidate && text) {
       for (const t of tokenMap.keys()) {
         if (text.includes(t)) { tokenCandidate = t; break; }
       }
     }
 
+    // If still no token, always reply with helpful instructions
     if (!tokenCandidate) {
-      // Inform user that token was not recognized
-      try { await sendTelegramMessage(chatId, "Sorry — I couldn't find a valid verification token in your message. Please use the link from the app or try /start <token>."); } catch (e) {}
+      try {
+        await sendTelegramMessage(chatId, "I couldn't find a verification token in your message. Please use the link in the app or paste the token directly (or use /start <token>). If you pasted the token, make sure it's the full token string.");
+      } catch (e) {}
       return { ok: false, status: 404, reason: 'token not found in message' };
     }
 
     const entry = tokenMap.get(tokenCandidate);
     if (!entry) {
-      // Token unknown or expired — tell the user
+      // Token unknown or expired — tell the user and advise re-request
       try { await sendTelegramMessage(chatId, "That verification token is unknown or has expired. Request a new verification in the app and try again."); } catch (e) {}
       return { ok: false, status: 404, reason: 'unknown token or expired' };
     }

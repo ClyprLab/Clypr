@@ -738,18 +738,28 @@ export class ClyprService {
         isActive: true
       };
       
-      // Log incoming data
-      console.log('Creating rule with normalized data:', JSON.stringify(rule, null, 2));
+      // Safe stringify helper to avoid errors when objects contain BigInt or Principal instances
+      const safeStringify = (obj: any) => JSON.stringify(obj, (_key, value) => {
+        if (typeof value === 'bigint') return value.toString();
+        if (value && typeof value === 'object' && typeof (value as any).toText === 'function') {
+          // Principal-like objects
+          try { return (value as any).toText(); } catch (e) { return String(value); }
+        }
+        return value;
+      }, 2);
+
+      // Log incoming data (sanitized)
+      console.log('Creating rule with normalized data:', safeStringify(rule));
       
       // Use the toBackendRule helper function to ensure proper data structure conversion
       const backendRule = toBackendRule(rule);
       
-      // Log converted formats
-      console.log('Backend format:', backendRule);
+      // Log converted formats (sanitized)
+      console.log('Backend format:', safeStringify(backendRule));
       
-      // Log individual conditions and actions for debugging
-      console.log('Conditions being sent:', JSON.stringify(backendRule.conditions, null, 2));
-      console.log('Actions being sent:', JSON.stringify(backendRule.actions, null, 2));
+      // Log individual conditions and actions for debugging (sanitized)
+      console.log('Conditions being sent:', safeStringify(backendRule.conditions));
+      console.log('Actions being sent:', safeStringify(backendRule.actions));
       
       // Call createRule with the exact parameters the backend expects
       // Note: The backend function signature includes dappPrincipal parameter
