@@ -64,7 +64,7 @@ const Dashboard = () => {
       loadMessages().catch(() => {});
     }
   // Re-run when auth or relevant loaders/functions change so we catch service initialization timing
-  }, [isAuthenticated, statsLoading, stats, rulesLoading, rules.length, messagesLoading, (loadMessages as any)]);
+  }, [isAuthenticated, statsLoading, rulesLoading, rules.length, messagesLoading, loadMessages]);
 
   const activeRulesCount = rules.filter(rule => rule.isActive).length;
   // Normalize potential BigInt stats values to numbers for safe arithmetic/rendering

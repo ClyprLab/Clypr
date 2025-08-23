@@ -1525,7 +1525,7 @@ persistent actor ClyprCanister {
 
       let placeholderChannel : Channel = {
         id = cid;
-        name = "Telegram (unverified)";
+        name = "Telegram";
         description = null;
         channelType = #telegramContact;
         config = #telegramContact({ chatId = "" });
@@ -1806,7 +1806,7 @@ persistent actor ClyprCanister {
       // Create a placeholder email channel using the provided email as fromAddress
       let placeholderChannel : Channel = {
         id = cid;
-        name = "Email (unverified)";
+        name = "Email";
         description = null;
         channelType = #email;
         config = #email({ provider = ""; apiKey = null; fromAddress = email; replyTo = null; smtp = null });
