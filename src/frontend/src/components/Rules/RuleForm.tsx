@@ -330,7 +330,7 @@ export default function RuleForm({ initialRule, onSubmit, onCancel, isLoading = 
 
                 <div className="mt-4">
                   <Button type="button" variant="ghost" onClick={onCancel} className="w-full mb-2" disabled={isSubmitting}>Cancel</Button>
-                  <Button type="submit" variant="gradient" className="w-full" onClick={() => {}} disabled={!canSubmit()}>{(isSubmitting || isLoading) ? 'Saving...' : 'Save Rule'}</Button>
+                  <Button type="submit" variant="gradient" className="w-full" disabled={!canSubmit()}>{(isSubmitting || isLoading) ? 'Saving...' : 'Save Rule'}</Button>
                   {submitMessage && <div className="text-xs text-green-400 mt-2">{submitMessage}</div>}
                   {submitError && <div className="text-xs text-red-400 mt-2">{submitError}</div>}
                 </div>
