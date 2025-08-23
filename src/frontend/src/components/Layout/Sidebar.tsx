@@ -86,6 +86,8 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
       className={cn(
         'h-full border-r border-neutral-800/50 py-4 flex flex-col overflow-hidden z-50',
         'bg-gradient-to-b from-neutral-950 to-neutral-900/50 backdrop-blur-sm transition-all duration-200 flex-shrink-0',
+        // Fixed on small screens to sit flush at the left edge; relative on larger screens
+        'fixed md:relative top-0 left-0 h-screen md:h-full',
         // Width: collapsed -> narrow on desktop; expanded -> full width
         collapsed ? 'w-16 md:w-20' : 'w-[280px] md:w-[240px]',
         // Mobile behavior: when collapsed hide off-canvas, when open show
@@ -96,7 +98,8 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
     >
       {/* Logo Section */}
       <div className={cn(
-        'flex items-center px-6 pb-6 border-b border-neutral-800/50',
+        // Remove horizontal padding on small screens, keep md padding
+        'flex items-center px-2 md:px-6 pb-6 border-b border-neutral-800/50',
         collapsed && 'justify-center px-2'
       )}>
         <div className="relative">
@@ -118,7 +121,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 px-0 md:px-3 py-4">
         <div className="space-y-1">
           {navigationItems.map((item) => {
             const Icon = item.icon;
@@ -194,8 +197,9 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
       {/* User Profile */}
       <div className={cn(
-        'px-3 border-t border-neutral-800/50',
-        collapsed ? 'px-2' : 'px-3'
+        // remove horizontal padding on mobile, preserve on md+
+        'px-0 md:px-3 border-t border-neutral-800/50',
+        collapsed ? 'px-2' : undefined
       )}>
         <div className={cn(
           'flex items-center py-3',
