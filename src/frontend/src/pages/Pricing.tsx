@@ -23,6 +23,7 @@ const Pricing = () => {
       name: 'Free',
       description: 'Perfect for trying out Clypr and basic privacy protection',
       price: 'Free',
+      billing: { baseICP: '0', includedMessages: 100, perMessageICP: '0.01' },
       features: [
         '1 communication channel (Email, Webhook, or Telegram)',
         'Up to 100 messages per month',
@@ -37,8 +38,9 @@ const Pricing = () => {
     {
       name: 'Personal',
       description: 'For individuals who want comprehensive privacy control',
-      price: '$9',
-      period: 'per month',
+      price: '10 ICP',
+      period: 'per month (estimated)',
+      billing: { baseICP: '10', includedMessages: 1000, perMessageICP: '0.005' },
       features: [
         '3 communication channels (Email, Webhook, Telegram)',
         'Up to 1,000 messages per month',
@@ -55,11 +57,12 @@ const Pricing = () => {
     {
       name: 'Professional',
       description: 'For power users and small teams',
-      price: '$29',
-      period: 'per month',
+      price: '50 ICP',
+      period: 'per month (estimated)',
+      billing: { baseICP: '50', includedMessages: 'unlimited', perMessageICP: '—' },
       features: [
         'Unlimited communication channels',
-        'Unlimited messages per month',
+        'High throughput message handling',
         'Unlimited privacy rules',
         'Priority support with 24/7 response',
         'Instant delivery (within 30 seconds)',
@@ -100,11 +103,11 @@ const Pricing = () => {
   const faqs = [
     {
       question: 'How does Clypr protect my privacy?',
-      answer: 'Clypr runs on your personal canister on the Internet Computer. All message processing happens on-chain, and your contact details are encrypted. Only you control who can send you messages and how they\'re delivered.'
+      answer: 'Clypr runs on your personal canister on the Internet Computer. All message processing happens on-chain inside your agent; your contact details are stored in your canister and only you control who can send you messages and how they\'re delivered.'
     },
     {
       question: 'What communication channels are supported?',
-      answer: 'Currently, Clypr supports Email, Webhook, and Telegram channels. You can use one or multiple channels simultaneously depending on your plan.'
+      answer: 'Currently, Clypr supports Email, Webhook, and Telegram channels. You can use one or multiple channels simultaneously depending on your plan. Delivery to external channels is paid in ICP — subscriptions top up your agent\'s cycles to cover external deliveries.'
     },
     {
       question: 'How do privacy rules work?',
@@ -116,11 +119,11 @@ const Pricing = () => {
     },
     {
       question: 'What happens if I exceed my message limit?',
-      answer: 'We\'ll notify you when you\'re approaching your limit. You can upgrade your plan or wait until the next billing cycle to continue receiving messages.'
+      answer: 'You\'ll receive a notification when you approach your included limit. You can top up your agent in ICP or upgrade to a higher plan. Clypr follows a pay-for-what-you-use model: base subscription tops up your canister, and extra delivery uses are deducted in ICP.'
     },
     {
       question: 'Is my data secure?',
-      answer: 'Absolutely. Your data is stored on the Internet Computer with end-to-end encryption. Your personal canister is isolated and only you have access to your messages and settings.'
+      answer: 'Absolutely. Your data is stored on the Internet Computer inside your personal canister. Access is controlled by your principal and Internet Identity; message processing happens on-chain so external parties cannot read your messages unless you explicitly forward them.'
     }
   ];
 
@@ -162,8 +165,11 @@ const Pricing = () => {
                 Take Control of Your Communications
               </h1>
               <p className="text-xl text-zinc-300 mb-8 max-w-3xl mx-auto">
-                Stop spam, prioritize important messages, and receive notifications exactly how you want them. 
+                Stop spam, prioritize important messages, and receive notifications exactly how you want them.
                 Your privacy, your rules, your channels.
+              </p>
+              <p className="text-sm text-zinc-400 max-w-3xl mx-auto">
+                When you subscribe you fund your personal privacy agent (a canister on the Internet Computer). Subscriptions pay for deployment, cycles, and maintenance of your agent — not for centralized hosting.
               </p>
               <div className="flex items-center justify-center gap-4 text-sm text-zinc-400">
                 <div className="flex items-center gap-2">
@@ -214,6 +220,14 @@ const Pricing = () => {
                       <div className="text-4xl font-bold text-white mb-2">{plan.price}</div>
                       {plan.period && (
                         <div className="text-sm text-zinc-400">{plan.period}</div>
+                      )}
+                      {plan.billing && (
+                        <div className="text-xs text-zinc-400 mt-3 space-y-1">
+                          <div>Base fee: <span className="font-medium">{plan.billing.baseICP} ICP / month</span></div>
+                          <div>Included: <span className="font-medium">{plan.billing.includedMessages} messages</span></div>
+                          <div>Extra message fee: <span className="font-medium">{plan.billing.perMessageICP} ICP / message</span></div>
+                          <div className="italic">You pay for what you use — subscriptions top up your agent's cycles and storage.</div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -302,8 +316,7 @@ const Pricing = () => {
                 Ready to Take Control?
               </h2>
               <p className="text-xl text-zinc-300 mb-8 max-w-2xl mx-auto">
-                Join thousands of users who have reclaimed control of their digital communications. 
-                Start with the free plan and upgrade when you're ready for more.
+                Fund your personal privacy agent — your subscription directly tops up your canister in ICP so it can pay for cycles, storage, and external deliveries. Start with the free trial and add ICP to your agent when you need more capacity.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/login">
