@@ -14,6 +14,11 @@ const TopbarContainer = styled.header`
   justify-content: space-between;
   padding: 0 var(--space-6);
   background-color: var(--color-background);
+  z-index: 50;
+  
+  @media (max-width: 768px) {
+    padding: 0 var(--space-4);
+  }
 `;
 
 const LeftSection = styled.div`
@@ -128,18 +133,18 @@ const Topbar: React.FC<TopbarProps> = ({ toggleSidebar }) => {
       
       <RightSection>
         {principal && (
-          <CanisterIdDisplay>
-            {`${principal.toString().substring(0, 12)}...`}
+          <CanisterIdDisplay className="hide-on-mobile">
+            {`${principal.toString().substring(0, 8)}...`}
           </CanisterIdDisplay>
         )}
         
-        <Button>New Rule</Button>
-        <ActionButton>Test Rule</ActionButton>
+        <Button className="hide-on-mobile">New Rule</Button>
+        <ActionButton className="hide-on-mobile">Test Rule</ActionButton>
         
-        <IconButton aria-label="Notifications">
+        <IconButton aria-label="Notifications" className="hide-on-mobile">
           ⊡
         </IconButton>
-        <IconButton aria-label="Help">
+        <IconButton aria-label="Help" className="hide-on-mobile">
           ?
         </IconButton>
         <IconButton onClick={logout} aria-label="Logout">
