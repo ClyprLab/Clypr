@@ -400,9 +400,9 @@ const Landing: React.FC = () => {
           </SubHeadline>
           <ButtonGroup>
             <Link to="/login" style={{ textDecoration: 'none' }}>
-              <Button variant="primary" size="large">Get Started</Button>
+              <Button variant="primary" size="lg">Get Started</Button>
             </Link>
-            <Button variant="outline" size="large" as="a" href="#how-it-works">
+            <Button variant="secondary" size="lg" as="a" href="#how-it-works">
               Learn More
             </Button>
           </ButtonGroup>
@@ -505,7 +505,7 @@ const Landing: React.FC = () => {
             Whether you're a developer building the next Web3 application or an organization seeking enhanced privacy and control over your communications, Clypr provides the infrastructure you need.
           </CTAText>
           <Link to="/login" style={{ textDecoration: 'none' }}>
-            <Button variant="light" size="large">Create Your Clypr Gateway</Button>
+            <Button variant="primary" size="lg">Create Your Clypr Gateway</Button>
           </Link>
         </CTAContainer>
       </CTASection>

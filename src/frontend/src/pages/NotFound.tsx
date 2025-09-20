@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
-import Text from '../components/UI/Text';
 
 const NotFoundContainer = styled.div`
   display: flex;
@@ -52,8 +51,12 @@ const NotFound: React.FC = () => {
           or is temporarily unavailable.
         </Description>
         <ButtonsContainer>
-          <Button as={Link} to="/">Go to Dashboard</Button>
-          <Button as={Link} to="/messages" variant="secondary">View Messages</Button>
+          <Link to="/" style={{ textDecoration: 'none' }}>
+            <Button>Go to Dashboard</Button>
+          </Link>
+          <Link to="/messages" style={{ textDecoration: 'none' }}>
+            <Button variant="secondary">View Messages</Button>
+          </Link>
         </ButtonsContainer>
       </Content>
     </NotFoundContainer>

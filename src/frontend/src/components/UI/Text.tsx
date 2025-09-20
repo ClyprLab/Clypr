@@ -87,8 +87,10 @@ const Text: React.FC<TextProps> = ({
   color,
   children,
   className,
+  as,
 }) => {
-  const component = getComponent(variant);
+  // Use the provided 'as' element type or get the default component based on variant
+  const component = as || getComponent(variant);
   const finalWeight = weight || getDefaultFontWeight(variant);
   
   return (

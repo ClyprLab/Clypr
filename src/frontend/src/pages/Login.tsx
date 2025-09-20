@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
-import Text from '../components/UI/Text';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 

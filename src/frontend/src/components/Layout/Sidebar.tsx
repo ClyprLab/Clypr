@@ -7,8 +7,9 @@ interface SidebarProps {
   collapsed: boolean;
 }
 
-const SidebarContainer = styled.aside<SidebarProps>`
-  width: ${props => props.collapsed ? '80px' : '240px'};
+// Use type-safe props with $ prefix for styled components
+const SidebarContainer = styled.aside<{ $collapsed: boolean }>`
+  width: ${props => props.$collapsed ? '80px' : '240px'};
   height: 100%;
   background-color: var(--color-background);
   border-right: 1px solid var(--color-border);
@@ -19,17 +20,17 @@ const SidebarContainer = styled.aside<SidebarProps>`
   overflow: hidden;
 `;
 
-const Logo = styled.div<SidebarProps>`
-  padding: ${props => props.collapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-6)'};
+const Logo = styled.div<{ $collapsed: boolean }>`
+  padding: ${props => props.$collapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-6)'};
   margin-bottom: var(--space-6);
   display: flex;
   align-items: center;
-  justify-content: ${props => props.collapsed ? 'center' : 'flex-start'};
+  justify-content: ${props => props.$collapsed ? 'center' : 'flex-start'};
 `;
 
-const LogoText = styled.h1<SidebarProps>`
+const LogoText = styled.h1<{ $collapsed: boolean }>`
   font-family: var(--font-mono);
-  font-size: ${props => props.collapsed ? '0' : 'var(--font-size-xl)'};
+  font-size: ${props => props.$collapsed ? '0' : 'var(--font-size-xl)'};
   font-weight: 700;
   margin: 0;
   overflow: hidden;
@@ -37,12 +38,12 @@ const LogoText = styled.h1<SidebarProps>`
   transition: font-size var(--transition-base);
 `;
 
-const LogoIcon = styled.div<SidebarProps>`
+const LogoIcon = styled.div<{ $collapsed: boolean }>`
   width: 32px;
   height: 32px;
   background-color: var(--color-text);
   border-radius: var(--radius-sm);
-  margin-right: ${props => props.collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${props => props.$collapsed ? '0' : 'var(--space-3)'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,10 +66,10 @@ const NavItem = styled.li`
   margin-bottom: var(--space-1);
 `;
 
-const StyledNavLink = styled(NavLink)<SidebarProps>`
+const StyledNavLink = styled(NavLink)<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
-  padding: ${props => props.collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
+  padding: ${(props) => props.$collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
   text-decoration: none;
   color: var(--color-text-secondary);
   transition: background-color var(--transition-fast);
@@ -87,30 +88,30 @@ const StyledNavLink = styled(NavLink)<SidebarProps>`
   }
 `;
 
-const NavIcon = styled.div<SidebarProps>`
+const NavIcon = styled.div<{ $collapsed: boolean }>`
   width: 20px;
   height: 20px;
-  margin-right: ${props => props.collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${(props) => props.$collapsed ? '0' : 'var(--space-3)'};
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
-const NavText = styled.span<SidebarProps>`
+const NavText = styled.span<{ $collapsed: boolean }>`
   font-size: var(--font-size-sm);
   white-space: nowrap;
-  opacity: ${props => props.collapsed ? 0 : 1};
+  opacity: ${(props) => props.$collapsed ? 0 : 1};
   transition: opacity var(--transition-base);
 `;
 
-const ProfileSection = styled.div<SidebarProps>`
-  padding: ${props => props.collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
+const ProfileSection = styled.div<{ $collapsed: boolean }>`
+  padding: ${(props) => props.$collapsed ? 'var(--space-3) var(--space-2)' : 'var(--space-3) var(--space-6)'};
   border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
 `;
 
-const Avatar = styled.div`
+const Avatar = styled.div<{ $collapsed?: boolean }>`
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
@@ -120,12 +121,12 @@ const Avatar = styled.div`
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  margin-right: ${props => props.collapsed ? '0' : 'var(--space-3)'};
+  margin-right: ${(props) => props.$collapsed ? '0' : 'var(--space-3)'};
 `;
 
-const ProfileInfo = styled.div<SidebarProps>`
+const ProfileInfo = styled.div<{ $collapsed: boolean }>`
   overflow: hidden;
-  opacity: ${props => props.collapsed ? 0 : 1};
+  opacity: ${(props) => props.$collapsed ? 0 : 1};
   transition: opacity var(--transition-base);
 `;
 
@@ -146,52 +147,52 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const { principal } = useAuth();
   
   return (
-    <SidebarContainer collapsed={collapsed}>
-      <Logo collapsed={collapsed}>
-        <LogoIcon>C</LogoIcon>
-        <LogoText collapsed={collapsed}>clypr</LogoText>
+    <SidebarContainer $collapsed={collapsed}>
+      <Logo $collapsed={collapsed}>
+        <LogoIcon $collapsed={collapsed}>C</LogoIcon>
+        <LogoText $collapsed={collapsed}>clypr</LogoText>
       </Logo>
       
       <Nav>
         <NavList>
           <NavItem>
-            <StyledNavLink to="/" collapsed={collapsed}>
-              <NavIcon>□</NavIcon>
-              <NavText collapsed={collapsed}>Dashboard</NavText>
+            <StyledNavLink to="/" $collapsed={collapsed}>
+              <NavIcon $collapsed={collapsed}>□</NavIcon>
+              <NavText $collapsed={collapsed}>Dashboard</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/rules" collapsed={collapsed}>
-              <NavIcon>⚙</NavIcon>
-              <NavText collapsed={collapsed}>Rules</NavText>
+            <StyledNavLink to="/rules" $collapsed={collapsed}>
+              <NavIcon $collapsed={collapsed}>⚙</NavIcon>
+              <NavText $collapsed={collapsed}>Rules</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/messages" collapsed={collapsed}>
-              <NavIcon>✉</NavIcon>
-              <NavText collapsed={collapsed}>Messages</NavText>
+            <StyledNavLink to="/messages" $collapsed={collapsed}>
+              <NavIcon $collapsed={collapsed}>✉</NavIcon>
+              <NavText $collapsed={collapsed}>Messages</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/channels" collapsed={collapsed}>
-              <NavIcon>⟿</NavIcon>
-              <NavText collapsed={collapsed}>Channels</NavText>
+            <StyledNavLink to="/channels" $collapsed={collapsed}>
+              <NavIcon $collapsed={collapsed}>⟿</NavIcon>
+              <NavText $collapsed={collapsed}>Channels</NavText>
             </StyledNavLink>
           </NavItem>
           <NavItem>
-            <StyledNavLink to="/settings" collapsed={collapsed}>
-              <NavIcon>⚙</NavIcon>
-              <NavText collapsed={collapsed}>Settings</NavText>
+            <StyledNavLink to="/settings" $collapsed={collapsed}>
+              <NavIcon $collapsed={collapsed}>⚙</NavIcon>
+              <NavText $collapsed={collapsed}>Settings</NavText>
             </StyledNavLink>
           </NavItem>
         </NavList>
       </Nav>
       
-      <ProfileSection collapsed={collapsed}>
-        <Avatar>
+      <ProfileSection $collapsed={collapsed}>
+        <Avatar $collapsed={collapsed}>
           {principal ? principal.toString().substring(0, 1).toUpperCase() : 'G'}
         </Avatar>
-        <ProfileInfo collapsed={collapsed}>
+        <ProfileInfo $collapsed={collapsed}>
           <ProfileName>
             {principal ? `${principal.toString().substring(0, 8)}...` : 'Guest User'}
           </ProfileName>
