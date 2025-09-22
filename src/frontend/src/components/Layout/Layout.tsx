@@ -30,10 +30,10 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   React.useEffect(() => {
-    if (!isAuthenticated && location.pathname !== '/login') {
+    if (!isAuthenticated) {
       navigate('/login');
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
