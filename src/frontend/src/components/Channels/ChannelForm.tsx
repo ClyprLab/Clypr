@@ -308,16 +308,25 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelF
 
         // Telegram matching
         if (formData.channelType === 'telegram' && Array.isArray(all)) {
+          try {
+            console.debug('checkVerificationStatus: scanning channels for telegram; total=', Array.isArray(all) ? all.length : 0);
+          } catch (_) {}
+
           const match = all.find((c: any) => {
             try {
-              const isTelegram = c.channelType && (
-                (typeof c.channelType === 'string' && c.channelType === 'telegram') ||
-                (typeof c.channelType === 'object' && c.channelType && Object.keys(c.channelType)[0] === 'telegram')
-              );
+              // Normalize backend variant keys: some backends use 'telegramContact' while our UI uses 'telegram'
+              const key = (typeof c.channelType === 'string')
+                ? c.channelType
+                : (c.channelType && typeof c.channelType === 'object' ? Object.keys(c.channelType)[0] : null);
+              const isTelegram = key === 'telegram' || key === 'telegramContact';
               return c.isActive && isTelegram;
-            } catch (e) { return false; }
+            } catch (e) {
+              console.debug('telegram match error', e);
+              return false;
+            }
           });
           if (match) {
+            try { console.debug('checkVerificationStatus: found telegram match id=', match.id); } catch(_) {}
             clearPoll();
             setVerification(prev => ({ ...prev, step: 'confirmed', message: 'Telegram channel verified and active.' }));
             onSuccess?.(true);
@@ -357,7 +366,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelF
   setVerification(prev => ({ ...prev, step: 'pending_confirmation', message: 'Sending verification...', token: null, link: null }));
   // Do not create a placeholder channel on the backend; include desired metadata
   // so the backend can attach the user's chosen name/description to the verification
-  const resp = await service.requestEmailVerification(from, false, formData.name, formData.description || undefined);
+  const resp = await service.requestEmailVerification(from, false);
       if (!resp) throw new Error('Failed to initiate email verification');
       // backend may provide token, channelId
       setVerification({
@@ -457,7 +466,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelF
   // Ask backend NOT to create a placeholder channel; include the desired name/description
   // so the backend can persist them with the verification record and use them when
   // creating the final channel on confirmation.
-  const resp = await service.requestTelegramVerification(false, formData.name, formData.description || undefined);
+  const resp = await service.requestTelegramVerification(false);
       if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
 
       const token = resp.token;
@@ -500,7 +509,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelF
     }
     try {
       setVerification(prev => ({ ...prev, step: 'pending_confirmation', message: 'Preparing Telegram reconnection...' }));
-  const resp = await service.requestTelegramVerification(false, formData.name, formData.description || undefined);
+  const resp = await service.requestTelegramVerification(false);
       if (!resp?.token) throw new Error('Failed to get Telegram token');
       const token = resp.token;
       const link = getTelegramBotStartUrl(token);
@@ -776,7 +785,7 @@ const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelF
                       <input
                         aria-label="email-verification-code"
                         className="flex-1 bg-neutral-800/50 border border-neutral-600 rounded px-3 py-2 text-sm text-neutral-100 font-mono focus:border-blue-500 focus:outline-none"
-                        placeholder="Enter 6-digit code"
+                        placeholder="Enter token sent to your email"
                         value={emailVerificationCode}
                         onChange={(e: any) => setEmailVerificationCode(e.target.value)}
                         disabled={isSaving}

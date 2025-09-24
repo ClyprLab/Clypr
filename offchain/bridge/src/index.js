@@ -255,7 +255,17 @@ async function run() {
             }
           } else if (channelType === 'telegramContact' || channelType === 'telegram') {
             // Telegram delivery path (non-verification)
-            delivered = await deliverJob(job);
+            try {
+              // Prefer adapter's dedicated message handler so the bot can deliver messages
+              if (typeof telegramAdapter.handleMessageJob === 'function') {
+                delivered = await telegramAdapter.handleMessageJob(job);
+              } else {
+                delivered = await deliverJob(job);
+              }
+            } catch (e) {
+              console.error('telegram message adapter error:', e);
+              delivered = false;
+            }
           } else if (channelType === 'webhook') {
             delivered = await deliverJob(job);
           } else {

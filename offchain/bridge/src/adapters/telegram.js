@@ -442,3 +442,52 @@ export async function handleChannelDeletionJob(job) {
     return false;
   }
 }
+
+// Handle regular message jobs routed to Telegram
+export async function handleMessageJob(job) {
+  try {
+    const intents = parseIntents(job.intents || []);
+
+    // Try to locate chatId from channelConfig variants or intents
+    let chatId = null;
+    try {
+      if (job.channelConfig && job.channelConfig.telegramContact && job.channelConfig.telegramContact.chatId) {
+        chatId = job.channelConfig.telegramContact.chatId;
+      } else if (job.channelConfig && job.channelConfig.telegram && job.channelConfig.telegram.chatId) {
+        chatId = job.channelConfig.telegram.chatId;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    if (!chatId) {
+      // allow intents to provide chat id (fallback)
+      chatId = intents.chatId || intents.chat_id || intents.chat || null;
+    }
+
+    if (!chatId) {
+      console.warn('[telegram] message job missing chatId, skipping', job.id);
+      return false;
+    }
+
+    const title = job.content && job.content.title ? String(job.content.title) : '';
+    const body = job.content && job.content.body ? String(job.content.body) : '';
+
+    let text = '';
+    if (title) text += `*${title}*\n\n`;
+    if (body) text += `${body}\n\n`;
+
+    if (Array.isArray(job.content && job.content.metadata) && job.content.metadata.length > 0) {
+      text += job.content.metadata.map(([k, v]) => `_${String(k)}_: ${sanitizeValue(v)}`).join('\n');
+    }
+
+    if (!text) text = job.messageType ? `Notification: ${job.messageType}` : 'You have a new message from Clypr';
+
+    const sent = await sendTelegramMessage(chatId, text);
+    console.info('[telegram] sent message for job', job.id, 'chatId', chatId, 'sent=', sent);
+    return !!sent;
+  } catch (e) {
+    console.error('[telegram] handleMessageJob error:', e && e.message ? e.message : e);
+    return false;
+  }
+}
