@@ -268,7 +268,10 @@ export interface _SERVICE {
   'addAuthorizedSelf' : ActorMethod<[], Result>,
   'bridgeConfirmVerification' : ActorMethod<[string, string], Result>,
   'cleanupExpiredJobs' : ActorMethod<[], Result_5>,
-  'confirmEmailVerification' : ActorMethod<[string], Result>,
+  'confirmEmailVerification' : ActorMethod<
+    [string, string, [] | [string]],
+    Result
+  >,
   'createChannel' : ActorMethod<
     [
       string,
@@ -299,6 +302,7 @@ export interface _SERVICE {
   'getAllMessages' : ActorMethod<[], Result_15>,
   'getAllRules' : ActorMethod<[], Result_14>,
   'getChannel' : ActorMethod<[ChannelId], Result_13>,
+  'getDispatchJobsForMessage' : ActorMethod<[MessageId], Result_7>,
   'getMessage' : ActorMethod<[MessageId], Result_12>,
   'getMyUsername' : ActorMethod<[], Result_11>,
   'getRule' : ActorMethod<[RuleId], Result_10>,
@@ -325,6 +329,9 @@ export interface _SERVICE {
     Result_6
   >,
   'ping' : ActorMethod<[], string>,
+  /**
+   * / Deprecated: prefer `notifyAlias` for clearer DX. Kept for backward-compat.
+   */
   'processMessage' : ActorMethod<[string, string, MessageContent], Result_6>,
   'processScheduledJobs' : ActorMethod<[], Result_5>,
   'registerUsername' : ActorMethod<[string], Result>,
