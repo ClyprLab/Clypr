@@ -175,11 +175,64 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [detailMessage, setDetailMessage] = React.useState<any | null>(null);
   const [detailJobs, setDetailJobs] = React.useState<any[]>([]);
+  const [modalStyle, setModalStyle] = React.useState<any>({
+    content: {
+      background: '#0A0A0F',
+      color: '#fff',
+      top: '5%',
+      left: '10%',
+      right: '10%',
+      bottom: '5%',
+      border: '1px solid #1C1C25',
+      borderRadius: '12px',
+      padding: '0'
+    },
+    overlay: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backdropFilter: 'blur(4px)'
+    }
+  });
   const { service } = useClypr() as any;
 
   const openDetails = async (message: any) => {
     setDetailMessage(message);
     setDetailOpen(true);
+    // compute modal style to avoid being overlapped by sidebar
+    try {
+      const computeStyle = () => {
+        const aside = document.querySelector('aside');
+        const sidebarWidth = aside ? Math.round((aside as HTMLElement).getBoundingClientRect().width) : (window.innerWidth >= 768 ? 240 : 0);
+        // ensure some gap
+        const leftPx = sidebarWidth + 16;
+        const rightPx = Math.max(16, Math.round(window.innerWidth * 0.08));
+        setModalStyle({
+          content: {
+            background: '#0A0A0F',
+            color: '#fff',
+            top: '5%',
+            left: `${leftPx}px`,
+            right: `${rightPx}px`,
+            bottom: '5%',
+            border: '1px solid #1C1C25',
+            borderRadius: '12px',
+            padding: '0'
+          },
+          overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(4px)'
+          }
+        });
+      };
+      computeStyle();
+      const onResize = () => computeStyle();
+      window.addEventListener('resize', onResize);
+      // remove listener when modal closes
+      const cleanup = () => window.removeEventListener('resize', onResize);
+      // attach cleanup to close handler via a microtask so it remains available
+      (window as any).__messages_modal_cleanup = cleanup;
+    } catch (e) {
+      // ignore
+    }
     try {
         if (service) {
           // Use the service wrapper which tries the canister query and falls back to debug dump
@@ -196,6 +249,11 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
     setDetailOpen(false);
     setDetailMessage(null);
     setDetailJobs([]);
+    try {
+      const cleanup = (window as any).__messages_modal_cleanup;
+      if (typeof cleanup === 'function') cleanup();
+      (window as any).__messages_modal_cleanup = undefined;
+    } catch (e) { /* ignore */ }
   };
 
   const filteredMessages = messages.filter(message => {
@@ -244,24 +302,11 @@ const MessageListComponent = ({ messages, searchTerm, statusFilter }: { messages
         />
       ))}
 
-      <ReactModal 
-        isOpen={detailOpen} 
-        onRequestClose={closeDetails} 
-        ariaHideApp={false} 
-        style={{ 
-          content: { 
-            background: '#0A0A0F', 
-            color: '#fff', 
-            inset: '5% 10%',
-            border: '1px solid #1C1C25',
-            borderRadius: '12px',
-            padding: '0'
-          },
-          overlay: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(4px)'
-          }
-        }}
+      <ReactModal
+        isOpen={detailOpen}
+        onRequestClose={closeDetails}
+        ariaHideApp={false}
+        style={modalStyle}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
