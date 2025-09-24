@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "NODE_OPTIONS=--trace-warnings node src/index.js",
+    "dev": "cross-env NODE_OPTIONS=--trace-warnings nodemon src/index.js",
     "setup-webhook": "node setup-telegram-webhook.js",
     "debug-telegram": "node debug-telegram.js",
     "test-agent": "node test-bot-commands.js"
@@ -18,7 +18,11 @@
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2",
-    "tweetnacl": "^1.0.3",
-    "nodemailer": "^6.9.4"
+    "nodemailer": "^6.9.4",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0",
+    "nodemon": "^3.1.10"
   }
 }

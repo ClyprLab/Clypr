@@ -1,0 +1,6 @@
+{
+  "verbose": true,
+  "watch": ["src/**/*", ".env"],
+  "ignore": ["*.test.js", "*.spec.js", "node_modules"],
+  "ext": "js,json,env"
+}

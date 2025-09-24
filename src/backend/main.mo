@@ -16,6 +16,7 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Nat8 "mo:base/Nat8";
+import Char "mo:base/Char";
 
 import MessageProcessor "./MessageProcessor";
 import RuleEngine "./RuleEngine";
@@ -129,6 +130,35 @@ persistent actor ClyprCanister {
       };
       case (?channelsMap) { return channelsMap; };
     };
+  };
+
+  // Short token generator: small human-friendly token to improve UX in chat clients
+  private func generateShortToken(prefix : Text) : Text {
+    let chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    var result = "";
+    // deterministic-ish but varying by time to reduce collisions
+    for (i in Iter.range(0, 7)) {
+      // use time and loop index to pick pseudo-random index
+      let idx = Int.abs(Time.now() + i) % Text.size(chars);
+      result := result # textSubstring(chars, idx, 1);
+    };
+    return prefix # "-" # result;
+  };
+
+  // Local substring helper (single-file, avoids cross-module private helpers)
+  private func textSubstring(t : Text, start : Int, length : Nat) : Text {
+    let chars = Text.toIter(t);
+    var i = 0;
+    var result = "";
+
+    for (c in chars) {
+      if (i >= start and i < start + length) {
+        result := result # Char.toText(c);
+      };
+      i += 1;
+      if (i >= start + length) { return result; };
+    };
+    return result;
   };
   
   private func getUserMessages(userId : UserId) : HashMap.HashMap<MessageId, Message> {
@@ -1492,7 +1522,7 @@ persistent actor ClyprCanister {
     // Support both old no-arg callers and new callers with explicit flag
     let create = Option.get(createPlaceholder, false);
 
-    let token = Principal.toText(msg.caller) # "-" # Int.toText(Time.now());
+  let token = generateShortToken("tg");
     let expiresAt = Time.now() + 900_000_000_000; // 15 minutes
 
     var placeholderChannelId : ?ChannelId = null;
@@ -1772,7 +1802,7 @@ persistent actor ClyprCanister {
     if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
 
     let create = Option.get(createPlaceholder, false);
-    let token = Principal.toText(msg.caller) # "-email-" # Int.toText(Time.now());
+  let token = generateShortToken("email");
     let expiresAt = Time.now() + 900_000_000_000; // 15 minutes
 
     var placeholderChannelId : ?ChannelId = null;
