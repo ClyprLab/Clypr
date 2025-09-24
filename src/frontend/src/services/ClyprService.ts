@@ -866,7 +866,7 @@ export class ClyprService {
   }
 
   // Initiate Telegram verification flow. Returns short-lived token for deep-linking with the bot.
-  async requestTelegramVerification(createPlaceholder: boolean = true): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
+  async requestTelegramVerification(createPlaceholder: boolean = true, desiredName?: string, desiredDescription?: string): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
     if (!this.actor) throw new Error('Actor not initialized');
 
     const parsePayload = (payload: any) => {
@@ -894,15 +894,25 @@ export class ClyprService {
       return undefined;
     };
 
-    const callActor = async (arg?: any) => {
-      // Candid signature uses Opt(Bool) for this param; frontend must send [] for None or [bool] for Some(bool)
-      if (typeof arg === 'undefined') return await this.actor.requestTelegramVerification();
-      return await this.actor.requestTelegramVerification([arg]);
+    const callActor = async (optBool?: any, nameOpt?: any, descOpt?: any) => {
+      // Actor signature: requestTelegramVerification : (opt bool, opt text, opt text)
+      // Build args accordingly. If undefined, omit param so we try the no-arg variant as fallback.
+      if (typeof optBool === 'undefined' && typeof nameOpt === 'undefined' && typeof descOpt === 'undefined') {
+        return await this.actor.requestTelegramVerification();
+      }
+      const args: any[] = [];
+      // opt bool
+      if (typeof optBool === 'undefined') args.push([]); else args.push([optBool]);
+      // opt name
+      if (typeof nameOpt === 'undefined') args.push([]); else args.push([nameOpt]);
+      // opt desc
+      if (typeof descOpt === 'undefined') args.push([]); else args.push([descOpt]);
+      return await this.actor.requestTelegramVerification(args[0], args[1], args[2]);
     };
 
     // Try new signature first, then fallback to legacy no-arg if it traps/throws
     try {
-      const res = await callActor(createPlaceholder);
+      const res = await callActor(createPlaceholder, desiredName, desiredDescription);
       if (res && 'ok' in res) return parsePayload(res.ok as any);
       if (res && 'err' in res) {
         console.error('requestTelegramVerification returned err:', res.err);
@@ -927,7 +937,7 @@ export class ClyprService {
   }
 
   // Email verification helpers
-  async requestEmailVerification(email: string, createPlaceholder: boolean = true): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
+  async requestEmailVerification(email: string, createPlaceholder: boolean = true, desiredName?: string, desiredDescription?: string): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
     if (!this.actor) throw new Error('Actor not initialized');
 
     // Fallback: if backend declarations don't include requestEmailVerification, we used to create a placeholder channel
@@ -956,14 +966,21 @@ export class ClyprService {
       return undefined;
     };
 
-    const call = async (opt?: boolean) => {
-      // actor.requestEmailVerification(email, Opt(Bool))
-      if (typeof opt === 'undefined') return await this.actor.requestEmailVerification(email);
-      return await this.actor.requestEmailVerification(email, [opt]);
+    const call = async (opt?: boolean, nameOpt?: any, descOpt?: any) => {
+      // actor.requestEmailVerification(email, Opt(Bool), Opt(Text), Opt(Text))
+      // If no extra args provided try no-arg variant for backwards compat
+      if (typeof opt === 'undefined' && typeof nameOpt === 'undefined' && typeof descOpt === 'undefined') {
+        return await this.actor.requestEmailVerification(email);
+      }
+      const args: any[] = [];
+      if (typeof opt === 'undefined') args.push([]); else args.push([opt]);
+      if (typeof nameOpt === 'undefined') args.push([]); else args.push([nameOpt]);
+      if (typeof descOpt === 'undefined') args.push([]); else args.push([descOpt]);
+      return await this.actor.requestEmailVerification(email, args[0], args[1], args[2]);
     };
 
     try {
-      const res = await call(createPlaceholder);
+  const res = await call(createPlaceholder, desiredName, desiredDescription);
       if (res && 'ok' in res) return parse(res.ok as any);
       if (res && 'err' in res) { console.error('requestEmailVerification err:', res.err); return undefined; }
       return parse(res as any);

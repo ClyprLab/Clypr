@@ -956,7 +956,7 @@ persistent actor ClyprCanister {
   };
   
   // Notifies the off-chain bridge of an important system event (e.g., channel deletion)
-  private func notifyBridge(
+  private func _notifyBridge(
     userId: Principal,
     channelId: ChannelId,
     channel: Channel,
@@ -1687,7 +1687,9 @@ persistent actor ClyprCanister {
   };
   
   // Request a telegram verification token (user-initiated). Accept optional flag so older frontends without arg don't trap.
-  public shared(msg) func requestTelegramVerification(createPlaceholder : ?Bool) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
+  // Accept optional desired name/description so the backend can create the
+  // final channel with user-supplied metadata if no placeholder was persisted.
+  public shared(msg) func requestTelegramVerification(createPlaceholder : ?Bool, desiredName : ?Text, desiredDescription : ?Text) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
     if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
 
     // Support both old no-arg callers and new callers with explicit flag
@@ -1720,6 +1722,8 @@ persistent actor ClyprCanister {
       expiresAt = expiresAt;
       verified = false;
       channelId = placeholderChannelId;
+      desiredName = desiredName;
+      desiredDescription = desiredDescription;
     };
 
     // Append to user's verification list
@@ -1863,8 +1867,8 @@ persistent actor ClyprCanister {
 
                         let newChannel : Channel = {
                           id = targetChannelId;
-                          name = "Telegram";
-                          description = null;
+                          name = Option.get(r.desiredName, "Telegram");
+                          description = r.desiredDescription;
                           channelType = #telegramContact;
                           config = #telegramContact({ chatId = "" });
                           retryConfig = defaultRetry;
@@ -1918,8 +1922,8 @@ persistent actor ClyprCanister {
 
                     let newChannel : Channel = {
                       id = targetChannelId;
-                      name = "Telegram";
-                      description = null;
+                      name = Option.get(r.desiredName, "Telegram");
+                      description = r.desiredDescription;
                       channelType = #telegramContact;
                       config = #telegramContact({ chatId = chatId });
                       retryConfig = defaultRetry;
@@ -1941,6 +1945,8 @@ persistent actor ClyprCanister {
                   expiresAt = r.expiresAt;
                   verified = true;
                   channelId = ?targetChannelId;
+                  desiredName = r.desiredName;
+                  desiredDescription = r.desiredDescription;
                 };
 
                 updatedArr := Array.append(updatedArr, [updatedRec]);
@@ -1968,7 +1974,7 @@ persistent actor ClyprCanister {
   };
   
   // Request an email verification token (user-initiated). Accept optional flag for placeholder creation
-  public shared(msg) func requestEmailVerification(email : Text, createPlaceholder : ?Bool) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
+  public shared(msg) func requestEmailVerification(email : Text, createPlaceholder : ?Bool, desiredName : ?Text, desiredDescription : ?Text) : async Result<{ token: Text; expiresAt: Int; channelId: ?ChannelId }, Error> {
     if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
 
     let create = Option.get(createPlaceholder, false);
@@ -1996,6 +2002,8 @@ persistent actor ClyprCanister {
       expiresAt = expiresAt;
       verified = false;
       channelId = placeholderChannelId;
+      desiredName = desiredName;
+      desiredDescription = desiredDescription;
     };
 
 
@@ -2116,6 +2124,7 @@ persistent actor ClyprCanister {
                     let now = Time.now();
                     let updatedChannel : Channel = {
                       id = existingChannel.id;
+                      // Use name provided at confirmation time (frontend confirmEmailVerification passes name/description)
                       name = name;
                       description = description;
                       channelType = existingChannel.channelType;
@@ -2139,6 +2148,8 @@ persistent actor ClyprCanister {
                       expiresAt = r.expiresAt;
                       verified = true;
                       channelId = ?cid;
+                      desiredName = r.desiredName;
+                      desiredDescription = r.desiredDescription;
                     };
 
                     outArr := Array.append(outArr, [updatedRec]);
@@ -2191,6 +2202,8 @@ persistent actor ClyprCanister {
                       expiresAt = r.expiresAt;
                       verified = true;
                       channelId = ?targetId;
+                      desiredName = r.desiredName;
+                      desiredDescription = r.desiredDescription;
                     };
 
                     outArr := Array.append(outArr, [updatedRec]);
@@ -2242,6 +2255,8 @@ persistent actor ClyprCanister {
                   expiresAt = r.expiresAt;
                   verified = true;
                   channelId = ?cid;
+                  desiredName = r.desiredName;
+                  desiredDescription = r.desiredDescription;
                 };
                     let userChannelsMap = getUserChannels(owner);
                     userChannelsMap.put(cid, newChannel);
