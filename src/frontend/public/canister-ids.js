@@ -1,6 +1,6 @@
-// Clypr Canister IDs for ic environment
+// Clypr Canister IDs for local environment
 window.canisterIds = {
-  "backend": "li3ma-uyaaa-aaaap-qqd5q-cai",
-  "frontend": "l545n-vqaaa-aaaap-qqd6a-cai",
-  "internet_identity": null
+  "backend": "uxrrr-q7777-77774-qaaaq-cai",
+  "frontend": "u6s2n-gx777-77774-qaaba-cai",
+  "internet_identity": "uzt4z-lp777-77774-qaabq-cai"
 };

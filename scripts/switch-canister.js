@@ -53,20 +53,32 @@ const localDistIds = readLocalDist();
 function pickId(canister, network) {
   // prefer root canister_ids.json
   if (rootIds && rootIds[canister] && rootIds[canister][network]) return rootIds[canister][network];
-  // fallback to dist file for local
-  if (network === 'local' && localDistIds && localDistIds[canister]) return localDistIds[canister];
+  // For local target only use the frontend dist file; do NOT fall back to 'ic' ids when target is local.
+  if (network === 'local') {
+    if (localDistIds && localDistIds[canister]) {
+      // If the dist file contains the same id as the root 'ic' entry, treat it as missing local id.
+      const rootIc = rootIds && rootIds[canister] && rootIds[canister]['ic'];
+      if (rootIc && localDistIds[canister] === rootIc) return undefined;
+      return localDistIds[canister];
+    }
+    return undefined; // explicit undefined to indicate missing local id
+  }
+  // for other networks (e.g. 'ic') we already returned rootIds above
   return undefined;
 }
 
 const canisters = ['backend','frontend','internet_identity'];
 const selected = {};
 for (const c of canisters) {
-  const id = pickId(c, target === 'local' ? 'local' : 'ic');
+  const network = target === 'local' ? 'local' : 'ic';
+  const id = pickId(c, network);
+  // store whatever we found; if undefined we'll write null into the generated file
   if (id) selected[c] = id;
 }
 
-if (!selected.backend && !selected.frontend) {
-  die(`Could not locate canister ids for target='${target}'. Ensure canister_ids.json or src/frontend/dist/canister-ids.js exists.`);
+// If switching to local and we found no local ids, do not abort — write nulls and warn the user.
+if (target === 'local' && !selected.backend && !selected.frontend) {
+  console.warn(`Warning: no local canister ids found for target='${target}'. Writing nulls into frontend canister-ids.js.`);
 }
 
 // 1) update frontend dist and public canister-ids.js
