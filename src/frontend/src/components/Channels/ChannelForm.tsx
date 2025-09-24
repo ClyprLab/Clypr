@@ -830,7 +830,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
                       <div className="text-xs text-neutral-500 flex items-center justify-between">
                         <div>
                           <div>1. Open Telegram and find</div>
-                          <div className="font-mono text-sm text-neutral-300 inline-block">{telegramConf.botName}</div>
+                          <div className="font-mono text-sm text-neutral-300 inline-block">{telegramConf.botUsername}</div>
                           <div className="text-xs text-neutral-500">2. Send the token above to start verification</div>
                         </div>
                         <div>

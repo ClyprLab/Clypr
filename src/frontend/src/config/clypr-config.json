@@ -1,5 +1,5 @@
 {
-  "canisterId": "uxrrr-q7777-77774-qaaaq-cai",
+  "canisterId": "li3ma-uyaaa-aaaap-qqd5q-cai",
   "api": {
     "baseUrl": "https://5nif7-uaaaa-aaaag-aufha-cai.ic0.app",
     "identityProvider": "https://identity.ic0.app"
@@ -10,7 +10,7 @@
     "botDescription": "Your personal Clypr Agent for identity verification and notifications",
     "webhookUrl": "https://your-domain.com/telegram/webhook"
   },
-  "rateLimits": { 
+  "rateLimits": {
     "perUser": 100,
     "perCanister": 1000,
     "global": 10000,
@@ -22,7 +22,7 @@
   ],
   "priorityLevels": {
     "1": "Critical - Emergency notifications, security alerts",
-    "2": "High - Important updates, time-sensitive actions", 
+    "2": "High - Important updates, time-sensitive actions",
     "3": "Normal - Regular notifications, general updates",
     "4": "Low - Newsletters, promotional content",
     "5": "Very Low - Marketing, non-urgent content"
