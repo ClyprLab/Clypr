@@ -907,7 +907,22 @@ export class ClyprService {
       if (typeof nameOpt === 'undefined') args.push([]); else args.push([nameOpt]);
       // opt desc
       if (typeof descOpt === 'undefined') args.push([]); else args.push([descOpt]);
-      return await this.actor.requestTelegramVerification(args[0], args[1], args[2]);
+      // Try the newer 3-arg signature but retry legacy variants on IDL/trap errors
+      try {
+        return await this.actor.requestTelegramVerification(args[0], args[1], args[2]);
+      } catch (err: any) {
+        const m = err && (err.message || err.toString && err.toString());
+        if (typeof m === 'string' && (m.includes('Wrong number of message arguments') || m.includes('invalid type argument') || m.includes('invalid type') || m.includes('Wrong number of arguments'))) {
+          try {
+            // try opt bool only
+            return await this.actor.requestTelegramVerification(args[0]);
+          } catch (e2: any) {
+            console.error('requestTelegramVerification fallback (1-arg) failed:', e2);
+            throw err; // rethrow original for outer handler
+          }
+        }
+        throw err;
+      }
     };
 
     // Try new signature first, then fallback to legacy no-arg if it traps/throws
@@ -976,7 +991,26 @@ export class ClyprService {
       if (typeof opt === 'undefined') args.push([]); else args.push([opt]);
       if (typeof nameOpt === 'undefined') args.push([]); else args.push([nameOpt]);
       if (typeof descOpt === 'undefined') args.push([]); else args.push([descOpt]);
-      return await this.actor.requestEmailVerification(email, args[0], args[1], args[2]);
+      // Try the newer 4-arg signature, but if the canister/agent reports
+      // an IDL/argument mismatch, gracefully retry the legacy 2-arg form
+      try {
+        return await this.actor.requestEmailVerification(email, args[0], args[1], args[2]);
+      } catch (err: any) {
+        const m = err && (err.message || err.toString && err.toString());
+        // Detect common agent/candid errors that mean the deployed canister
+        // expects a different arity or types and retry the older signature.
+        if (typeof m === 'string' && (m.includes('Wrong number of message arguments') || m.includes('invalid type argument') || m.includes('invalid type') || m.includes('Wrong number of arguments'))) {
+          try {
+            // Legacy/canonical fallback: email + Opt(Bool)
+            return await this.actor.requestEmailVerification(email, args[0]);
+          } catch (fallbackErr: any) {
+            // If fallback fails, surface original error for debugging but return undefined
+            console.error('requestEmailVerification fallback (2-arg) failed:', fallbackErr);
+            throw err; // rethrow original so outer handler logs consistently
+          }
+        }
+        throw err;
+      }
     };
 
     try {
