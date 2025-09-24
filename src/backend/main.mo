@@ -19,7 +19,7 @@ import Nat8 "mo:base/Nat8";
 import Char "mo:base/Char";
 
 import MessageProcessor "./MessageProcessor";
-import RuleEngine "./RuleEngine";
+import _RuleEngine "./RuleEngine";
 import Types "./Types";
 
 persistent actor ClyprCanister {
@@ -54,30 +54,33 @@ persistent actor ClyprCanister {
   type DispatchStatus = Types.DispatchStatus;
   
   // Legacy state variables (for migration)
-  private stable var owner : Principal = Principal.fromText("2vxsx-fae"); // Default principal
-  private stable var owner_v2 : ?Principal = null; // New optional version
+  private var owner : Principal = Principal.fromText("2vxsx-fae"); // Default principal
+  private var _owner_v2 : ?Principal = null; // New optional version
   
   // State storage - User-isolated data
-  private stable var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
-  private stable var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
-  private stable var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
-  private stable var userDispatchJobsEntries : [(UserId, [(Nat, DispatchJob)])] = [];
-  private stable var nextRuleId : RuleId = 0;
-  private stable var nextChannelId : ChannelId = 0;
-  private stable var nextJobId : Nat = 0;
+  private var userRulesEntries : [(UserId, [(RuleId, Rule)])] = [];
+  private var userChannelsEntries : [(UserId, [(ChannelId, Channel)])] = [];
+  private var userMessagesEntries : [(UserId, [(MessageId, Message)])] = [];
+  private var userDispatchJobsEntries : [(UserId, [(Nat, DispatchJob)])] = [];
+  private var nextRuleId : RuleId = 0;
+  private var nextChannelId : ChannelId = 0;
+  private var nextJobId : Nat = 0;
 
-  // Verification records (stable storage for migration)
-  private stable var userVerificationsEntries : [(UserId, [Types.VerificationRecord])] = [];
+  // Verification records  storage for migration)
+  private var userVerificationsEntries : [(UserId, [Types.VerificationRecord])] = [];
+
+  // Persistent token index for quick token -> owner lookup
+  private var tokenIndexEntries : [(Text, Principal)] = [];
 
   // Telegram verification token mapping (token -> Principal)
   private transient var tokenToUser = HashMap.HashMap<Text, Principal>(100, Text.equal, Text.hash);
 
-  // Bridge allowlist (stable)
-  private stable var authorizedCallersEntries : [Principal] = [];
+  // Bridge allowlist )
+  private var authorizedCallersEntries : [Principal] = [];
 
   // User Alias System State
-  private stable var usernameRegistryEntries: [(Text, Principal)] = [];
-  private stable var principalToUsernameEntries: [(Principal, Text)] = [];
+  private var usernameRegistryEntries: [(Text, Principal)] = [];
+  private var principalToUsernameEntries: [(Principal, Text)] = [];
 
   // Runtime state - User-isolated data
   private transient var userRules = HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
@@ -92,18 +95,18 @@ persistent actor ClyprCanister {
   private transient var authorizedCallers = HashMap.HashMap<Principal, ()>(10, Principal.equal, Principal.hash);
   
   // Rate limiting state
-  private stable var rateLimitEntriesV2 : [(UserId, [(ChannelId, Types.RateLimitStatus)])] = [];
+  private var rateLimitEntriesV2 : [(UserId, [(ChannelId, Types.RateLimitStatus)])] = [];
   private transient var userRateLimits = HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Types.RateLimitStatus>>(10, Principal.equal, Principal.hash);
   
   // Scheduled jobs state
-  private stable var scheduledJobEntriesV2 : [(Nat, Types.JobSchedule)] = [];
+  private var scheduledJobEntriesV2 : [(Nat, Types.JobSchedule)] = [];
   private transient var scheduledJobs = HashMap.HashMap<Nat, Types.JobSchedule>(100, Nat.equal, func (x) { Nat32.fromNat(x) });
 
   // System metrics
-  private stable var totalMessagesProcessed : Nat = 0;
-  private stable var totalJobsScheduled : Nat = 0;
-  private stable var totalJobsCompleted : Nat = 0;
-  private stable var totalJobsFailed : Nat = 0;
+  private var totalMessagesProcessed : Nat = 0;
+  private var totalJobsScheduled : Nat = 0;
+  private var totalJobsCompleted : Nat = 0;
+  private var totalJobsFailed : Nat = 0;
 
   // Runtime state - Alias System
   private transient var usernameRegistry = HashMap.HashMap<Text, Principal>(10, Text.equal, Text.hash);
@@ -132,14 +135,153 @@ persistent actor ClyprCanister {
     };
   };
 
+  // Generic helpers to persist per-user entry arrays (write-through)
+  private func setUserEntries<T>(entries : [(UserId, T)], userId : UserId, newData : T) : [(UserId, T)] {
+    var out : [(UserId, T)] = [];
+    var replaced = false;
+    for ((uid, data) in Iter.fromArray(entries)) {
+      if (Principal.equal(uid, userId)) {
+        out := Array.append(out, [(userId, newData)]);
+        replaced := true;
+      } else {
+        out := Array.append(out, [(uid, data)]);
+      };
+    };
+    if (not replaced) {
+      out := Array.append(out, [(userId, newData)]);
+    };
+    out
+  };
+
+  private func removeUserEntries<T>(entries : [(UserId, T)], userId : UserId) : [(UserId, T)] {
+    var out : [(UserId, T)] = [];
+    for ((uid, data) in Iter.fromArray(entries)) {
+      if (not Principal.equal(uid, userId)) {
+        out := Array.append(out, [(uid, data)]);
+      };
+    };
+    out
+  };
+
+  // Save helpers for each persisted collection - these mirror the structure used in preupgrade
+  private func saveUserRulesEntries(userId : UserId) : () {
+    switch (userRules.get(userId)) {
+      case (null) {
+        userRulesEntries := removeUserEntries(userRulesEntries, userId);
+      };
+      case (?rulesMap) {
+        userRulesEntries := setUserEntries(userRulesEntries, userId, Iter.toArray(rulesMap.entries()));
+      };
+    };
+  };
+
+  private func saveUserChannelsEntries(userId : UserId) : () {
+    switch (userChannels.get(userId)) {
+      case (null) {
+        userChannelsEntries := removeUserEntries(userChannelsEntries, userId);
+      };
+      case (?channelsMap) {
+        userChannelsEntries := setUserEntries(userChannelsEntries, userId, Iter.toArray(channelsMap.entries()));
+      };
+    };
+  };
+
+  private func saveUserMessagesEntries(userId : UserId) : () {
+    switch (userMessages.get(userId)) {
+      case (null) {
+        userMessagesEntries := removeUserEntries(userMessagesEntries, userId);
+      };
+      case (?messagesMap) {
+        userMessagesEntries := setUserEntries(userMessagesEntries, userId, Iter.toArray(messagesMap.entries()));
+      };
+    };
+  };
+
+  private func saveUserDispatchJobsEntries(userId : UserId) : () {
+    switch (userDispatchJobs.get(userId)) {
+      case (null) {
+        userDispatchJobsEntries := removeUserEntries(userDispatchJobsEntries, userId);
+      };
+      case (?jobsMap) {
+        userDispatchJobsEntries := setUserEntries(userDispatchJobsEntries, userId, Iter.toArray(jobsMap.entries()));
+      };
+    };
+  };
+
+  private func saveUserVerificationsEntries(userId : UserId) : () {
+    switch (userVerifications.get(userId)) {
+      case (null) {
+        userVerificationsEntries := removeUserEntries(userVerificationsEntries, userId);
+      };
+      case (?arr) {
+        userVerificationsEntries := setUserEntries(userVerificationsEntries, userId, arr);
+      };
+    };
+  };
+
+  // Helpers for token index operations
+  private func setTokenIndex(entries : [(Text, Principal)], token : Text, owner : Principal) : [(Text, Principal)] {
+    var out : [(Text, Principal)] = [];
+    var replaced = false;
+    for ((t, p) in Iter.fromArray(entries)) {
+      if (Text.equal(t, token)) {
+        out := Array.append(out, [(token, owner)]);
+        replaced := true;
+      } else {
+        out := Array.append(out, [(t, p)]);
+      };
+    };
+    if (not replaced) { out := Array.append(out, [(token, owner)]); };
+    out
+  };
+
+  private func removeTokenIndex(entries : [(Text, Principal)], token : Text) : [(Text, Principal)] {
+    var out : [(Text, Principal)] = [];
+    for ((t, p) in Iter.fromArray(entries)) {
+      if (not Text.equal(t, token)) { out := Array.append(out, [(t, p)]); };
+    };
+    out
+  };
+
+  private func saveUsernameRegistryEntries() : () {
+    usernameRegistryEntries := Iter.toArray(usernameRegistry.entries());
+  };
+
+  private func savePrincipalToUsernameEntries() : () {
+    principalToUsernameEntries := Iter.toArray(principalToUsername.entries());
+  };
+
+  private func saveAuthorizedCallersEntries() : () {
+    authorizedCallersEntries := Iter.toArray(Iter.map<(Principal, ()), Principal>(authorizedCallers.entries(), func ((p, _)) { p }));
+  };
+
+  private func saveRateLimitEntries(userId : UserId) : () {
+    switch (userRateLimits.get(userId)) {
+      case (null) {
+        rateLimitEntriesV2 := removeUserEntries(rateLimitEntriesV2, userId);
+      };
+      case (?rateMap) {
+        rateLimitEntriesV2 := setUserEntries(rateLimitEntriesV2, userId, Iter.toArray(rateMap.entries()));
+      };
+    };
+  };
+
+  // Persist scheduled jobs entries (mirror stable array to scheduledJobs map)
+  private func saveScheduledJobEntries() : () {
+    scheduledJobEntriesV2 := Iter.toArray(scheduledJobs.entries());
+  };
+
   // Short token generator: small human-friendly token to improve UX in chat clients
   private func generateShortToken(prefix : Text) : Text {
     let chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     var result = "";
-    // deterministic-ish but varying by time to reduce collisions
-    for (i in Iter.range(0, 7)) {
-      // use time and loop index to pick pseudo-random index
-      let idx = Int.abs(Time.now() + i) % Text.size(chars);
+    // Increase length and vary with time + loop index for modest entropy
+    // Length 10 gives ~log2(36^10) ~ 52 bits of entropy (practical for short-lived tokens)
+    for (i in Iter.range(0, 10)) {
+      let now = Time.now();
+      // simple variation: combine time and index, then mod by available chars
+      let pseudo = Int.abs(now / (1 + i));
+      let idx = pseudo % Text.size(chars);
       result := result # textSubstring(chars, idx, 1);
     };
     return prefix # "-" # result;
@@ -223,6 +365,12 @@ persistent actor ClyprCanister {
     usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
     principalToUsername := HashMap.fromIter<Principal, Text>(Iter.fromArray(principalToUsernameEntries), 10, Principal.equal, Principal.hash);
 
+    // Rebuild transient tokenToUser cache from persistent token index
+    tokenToUser := HashMap.HashMap<Text, Principal>(100, Text.equal, Text.hash);
+    for ((t, p) in Iter.fromArray(tokenIndexEntries)) {
+      tokenToUser.put(t, p);
+    };
+
     // Initialize rate limiting state
     userRateLimits := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Types.RateLimitStatus>>(10, Principal.equal, Principal.hash);
     for ((userId, rateLimits) in rateLimitEntriesV2.vals()) {
@@ -250,120 +398,6 @@ persistent actor ClyprCanister {
     );
   };
   
-  // Store stable variables before upgrades
-  system func preupgrade() {
-    // Save user data to stable storage
-    userRulesEntries := Iter.toArray(
-      Iter.map<(UserId, HashMap.HashMap<RuleId, Rule>), (UserId, [(RuleId, Rule)])>(
-        userRules.entries(),
-        func ((userId, rulesMap) : (UserId, HashMap.HashMap<RuleId, Rule>)) : (UserId, [(RuleId, Rule)]) {
-          (userId, Iter.toArray(rulesMap.entries()))
-        }
-      )
-    );
-    
-    userChannelsEntries := Iter.toArray(
-      Iter.map<(UserId, HashMap.HashMap<ChannelId, Channel>), (UserId, [(ChannelId, Channel)])>(
-        userChannels.entries(),
-        func ((userId, channelsMap) : (UserId, HashMap.HashMap<ChannelId, Channel>)) : (UserId, [(ChannelId, Channel)]) {
-          (userId, Iter.toArray(channelsMap.entries()))
-        }
-      )
-    );
-
-    userMessagesEntries := Iter.toArray(
-      Iter.map<(UserId, HashMap.HashMap<MessageId, Message>), (UserId, [(MessageId, Message)])>(
-        userMessages.entries(),
-        func ((userId, messagesMap) : (UserId, HashMap.HashMap<MessageId, Message>)) : (UserId, [(MessageId, Message)]) {
-          (userId, Iter.toArray(messagesMap.entries()))
-        }
-      )
-    );
-
-    userDispatchJobsEntries := Iter.toArray(
-      Iter.map<(UserId, HashMap.HashMap<Nat, DispatchJob>), (UserId, [(Nat, DispatchJob)])>(
-        userDispatchJobs.entries(),
-        func ((userId, jobsMap) : (UserId, HashMap.HashMap<Nat, DispatchJob>)) : (UserId, [(Nat, DispatchJob)]) {
-          (userId, Iter.toArray(jobsMap.entries()))
-        }
-      )
-    );
-    
-    // Save verification records
-    userVerificationsEntries := Iter.toArray(
-      Iter.map<(UserId, [Types.VerificationRecord]), (UserId, [Types.VerificationRecord])>(
-        userVerifications.entries(),
-        func ((userId, verArr) : (UserId, [Types.VerificationRecord])) : (UserId, [Types.VerificationRecord]) {
-          (userId, verArr)
-        }
-      )
-    );
-
-    // Save alias data to stable storage
-    usernameRegistryEntries := Iter.toArray(usernameRegistry.entries());
-    principalToUsernameEntries := Iter.toArray(principalToUsername.entries());
-
-    // Save rate limiting state
-    rateLimitEntriesV2 := Iter.toArray(
-      Iter.map<(UserId, HashMap.HashMap<ChannelId, Types.RateLimitStatus>), (UserId, [(ChannelId, Types.RateLimitStatus)])>(
-        userRateLimits.entries(),
-        func ((userId, rateLimits) : (UserId, HashMap.HashMap<ChannelId, Types.RateLimitStatus>)) : (UserId, [(ChannelId, Types.RateLimitStatus)]) {
-          (userId, Iter.toArray(rateLimits.entries()))
-        }
-      )
-    );
-
-    // Save scheduled jobs
-    scheduledJobEntriesV2 := Iter.toArray(scheduledJobs.entries());
-
-    // Save authorized callers
-    authorizedCallersEntries := Iter.toArray(Iter.map<(Principal, ()), Principal>(authorizedCallers.entries(), func ((p, _)) { p }));
-  };
-  
-  system func postupgrade() {
-    // Complete the migration by setting old owner to default and new one to null
-    owner := Principal.fromText("2vxsx-fae");
-    owner_v2 := null;
-    
-    // Initialize empty hashmaps
-    userRules := HashMap.HashMap<UserId, HashMap.HashMap<RuleId, Rule>>(10, Principal.equal, Principal.hash);
-    userChannels := HashMap.HashMap<UserId, HashMap.HashMap<ChannelId, Channel>>(10, Principal.equal, Principal.hash);
-    userMessages := HashMap.HashMap<UserId, HashMap.HashMap<MessageId, Message>>(10, Principal.equal, Principal.hash);
-    userDispatchJobs := HashMap.HashMap<UserId, HashMap.HashMap<Nat, DispatchJob>>(10, Principal.equal, Principal.hash);
-    userVerifications := HashMap.HashMap<UserId, [Types.VerificationRecord]>(10, Principal.equal, Principal.hash);
-    
-    // Restore user data
-    for ((userId, rulesArray) in userRulesEntries.vals()) {
-      let rulesMap = HashMap.fromIter<RuleId, Rule>(Iter.fromArray(rulesArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-      userRules.put(userId, rulesMap);
-    };
-    
-    for ((userId, channelsArray) in userChannelsEntries.vals()) {
-      let channelsMap = HashMap.fromIter<ChannelId, Channel>(Iter.fromArray(channelsArray), 10, Nat.equal, func (x) { Nat32.fromNat(x) });
-      userChannels.put(userId, channelsMap);
-    };
-    
-    for ((userId, messagesArray) in userMessagesEntries.vals()) {
-      let messagesMap = HashMap.fromIter<MessageId, Message>(Iter.fromArray(messagesArray), 100, Text.equal, Text.hash);
-      userMessages.put(userId, messagesMap);
-    };
-
-    // Restore dispatch jobs from stable storage
-    for ((userId, jobsArray) in userDispatchJobsEntries.vals()) {
-      let jobsMap = HashMap.fromIter<Nat, DispatchJob>(Iter.fromArray(jobsArray), 100, Nat.equal, func (x) { Nat32.fromNat(x) });
-      userDispatchJobs.put(userId, jobsMap);
-    };
-
-    // Restore verification records
-    for ((userId, verArray) in userVerificationsEntries.vals()) {
-      userVerifications.put(userId, verArray);
-    };
-    
-    // Restore alias data
-    usernameRegistry := HashMap.fromIter<Text, Principal>(Iter.fromArray(usernameRegistryEntries), 10, Text.equal, Text.hash);
-    principalToUsername := HashMap.fromIter<Principal, Text>(Iter.fromArray(principalToUsernameEntries), 10, Principal.equal, Principal.hash);
-  };
-  
   // Access Control - Proper user isolation
   func isAuthorized(caller : Principal) : Bool {
     // Each authenticated user can only access their own data
@@ -385,13 +419,17 @@ persistent actor ClyprCanister {
   public shared(msg) func addAuthorizedSelf() : async Result<(), Error> {
     let p = msg.caller;
     if (Principal.isAnonymous(p)) { return #err(#NotAuthorized); };
-    ignore authorizedCallers.put(p, ());
+    authorizedCallers.put(p, ());
+    // Persist allowlist
+    saveAuthorizedCallersEntries();
     return #ok();
   };
 
   public shared(msg) func removeAuthorizedSelf() : async Result<(), Error> {
     let p = msg.caller;
     ignore authorizedCallers.remove(p);
+    // Persist allowlist
+    saveAuthorizedCallersEntries();
     return #ok();
   };
 
@@ -424,6 +462,10 @@ persistent actor ClyprCanister {
 
     usernameRegistry.put(username, caller);
     principalToUsername.put(caller, username);
+
+  // Persist alias registry changes
+  saveUsernameRegistryEntries();
+  savePrincipalToUsernameEntries();
 
     return #ok();
   };
@@ -479,6 +521,8 @@ persistent actor ClyprCanister {
     };
     
     userRulesMap.put(ruleId, newRule);
+    // Persist change to stable entries
+    saveUserRulesEntries(msg.caller);
     return #ok(ruleId);
   };
   
@@ -523,6 +567,8 @@ persistent actor ClyprCanister {
         };
         
         userRulesMap.put(ruleId, finalRule);
+  // Persist updated rule list
+  saveUserRulesEntries(msg.caller);
         return #ok();
       };
     };
@@ -538,6 +584,8 @@ persistent actor ClyprCanister {
       case null { return #err(#NotFound); };
       case (_) {
         ignore userRulesMap.remove(ruleId);
+        // Persist rules after deletion
+        saveUserRulesEntries(msg.caller);
         return #ok();
       };
     };
@@ -715,6 +763,8 @@ persistent actor ClyprCanister {
     };
     
     userChannelsMap.put(channelId, newChannel);
+    // Persist change to stable entries
+    saveUserChannelsEntries(msg.caller);
     return #ok(channelId);
   };
   
@@ -764,7 +814,9 @@ persistent actor ClyprCanister {
           updatedAt = Time.now();
         };
         
-        userChannelsMap.put(channelId, finalChannel);
+            userChannelsMap.put(channelId, finalChannel);
+            // Persist change to stable entries
+            saveUserChannelsEntries(msg.caller);
         return #ok();
       };
     };
@@ -884,7 +936,9 @@ persistent actor ClyprCanister {
         };
 
         let userJobsMap = getUserDispatchJobs(msg.caller);
-        userJobsMap.put(jobId, job);
+  userJobsMap.put(jobId, job);
+  // Persist test dispatch job
+  saveUserDispatchJobsEntries(msg.caller);
 
         // Return initial test result
         return #ok({
@@ -901,6 +955,90 @@ persistent actor ClyprCanister {
     };
   };
   
+  // Notifies the off-chain bridge of an important system event (e.g., channel deletion)
+  private func notifyBridge(
+    userId: Principal,
+    channelId: ChannelId,
+    channel: Channel,
+    intentType: Text,
+    details: Text
+  ) : async () {
+    let jobId = nextJobId;
+    nextJobId += 1;
+    let now = Time.now();
+
+    let job : DispatchJob = {
+      id = jobId;
+      messageId = "system-notification";
+      recipientId = userId;
+      channelId = channelId;
+      channelType = channel.channelType;
+      channelName = channel.name;
+      channelConfig = channel.config;
+      messageType = "system_notification";
+      content = {
+        title = "Channel Deleted";
+        body = details;
+        priority = 0;
+        metadata = [];
+        contentType = "text/plain";
+      };
+      intents = [("intentType", intentType)];
+      attempts = 0;
+      retryConfig = { maxAttempts = 3; backoffMs = 1000; timeoutMs = 30000; };
+      metadata = null;
+      createdAt = now;
+      expiresAt = now + 24 * 60 * 60 * 1_000_000_000; // 24h
+      status = #pending;
+    };
+    let userJobsMap = getUserDispatchJobs(userId);
+    userJobsMap.put(jobId, job);
+    saveUserDispatchJobsEntries(userId);
+    totalJobsScheduled += 1;
+  };
+
+  // Notifies the off-chain bridge of a channel deletion event
+  private func notifyBridgeOfDeletion(
+    userId: Principal,
+    channelId: ChannelId,
+    deletedChannel: Channel
+  ) {
+    let jobId = nextJobId;
+    nextJobId += 1;
+    let now = Time.now();
+
+    let job : DispatchJob = {
+      id = jobId;
+      messageId = "system-notification-" # Int.toText(now);
+      recipientId = userId;
+      channelId = channelId;
+      channelType = deletedChannel.channelType;
+      channelName = deletedChannel.name;
+      channelConfig = deletedChannel.config;
+      messageType = "system_notification";
+      content = {
+        title = "Channel Deleted";
+        body = "Channel with ID " # Nat.toText(channelId) # " was deleted.";
+        priority = 0;
+        metadata = [];
+        contentType = "text/plain";
+      };
+      intents = [("intentType", "channel_deleted"), ("channelId", Nat.toText(channelId))];
+      attempts = 0;
+      retryConfig = { maxAttempts = 3; backoffMs = 60000; timeoutMs = 30000; };
+      metadata = null;
+      createdAt = now;
+      expiresAt = now + 24 * 60 * 60 * 1_000_000_000; // 24h
+      status = #pending;
+    };
+
+    let userJobsMap = getUserDispatchJobs(userId);
+    userJobsMap.put(jobId, job);
+    saveUserDispatchJobsEntries(userId);
+    totalJobsScheduled += 1;
+  };
+
+  // Deletes a channel for the calling user
   public shared(msg) func deleteChannel(channelId : ChannelId) : async Result<(), Error> {
     if (not isAuthorized(msg.caller)) {
       return #err(#NotAuthorized);
@@ -909,8 +1047,13 @@ persistent actor ClyprCanister {
     let userChannelsMap = getUserChannels(msg.caller);
     switch (userChannelsMap.get(channelId)) {
       case null { return #err(#NotFound); };
-      case (_) {
+      case (?channel) {
+        // Notify bridge before deleting
+        notifyBridgeOfDeletion(msg.caller, channelId, channel);
+
         ignore userChannelsMap.remove(channelId);
+        // Persist change to stable entries
+        saveUserChannelsEntries(msg.caller);
         return #ok();
       };
     };
@@ -944,6 +1087,8 @@ persistent actor ClyprCanister {
       case (#err(e)) { return #err(e); };
       case (#ok(newStatus)) {
         userLimits.put(channelId, newStatus);
+        // Persist rate limit changes for this user
+        saveRateLimitEntries(userId);
         return #ok();
       };
     };
@@ -978,8 +1123,10 @@ persistent actor ClyprCanister {
     let userRulesMap = getUserRules(recipientId);
     let userChannelsMap = getUserChannels(recipientId);
 
-    // 4. Store the message
-    userMessagesMap.put(newMessage.messageId, newMessage);
+  // 4. Store the message
+  userMessagesMap.put(newMessage.messageId, newMessage);
+  // Persist messages
+  saveUserMessagesEntries(recipientId);
 
     // 5. Get all rules and channels as arrays
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
@@ -999,7 +1146,9 @@ persistent actor ClyprCanister {
       isProcessed = true;
       status = dispatchPlan.status;
     };
-    userMessagesMap.put(processedMessage.messageId, processedMessage);
+  userMessagesMap.put(processedMessage.messageId, processedMessage);
+  // Persist processed message
+  saveUserMessagesEntries(recipientId);
 
     // 8. Create dispatch jobs if message is queued
     if (dispatchPlan.status == #queued) {
@@ -1017,7 +1166,7 @@ persistent actor ClyprCanister {
         let channel = Option.get(channelOpt, channelsArray[0]); // Safe because checked above
 
         switch (validateAndCheckRateLimit(jobSpec.channelId, recipientId, jobSpec.content, channel)) {
-          case (#err(e)) { Debug.print("Rate limit or validation failed for channel " # Nat.toText(jobSpec.channelId)); continue jobLoop; }; // Skip this channel if validation fails
+          case (#err(_e)) { Debug.print("Rate limit or validation failed for channel " # Nat.toText(jobSpec.channelId)); continue jobLoop; }; // Skip this channel if validation fails
           case (#ok(_)) {};
         };
 
@@ -1046,7 +1195,9 @@ persistent actor ClyprCanister {
           expiresAt = Time.now() + 300_000_000_000; // 5 minutes
           status = #pending;
         };
-        userJobsMap.put(jobId, job);
+  userJobsMap.put(jobId, job);
+  // Persist change to stable entries
+  saveUserDispatchJobsEntries(recipientId);
         createdJobs += 1;
         totalJobsScheduled += 1;
         Debug.print("Queued job " # Nat.toText(jobId) # " for recipient " # Principal.toText(recipientId) # " on channel " # Nat.toText(job.channelId));
@@ -1054,7 +1205,7 @@ persistent actor ClyprCanister {
       };
 
       // If no jobs were actually created (all were skipped), mark the message as blocked
-      if (createdJobs == 0) {
+  if (createdJobs == 0) {
         Debug.print("No dispatch jobs created after validation for message: " # newMessage.messageId # " - marking as blocked");
         let blockedMessage : Message = {
           messageId = processedMessage.messageId;
@@ -1067,6 +1218,8 @@ persistent actor ClyprCanister {
           status = #blocked;
         };
         userMessagesMap.put(blockedMessage.messageId, blockedMessage);
+        // Persist blocked message
+        saveUserMessagesEntries(recipientId);
       };
     };
 
@@ -1077,7 +1230,7 @@ persistent actor ClyprCanister {
   };
   
   // New: Clear DX endpoint for dApps addressing by alias
-  public shared(msg) func notifyAlias(
+  public shared(_msg) func notifyAlias(
     recipientAlias: Text,
     messageType: Text,
     content: MessageContent
@@ -1108,7 +1261,9 @@ persistent actor ClyprCanister {
     let userChannelsMap = getUserChannels(recipientId);
 
     // Store the message
-    userMessagesMap.put(newMessage.messageId, newMessage);
+  userMessagesMap.put(newMessage.messageId, newMessage);
+  // Persist messages
+  saveUserMessagesEntries(recipientId);
 
     // Arrays for processing
     let rulesArray = Iter.toArray(Iter.map(userRulesMap.vals(), func (r : Rule) : Rule { r }));
@@ -1132,7 +1287,9 @@ persistent actor ClyprCanister {
       isProcessed = true;
       status = dispatchPlan.status;
     };
-    userMessagesMap.put(processedMessage.messageId, processedMessage);
+  userMessagesMap.put(processedMessage.messageId, processedMessage);
+  // Persist processed message
+  saveUserMessagesEntries(recipientId);
 
     // Create dispatch jobs if message is queued
     if (dispatchPlan.status == #queued) {
@@ -1164,7 +1321,9 @@ persistent actor ClyprCanister {
           expiresAt = Time.now() + 300_000_000_000; // 5 minutes
           status = #pending;
         };
-        userJobsMap.put(jobId, job);
+  userJobsMap.put(jobId, job);
+  // Persist change to stable entries
+  saveUserDispatchJobsEntries(recipientId);
       };
     };
 
@@ -1242,6 +1401,8 @@ persistent actor ClyprCanister {
       for ((jobId, job) in jobsMap.entries()) {
         if (job.expiresAt < now) {
           ignore jobsMap.remove(jobId);
+          // Persist job removal for this user
+          saveUserDispatchJobsEntries(userId);
           cleanedCount += 1;
           if (job.status != #delivered) {
             totalJobsFailed += 1;
@@ -1289,6 +1450,8 @@ persistent actor ClyprCanister {
     };
 
     scheduledJobs.put(jobId, schedule);
+    // Persist scheduled job entries
+    saveScheduledJobEntries();
     totalJobsScheduled += 1;
     return #ok();
   };
@@ -1306,7 +1469,7 @@ persistent actor ClyprCanister {
       let shouldRun = switch (schedule) {
         case (#immediate) { true };
         case (#delayed(timestamp)) { timestamp <= now };
-        case (#recurring({ interval; nextRun })) { nextRun <= now };
+        case (#recurring({ interval = _; nextRun })) { nextRun <= now };
       };
 
       if (shouldRun) {
@@ -1323,10 +1486,14 @@ persistent actor ClyprCanister {
                       interval = rec.interval;
                       nextRun = now + Int32.toInt(Int32.fromNat32(rec.interval));
                     }));
+                    // Persist scheduled job update
+                    saveScheduledJobEntries();
                   };
                   case (_) {
                     // Remove one-time schedules
                     ignore scheduledJobs.remove(jobId);
+                    // Persist scheduled job removal
+                    saveScheduledJobEntries();
                   };
                 };
 
@@ -1344,7 +1511,7 @@ persistent actor ClyprCanister {
   };
 
   // Retry failed jobs with exponential backoff
-  private func calculateNextRetry(job : Types.DispatchJob) : ?Int {
+  private func _calculateNextRetry(job : Types.DispatchJob) : ?Int {
     if (job.attempts >= Nat8.toNat(job.retryConfig.maxAttempts)) {
       return null;
     };
@@ -1390,6 +1557,8 @@ persistent actor ClyprCanister {
             status = status;
           };
           jobsMap.put(jobId, updatedJob);
+          // Persist updated job
+          saveUserDispatchJobsEntries(userId);
 
           // Update message status if delivered/failed
           let userMessagesMap = getUserMessages(userId);
@@ -1411,6 +1580,8 @@ persistent actor ClyprCanister {
                 };
               };
               userMessagesMap.put(message.messageId, updatedMessage);
+              // Persist updated message status
+              saveUserMessagesEntries(userId);
             };
           };
 
@@ -1528,46 +1699,17 @@ persistent actor ClyprCanister {
     var placeholderChannelId : ?ChannelId = null;
 
     if (create) {
-      let userChannelsMap = getUserChannels(msg.caller);
-      let cid = nextChannelId;
-      nextChannelId += 1;
-      let now = Time.now();
-
-      let defaultRetry : RetryConfig = {
-        maxAttempts = 3;
-        backoffMs = 60_000; // 1 minute
-        timeoutMs = 30_000; // 30 seconds
-      };
-
-      let defaultValidationConfig : Types.ValidationConfig = {
-        contentLimits = {
-          maxTitleLength = 256;
-          maxBodyLength = 10240;
-          maxMetadataCount = 10;
-          allowedContentTypes = ["text/plain", "application/json"];
-        };
-        rateLimit = {
-          windowMs = 60_000;
-          maxRequests = 100;
-          perChannel = true;
-        };
-      };
-
-      let placeholderChannel : Channel = {
-        id = cid;
-        name = "Telegram";
-        description = null;
-        channelType = #telegramContact;
-        config = #telegramContact({ chatId = "" });
-        retryConfig = defaultRetry;
-        validationConfig = defaultValidationConfig;
-        isActive = false;
-        createdAt = now;
-        updatedAt = now;
-      };
-
-      userChannelsMap.put(cid, placeholderChannel);
-      placeholderChannelId := ?cid;
+      // Placeholder auto-creation disabled.
+      // Previously we created and persisted a placeholder channel here so the frontend
+      // could reference it during verification. That behavior caused unverified
+      // placeholder channels to persist when verification failed or never completed.
+      // To prevent accidental persistence, placeholder creation is now disabled
+      // server-side. Frontend should explicitly create channels when verification
+      // succeeds (or call createChannel).
+      // TODO: If placeholder semantics are required in the future, implement a
+      // safe, ephemeral placeholder mechanism that does not persist by default
+      // or requires explicit user confirmation before saving.
+      placeholderChannelId := null;
     };
 
     let record : Types.VerificationRecord = {
@@ -1584,13 +1726,21 @@ persistent actor ClyprCanister {
     switch (userVerifications.get(msg.caller)) {
       case null {
         userVerifications.put(msg.caller, [record]);
+        // Persist verifications
+        saveUserVerificationsEntries(msg.caller);
       };
       case (?arr) {
         userVerifications.put(msg.caller, Array.append(arr, [record]));
+        // Persist verifications
+        saveUserVerificationsEntries(msg.caller);
       };
     };
 
+    // Persist token index and update transient cache
+    tokenIndexEntries := setTokenIndex(tokenIndexEntries, token, msg.caller);
     tokenToUser.put(token, msg.caller);
+    // Persist user's verification records
+    saveUserVerificationsEntries(msg.caller);
 
     // Create a DispatchJob for the bridge to consume via nextDispatchJobs
     let jobId = nextJobId;
@@ -1636,7 +1786,9 @@ persistent actor ClyprCanister {
     };
 
     let jobsMap = getUserDispatchJobs(msg.caller);
-    jobsMap.put(jobId, job);
+  jobsMap.put(jobId, job);
+  // Persist verification dispatch job
+  saveUserDispatchJobsEntries(msg.caller);
     totalJobsScheduled += 1;
 
     return #ok({ token = token; expiresAt = expiresAt; channelId = placeholderChannelId });
@@ -1645,8 +1797,20 @@ persistent actor ClyprCanister {
   // Bridge (bot) calls this to confirm a token and provide chatId. Only authorized bridge principals may call.
   public shared(msg) func bridgeConfirmVerification(token : Text, chatId : Text) : async Result<(), Error> {
     if (not isAuthorizedBridge(msg.caller)) { return #err(#NotAuthorized); };
+    // Try transient cache first, then persistent token index
+    var ownerOpt = tokenToUser.get(token);
+    if (ownerOpt == null) {
+      // fallback to persistent index (no 'break' in Motoko loops)
+      func findOwnerFromIndex(tkn : Text) : ?Principal {
+        for ((t, p) in Iter.fromArray(tokenIndexEntries)) {
+          if (Text.equal(t, tkn)) { return ?p; };
+        };
+        null
+      };
+      ownerOpt := findOwnerFromIndex(token);
+    };
 
-    switch (tokenToUser.get(token)) {
+    switch (ownerOpt) {
       case null { return #err(#NotFound); };
       case (?userId) {
         switch (userVerifications.get(userId)) {
@@ -1702,7 +1866,7 @@ persistent actor ClyprCanister {
                           name = "Telegram";
                           description = null;
                           channelType = #telegramContact;
-                          config = #telegramContact({ chatId = chatId });
+                          config = #telegramContact({ chatId = "" });
                           retryConfig = defaultRetry;
                           validationConfig = defaultValidationConfig;
                           isActive = true;
@@ -1789,6 +1953,12 @@ persistent actor ClyprCanister {
             if (not found) { return #err(#NotFound); };
 
             userVerifications.put(userId, updatedArr);
+            // Persist verification changes
+            saveUserVerificationsEntries(userId);
+            // Persist any channel changes made during verification handling
+            saveUserChannelsEntries(userId);
+            // Remove from persistent token index and transient cache
+            tokenIndexEntries := removeTokenIndex(tokenIndexEntries, token);
             ignore tokenToUser.remove(token);
             return #ok();
           };
@@ -1808,47 +1978,14 @@ persistent actor ClyprCanister {
     var placeholderChannelId : ?ChannelId = null;
 
     if (create) {
-      let userChannelsMap = getUserChannels(msg.caller);
-      let cid = nextChannelId;
-      nextChannelId += 1;
-      let now = Time.now();
-
-      let defaultRetry : RetryConfig = {
-        maxAttempts = 3;
-        backoffMs = 60_000; // 1 minute
-        timeoutMs = 30_000; // 30 seconds
-      };
-
-      let defaultValidationConfig : Types.ValidationConfig = {
-        contentLimits = {
-          maxTitleLength = 256;
-          maxBodyLength = 10240;
-          maxMetadataCount = 10;
-          allowedContentTypes = ["text/plain", "application/json"];
-        };
-        rateLimit = {
-          windowMs = 60_000;
-          maxRequests = 100;
-          perChannel = true;
-        };
-      };
-
-      // Create a placeholder email channel using the provided email as fromAddress
-      let placeholderChannel : Channel = {
-        id = cid;
-        name = "Email";
-        description = null;
-        channelType = #email;
-        config = #email({ provider = ""; apiKey = null; fromAddress = email; replyTo = null; smtp = null });
-        retryConfig = defaultRetry;
-        validationConfig = defaultValidationConfig;
-        isActive = false;
-        createdAt = now;
-        updatedAt = now;
-      };
-
-      userChannelsMap.put(cid, placeholderChannel);
-      placeholderChannelId := ?cid;
+      // Placeholder auto-creation disabled for email verification.
+      // Previously this block created and persisted a placeholder email channel
+      // (using the provided email as fromAddress). Persisting placeholders when
+      // verification never completed led to orphan channels. Disable server-side
+      // placeholder creation; frontend may create channels explicitly after
+      // successful verification if desired.
+      // TODO: Implement an ephemeral placeholder pattern if needed.
+      placeholderChannelId := null;
     };
 
     let record : Types.VerificationRecord = {
@@ -1861,17 +1998,26 @@ persistent actor ClyprCanister {
       channelId = placeholderChannelId;
     };
 
+
     // Append to user's verification list
     switch (userVerifications.get(msg.caller)) {
       case null {
         userVerifications.put(msg.caller, [record]);
+        // Persist verifications
+        saveUserVerificationsEntries(msg.caller);
       };
       case (?arr) {
         userVerifications.put(msg.caller, Array.append(arr, [record]));
+        // Persist verifications
+        saveUserVerificationsEntries(msg.caller);
       };
     };
 
+    // Persist token index and update transient cache
+    tokenIndexEntries := setTokenIndex(tokenIndexEntries, token, msg.caller);
     tokenToUser.put(token, msg.caller);
+    // Persist user's verification records
+    saveUserVerificationsEntries(msg.caller);
 
     // Create a DispatchJob for the bridge/offchain to consume via nextDispatchJobs
     let jobId = nextJobId;
@@ -1918,14 +2064,16 @@ persistent actor ClyprCanister {
     };
 
     let jobsMap = getUserDispatchJobs(msg.caller);
-    jobsMap.put(jobId, job);
+  jobsMap.put(jobId, job);
+  // Persist verification dispatch job
+  saveUserDispatchJobsEntries(msg.caller);
     totalJobsScheduled += 1;
 
     return #ok({ token = token; expiresAt = expiresAt; channelId = placeholderChannelId });
   };
 
   // Confirm email verification (user provides token via frontend)
-  public shared(msg) func confirmEmailVerification(token : Text) : async Result<(), Error> {
+  public shared(msg) func confirmEmailVerification(token : Text, name: Text, description: ?Text) : async Result<(), Error> {
     if (not isAuthorized(msg.caller)) { return #err(#NotAuthorized); };
 
     // Resolve owner from transient token map or by scanning persisted verifications
@@ -1968,8 +2116,8 @@ persistent actor ClyprCanister {
                     let now = Time.now();
                     let updatedChannel : Channel = {
                       id = existingChannel.id;
-                      name = existingChannel.name;
-                      description = existingChannel.description;
+                      name = name;
+                      description = description;
                       channelType = existingChannel.channelType;
                       // replace fromAddress with verified contact
                       config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
@@ -1979,7 +2127,9 @@ persistent actor ClyprCanister {
                       createdAt = existingChannel.createdAt;
                       updatedAt = now;
                     };
-                    userChannelsMap.put(cid, updatedChannel);
+                        userChannelsMap.put(cid, updatedChannel);
+                        // Persist channels
+                        saveUserChannelsEntries(owner);
 
                     let updatedRec : Types.VerificationRecord = {
                       method = r.method;
@@ -2018,8 +2168,8 @@ persistent actor ClyprCanister {
 
                     let newChannel : Channel = {
                       id = targetId;
-                      name = "Email";
-                      description = null;
+                      name = name;
+                      description = description;
                       channelType = #email;
                       config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
                       retryConfig = defaultRetry;
@@ -2028,7 +2178,10 @@ persistent actor ClyprCanister {
                       createdAt = now;
                       updatedAt = now;
                     };
+                    let userChannelsMap = getUserChannels(owner);
                     userChannelsMap.put(targetId, newChannel);
+                    // Persist channels
+                    saveUserChannelsEntries(owner);
 
                     let updatedRec : Types.VerificationRecord = {
                       method = r.method;
@@ -2071,8 +2224,8 @@ persistent actor ClyprCanister {
 
                 let newChannel : Channel = {
                   id = cid;
-                  name = "Email";
-                  description = null;
+                  name = name;
+                  description = description;
                   channelType = #email;
                   config = #email({ provider = ""; apiKey = null; fromAddress = Option.get(r.contact, ""); replyTo = null; smtp = null });
                   retryConfig = defaultRetry;
@@ -2090,8 +2243,10 @@ persistent actor ClyprCanister {
                   verified = true;
                   channelId = ?cid;
                 };
-                let userChannelsMap = getUserChannels(owner);
-                userChannelsMap.put(cid, newChannel);
+                    let userChannelsMap = getUserChannels(owner);
+                    userChannelsMap.put(cid, newChannel);
+                    // Persist channels
+                    saveUserChannelsEntries(owner);
                 outArr := Array.append(outArr, [updatedRec]);
               };
             };
@@ -2100,14 +2255,18 @@ persistent actor ClyprCanister {
           };
         };
 
-                if (matched) {
-                  userVerifications.put(owner, outArr);
-                  ignore tokenToUser.remove(token);
-                  return #ok();
-                } else {
-                  return #err(#NotFound);
-                }
-              };
-            };
-          };
+        if (matched) {
+          userVerifications.put(owner, outArr);
+          // Persist verification changes
+          saveUserVerificationsEntries(owner);
+          // Remove token from persistent index and transient cache
+          tokenIndexEntries := removeTokenIndex(tokenIndexEntries, token);
+          ignore tokenToUser.remove(token);
+          return #ok();
+        } else {
+          return #err(#NotFound);
         }
+      };
+    };
+  };
+};

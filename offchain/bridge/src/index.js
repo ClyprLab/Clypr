@@ -14,6 +14,8 @@ const CANISTER_ID = process.env.CANISTER_ID;
 const IC_HOST = (process.env.IC_HOST || 'https://ic0.app').trim();
 const BRIDGE_LIMIT = Number(process.env.BRIDGE_LIMIT || 20);
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS || 500);
+// How long to remember a deferred job (ms) to avoid re-processing it repeatedly
+const DEFERRED_JOBS_TTL_MS = Number(process.env.BRIDGE_DEFERRED_TTL_MS || process.env.TELEGRAM_VERIFICATION_TTL_MS || (2 * 60 * 1000));
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
 const log = {
@@ -163,6 +165,11 @@ async function run() {
   const actor = await createActor();
   log.info('Bridge started. Polling for jobs...');
 
+  // Keep a short-lived cache of job ids that were deferred to adapters so the
+  // bridge doesn't re-process them continuously while waiting for external
+  // webhook confirmations. Entries expire after DEFERRED_JOBS_TTL_MS.
+  const deferredJobs = new Map(); // jobId -> expiresAtMs
+
   // Start HTTP server for Telegram webhook handling
   startHttpServer(actor);
 
@@ -190,6 +197,19 @@ async function run() {
     }
 
     for (const job of jobs) {
+      // Purge expired deferred entries occasionally (cheap)
+      const nowPurge = Date.now();
+      for (const [jid, exp] of deferredJobs.entries()) {
+        if (exp <= nowPurge) deferredJobs.delete(jid);
+      }
+
+      // If we've recently deferred this job, skip re-processing until its TTL
+      // expires. This avoids log spam and repeated adapter registration calls.
+      const existingDeferred = deferredJobs.get(String(job.id));
+      if (existingDeferred && existingDeferred > Date.now()) {
+        log.debug(`Skipping recently-deferred job ${job.id}`);
+        continue;
+      }
       log.info(`Job ${job.id} -> ${job.messageType} via ${Object.keys(job.channelType)} (${job.channelName})`);
       try {
         const summary = summarizeJob(job);
@@ -209,6 +229,9 @@ async function run() {
           const r = await telegramAdapter.handleVerificationJob(job);
           if (r === 'deferred') {
             log.info(`Job ${job.id} deferred to telegram adapter for webhook confirmation`);
+            // Remember that this job is deferred for a short TTL so we don't
+            // re-process it while waiting for webhook confirmation.
+            deferredJobs.set(String(job.id), Date.now() + DEFERRED_JOBS_TTL_MS);
             continue; // do not ack here
           }
           delivered = !!r;

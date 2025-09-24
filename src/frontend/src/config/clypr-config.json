@@ -6,7 +6,7 @@
   },
   "telegram": {
     "botUsername": "Clypr_bot",
-    "botName": "Clypr Agent",
+    "botName": "Clypr_bot",
     "botDescription": "Your personal Clypr Agent for identity verification and notifications",
     "webhookUrl": "https://your-domain.com/telegram/webhook"
   },

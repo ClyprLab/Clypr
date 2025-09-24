@@ -1,10 +1,10 @@
 // RuleEngine.mo - Rule engine for evaluating messages against rules
 
 import Array "mo:base/Array";
-import Debug "mo:base/Debug";
+import _Debug "mo:base/Debug";
 import Int "mo:base/Int";
-import Iter "mo:base/Iter";
-import Nat "mo:base/Nat";
+import _Iter "mo:base/Iter";
+import _Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";

@@ -2,7 +2,7 @@
 
 import Array "mo:base/Array";
 import Char "mo:base/Char";
-import HashMap "mo:base/HashMap";
+import _HashMap "mo:base/HashMap";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
@@ -177,7 +177,7 @@ module {
   };
 
   // Process a message against rules and return actions
-  public func processMessage(message : Message, rules : [Rule], channels : [Channel]) : Result<Message, Error> {
+  public func processMessage(message : Message, rules : [Rule], _channels : [Channel]) : Result<Message, Error> {
     // Evaluate message against rules to find matches
     let matchingRules = RuleEngine.evaluateMessage(message, rules);
     

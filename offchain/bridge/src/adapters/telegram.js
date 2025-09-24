@@ -126,13 +126,74 @@ export async function handleVerificationJob(job) {
     expiresAtMs = Date.now() + 15 * 60 * 1000;
   }
 
-  // Check if token already exists (shouldn't happen, but just in case)
+  // Allow configuration of a shorter bridge-side verification TTL (ms).
+  // By default we cap token lifetime to 2 minutes to avoid long-lived entries
+  // in the bridge token map even if the canister provided a longer expiry.
+  const BRIDGE_TTL_MS = process.env.TELEGRAM_VERIFICATION_TTL_MS ? Number(process.env.TELEGRAM_VERIFICATION_TTL_MS) : (2 * 60 * 1000);
+
+  // If the canister provided a very large expiresAtMs, cap it to BRIDGE_TTL_MS from now.
+  const nowMs = Date.now();
+  const cappedExpiresAtMs = Math.min(expiresAtMs, nowMs + BRIDGE_TTL_MS);
+
+  // Deduplicate repeated deliveries for the same token/job: if we already have
+  // a non-expired entry for the same job id, skip re-registering to avoid
+  // log spam and unnecessary replacement. If it's a different job id or
+  // the entry expired, replace it.
   if (tokenMap.has(token)) {
+    const existing = tokenMap.get(token);
+    if (existing && existing.jobId === Number(job.id) && existing.expiresAtMs > nowMs) {
+      logInfo('Token already registered for same job and still valid, skipping re-register:', redact(token));
+      // Still defer ack until webhook confirms
+      return 'deferred';
+    }
     console.warn('[telegram] Token already registered, replacing:', redact(token));
   }
 
-  tokenMap.set(token, { jobId: Number(job.id), expiresAtMs });
-  logInfo('registered token for job', job.id, 'token', redact(token), 'expiresMs', expiresAtMs, 'expiresAt', new Date(expiresAtMs).toISOString());
+  // Store token info and attach an expiry timer that will auto-ack the job as
+  // failed if no webhook confirmation arrives before the capped expiry. This
+  // prevents the dispatcher from repeatedly re-delivering the same job.
+  const existingTimer = tokenMap.has(token) ? tokenMap.get(token).timerId : null;
+  if (existingTimer) {
+    try { clearTimeout(existingTimer); } catch (e) {}
+  }
+
+  let timerId = null;
+  const AUTO_FAIL_ON_EXPIRY = process.env.TELEGRAM_AUTO_FAIL_ON_EXPIRY !== 'false'; // default true
+  if (AUTO_FAIL_ON_EXPIRY) {
+    const ttl = Math.max(0, cappedExpiresAtMs - nowMs);
+    timerId = setTimeout(async () => {
+      try {
+        const info = tokenMap.get(token);
+        if (info) {
+          // If still present and not confirmed, ack job as failed and remove
+          await ackJob(info.jobId, false);
+          tokenMap.delete(token);
+          logInfo('Auto-acked job as failed for expired token', redact(token), 'jobId', info.jobId);
+        }
+      } catch (e) {
+        console.error('[telegram] auto-fail timer error:', e && e.message ? e.message : e);
+      }
+    }, cappedExpiresAtMs - nowMs);
+  }
+
+  tokenMap.set(token, { jobId: Number(job.id), expiresAtMs: cappedExpiresAtMs, timerId });
+  logInfo('registered token for job', job.id, 'token', redact(token), 'expiresMs', cappedExpiresAtMs, 'expiresAt', new Date(cappedExpiresAtMs).toISOString());
+
+  // Optional behavior: acknowledge job delivery immediately after registering
+  // so the dispatcher will not re-deliver. This is safe when the bridge has
+  // reliably stored the token and will perform the confirmation on webhook.
+  // Configure via TELEGRAM_ACK_ON_REGISTER=true
+  if (process.env.TELEGRAM_ACK_ON_REGISTER === 'true') {
+    try {
+      await ackJob(Number(job.id), true);
+      logInfo('Acknowledged job immediately after register to avoid retries for job', job.id);
+    } catch (e) {
+      console.warn('[telegram] Failed to ack job on register, will rely on deferred ack later', e && e.message ? e.message : e);
+    }
+    // We treated the job as accepted; still return 'deferred' to indicate the
+    // adapter expects to handle confirmation asynchronously via webhook.
+    return 'deferred';
+  }
 
   // Defer acknowledgement until we receive the webhook and confirm
   return 'deferred';
@@ -357,5 +418,27 @@ export async function handleWebhookUpdate(update) {
   } catch (e) {
     console.error('[telegram] handleWebhookUpdate error:', e);
     return { ok: true, status: 200 }; // Return OK to acknowledge webhook even on error
+  }
+}
+
+// This function will be called when a 'channel_deleted' job is received
+export async function handleChannelDeletionJob(job) {
+  try {
+    const intents = job.intents || [];
+    const intentMap = Object.fromEntries(intents.map(([k, v]) => [k, v]));
+    const channelId = intentMap.channelId;
+
+    if (channelId) {
+      console.log(`[info] Received channel deletion notification for channelId: ${channelId}`);
+      // Here you can add any logic needed to clean up resources associated with the channel.
+      // For example, if you have any cached data related to this channel, you can clear it now.
+    } else {
+      console.warn('[warn] channel_deleted job received without a channelId.');
+    }
+
+    return true; // Acknowledge the job
+  } catch (e) {
+    console.error('handleChannelDeletionJob error:', e);
+    return false;
   }
 }

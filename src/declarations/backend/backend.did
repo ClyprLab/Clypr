@@ -405,7 +405,8 @@ service : {
   addAuthorizedSelf: () -> (Result);
   bridgeConfirmVerification: (token: text, chatId: text) -> (Result);
   cleanupExpiredJobs: () -> (Result_5);
-  confirmEmailVerification: (token: text) -> (Result);
+  confirmEmailVerification: (token: text, name: text, description:
+   opt text) -> (Result);
   createChannel: (name: text, description: opt text, channelType:
    ChannelType, config: ChannelConfig, retryConfig: opt RetryConfig,
    validationConfig: opt ValidationConfig) -> (Result_20);
@@ -420,6 +421,7 @@ service : {
   getAllMessages: () -> (Result_15) query;
   getAllRules: () -> (Result_14) query;
   getChannel: (channelId: ChannelId) -> (Result_13) query;
+  getDispatchJobsForMessage: (messageId: MessageId) -> (Result_7) query;
   getMessage: (messageId: MessageId) -> (Result_12) query;
   getMyUsername: () -> (Result_11) query;
   getRule: (ruleId: RuleId) -> (Result_10) query;

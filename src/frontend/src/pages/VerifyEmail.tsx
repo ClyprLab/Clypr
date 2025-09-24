@@ -27,7 +27,7 @@ export default function VerifyEmail() {
         return;
       }
 
-      const ok = await service.confirmEmailVerification(token);
+      const ok = await service.confirmEmailVerification(token, 'Email Channel', '');
       if (ok) {
         setStatus('success');
         setMessage('Email verified successfully. Redirecting to Channels...');

@@ -930,27 +930,13 @@ export class ClyprService {
   async requestEmailVerification(email: string, createPlaceholder: boolean = true): Promise<{ token: string; expiresAt: number; channelId?: number } | undefined> {
     if (!this.actor) throw new Error('Actor not initialized');
 
-    // Fallback: if backend declarations don't include requestEmailVerification, create channel directly
+    // Fallback: if backend declarations don't include requestEmailVerification, we used to create a placeholder channel
+    // automatically via createChannel. That behavior caused lingering unverified channels when users didn't
+    // complete verification, so we now avoid creating placeholders from the frontend. If the backend doesn't
+    // expose requestEmailVerification, simply return undefined and let the caller handle UI or retry logic.
     if (typeof this.actor.requestEmailVerification !== 'function') {
-      console.warn('Actor does not expose requestEmailVerification; falling back to createChannel (no on-chain verification)');
-      try {
-        const channelId = await this.createChannel({
-          name: `Email: ${email}`,
-          description: '',
-          channelType: { email: null },
-          config: { email: { provider: 'smtp', fromAddress: email, smtp: [] as any[] } },
-          retryConfig: { maxAttempts: 3, backoffMs: 1000, timeoutMs: 5000 },
-          validationConfig: {
-            contentLimits: { maxTitleLength: 200, maxBodyLength: 5000, maxMetadataCount: 10, allowedContentTypes: ['text/plain'] },
-            rateLimit: { windowMs: 60000, maxRequests: 100, perChannel: true }
-          },
-          isActive: false
-        } as any);
-        return { token: '', expiresAt: Date.now(), channelId: channelId ?? undefined };
-      } catch (err) {
-        console.error('Fallback email channel creation failed:', err);
-        return undefined;
-      }
+      console.warn('Actor does not expose requestEmailVerification; skipping frontend placeholder creation (no on-chain verification available)');
+      return undefined;
     }
 
     const parse = (payload: any) => {
@@ -994,7 +980,7 @@ export class ClyprService {
     }
   }
 
-  async confirmEmailVerification(token: string): Promise<boolean> {
+  async confirmEmailVerification(token: string, name: string, description?: string): Promise<boolean> {
     if (!this.actor) throw new Error('Actor not initialized');
 
     if (typeof this.actor.confirmEmailVerification !== 'function') {
@@ -1003,7 +989,8 @@ export class ClyprService {
     }
 
     try {
-      const res = await this.actor.confirmEmailVerification(token);
+      const descriptionOpt: [] | [string] = (description && description.trim()) ? [description.trim()] : [];
+      const res = await this.actor.confirmEmailVerification(token, name, descriptionOpt);
       if (!res) return false;
       // Motoko may return #ok() with no payload (undefined). Treat presence of 'ok' as success.
       if ('ok' in res) return true;
