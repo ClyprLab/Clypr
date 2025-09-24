@@ -9,7 +9,8 @@
     "dev": "cross-env NODE_OPTIONS=--trace-warnings nodemon src/index.js",
     "setup-webhook": "node setup-telegram-webhook.js",
     "debug-telegram": "node debug-telegram.js",
-    "test-agent": "node test-bot-commands.js"
+    "test-agent": "node test-bot-commands.js",
+    "debug-next": "node debug_nextDispatch.mjs"
   },
   "dependencies": {
     "@dfinity/agent": "^3.2.1",

@@ -1,5 +1,4 @@
 import React from 'react';
-import type { FormEvent, FC, ReactNode } from 'react';
 import {
   Mail,
   MessageSquare,
@@ -71,7 +70,7 @@ const CHANNEL_TYPES = [
 
 const POLL_INTERVAL_MS = 4000;
 
-const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onCancel, onSuccess }) => {
+const ChannelForm = ({ initialChannel, onSubmit, onCancel, onSuccess }: ChannelFormProps) => {
   const { service } = useClypr();
 
   // ---------- Form state (single source of truth for inputs) ----------
@@ -356,8 +355,9 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
 
     try {
   setVerification(prev => ({ ...prev, step: 'pending_confirmation', message: 'Sending verification...', token: null, link: null }));
-  // Do not create a placeholder channel on the backend; just request token
-  const resp = await service.requestEmailVerification(from, false);
+  // Do not create a placeholder channel on the backend; include desired metadata
+  // so the backend can attach the user's chosen name/description to the verification
+  const resp = await service.requestEmailVerification(from, false, formData.name, formData.description || undefined);
       if (!resp) throw new Error('Failed to initiate email verification');
       // backend may provide token, channelId
       setVerification({
@@ -454,8 +454,10 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
 
     try {
   setVerification(prev => ({ ...prev, step: 'pending_confirmation', message: 'Preparing Telegram connection...' }));
-  // Ask backend NOT to create a placeholder channel; we will only proceed if backend returns a channelId
-  const resp = await service.requestTelegramVerification(false);
+  // Ask backend NOT to create a placeholder channel; include the desired name/description
+  // so the backend can persist them with the verification record and use them when
+  // creating the final channel on confirmation.
+  const resp = await service.requestTelegramVerification(false, formData.name, formData.description || undefined);
       if (!resp?.token) throw new Error('Failed to initiate Telegram verification');
 
       const token = resp.token;
@@ -498,7 +500,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
     }
     try {
       setVerification(prev => ({ ...prev, step: 'pending_confirmation', message: 'Preparing Telegram reconnection...' }));
-      const resp = await service.requestTelegramVerification(false);
+  const resp = await service.requestTelegramVerification(false, formData.name, formData.description || undefined);
       if (!resp?.token) throw new Error('Failed to get Telegram token');
       const token = resp.token;
       const link = getTelegramBotStartUrl(token);
@@ -522,7 +524,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
   };
 
   // ---------- Form submission ----------
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (isSaving) return;
 
@@ -634,7 +636,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
   }, []);
 
   // ---------- UI small helpers ----------
-  const statusIcons: Record<string, React.ReactNode> = {
+  const statusIcons: Record<string, any> = {
     idle: null,
     pending_confirmation: <Loader2 className="h-4 w-4 animate-spin text-blue-400" />,
     confirmed: <Check className="h-4 w-4 text-green-500" />,
@@ -642,7 +644,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({ initialChannel, onSubmit, onC
   };
 
   // ---------- Render ----------
-  const StatusMessage: React.FC = () => {
+  const StatusMessage = () => {
     // Use verification for verification flows, otherwise use save state
     const isVerifying = verification.step !== 'idle';
     if (!isVerifying && !isSaving && !saveError && !saveSuccess) return null;

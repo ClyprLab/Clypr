@@ -273,6 +273,10 @@ module {
     expiresAt: Int;  // expiry timestamp (nanoseconds)
     verified: Bool;
     channelId: ?ChannelId; // optional placeholder channel created for this verification
+    // Optional desired metadata captured at verification initiation so the
+    // backend can create the final channel with the user-provided name/desc
+    desiredName: ?Text;
+    desiredDescription: ?Text;
   };
 
   // Rate limiting types
