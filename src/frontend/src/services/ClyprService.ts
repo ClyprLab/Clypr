@@ -425,7 +425,7 @@ export class ClyprService {
     // Get canister IDs from environment or window object
     const backendCanisterId = (window as any).canisterIds?.backend ||
                               process.env.PUBLIC_BACKEND_CANISTER_ID || 
-                              '5elod-ciaaa-aaaag-aufgq-cai';
+                              'uxrrr-q7777-77774-qaaaq-cai';
 
     console.log("Backend Canister ID:", backendCanisterId);
     this.canisterId = Principal.fromText(backendCanisterId);
