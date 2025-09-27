@@ -101,7 +101,79 @@ function getTransport() {
     })
   );
 }
+// Cached transporter to avoid creating a new connection for every send
+let _cachedTransporter = null;
 
+async function getTransport() {
+  if (_cachedTransporter) return _cachedTransporter;
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  // configurable timeouts (ms)
+  const connectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 30000);
+  const greetingTimeout = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000);
+  const socketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000);
+
+  // base transport options
+  const transportOpts = {
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+    connectionTimeout,
+    greetingTimeout,
+    socketTimeout
+  };
+
+  // allow opting out of strict TLS verification (useful for some relays)
+  if (String(process.env.SMTP_ALLOW_SELF_SIGNED || '').toLowerCase() === 'true') {
+    transportOpts.tls = { rejectUnauthorized: false };
+  }
+
+  if (smtpHost && smtpUser && smtpPass) {
+    _cachedTransporter = nodemailer.createTransport(transportOpts);
+  } else {
+    // fallback to ethereal for local/dev
+    const testAccount = await nodemailer.createTestAccount();
+    _cachedTransporter = nodemailer.createTransport({
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+  }
+
+  // Attempt to verify transporter - do not fail hard unless explicitly requested
+  if (String(process.env.SMTP_SKIP_VERIFY || '').toLowerCase() !== 'true') {
+    try {
+      await _cachedTransporter.verify();
+      console.info('[email] SMTP transporter verified', {
+        host: smtpHost,
+        port: smtpPort,
+        secure: transportOpts.secure
+      });
+    } catch (err) {
+      console.warn('[email] SMTP transporter verification failed', {
+        host: smtpHost,
+        port: smtpPort,
+        secure: transportOpts.secure,
+        message: err && err.message
+      });
+      if (String(process.env.SMTP_FAIL_ON_VERIFY || '').toLowerCase() === 'true') {
+        // allow deployments to opt-in to failing fast
+        throw err;
+      }
+      // otherwise continue and allow sendMail to attempt (it may still fail)
+    }
+  } else {
+    console.info('[email] skipping SMTP verification (SMTP_SKIP_VERIFY=true)');
+  }
+
+  return _cachedTransporter;
+}
 /**
  * Verification emails
  */
